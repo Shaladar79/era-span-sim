@@ -16,12 +16,12 @@ const TERRAIN_FOREST: String = "forest"
 const TERRAIN_HILLS: String = "hills"
 const TERRAIN_MOUNTAIN: String = "mountain"
 const TERRAIN_WATER: String = "water"
+const TERRAIN_OCEAN: String = "ocean"
 const TERRAIN_SWAMP: String = "swamp"
 
 
 static func add_resources_to_tile(tile_data: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
     var terrain: String = str(tile_data.get("terrain", TERRAIN_GRASS))
-    var biome: String = str(tile_data.get("biome", "unknown"))
     var elevation: float = float(tile_data.get("elevation", 0.0))
     var moisture: float = float(tile_data.get("moisture", 0.0))
 
@@ -40,6 +40,8 @@ static func add_resources_to_tile(tile_data: Dictionary, rng: RandomNumberGenera
             add_swamp_resources(tile_data, rng, elevation, moisture)
         TERRAIN_WATER:
             add_water_resources(tile_data, rng, elevation, moisture)
+        TERRAIN_OCEAN:
+            add_ocean_resources(tile_data, rng, elevation, moisture)
         _:
             pass
 
@@ -76,6 +78,10 @@ static func add_swamp_resources(tile_data: Dictionary, rng: RandomNumberGenerato
 
 static func add_water_resources(tile_data: Dictionary, rng: RandomNumberGenerator, elevation: float, moisture: float) -> void:
     try_add_resource(tile_data, rng, RESOURCE_FISH, "Fish", 0.55, 8, 35)
+
+
+static func add_ocean_resources(tile_data: Dictionary, rng: RandomNumberGenerator, elevation: float, moisture: float) -> void:
+    try_add_resource(tile_data, rng, RESOURCE_FISH, "Fish", 0.45, 10, 45)
 
 
 static func try_add_resource(

@@ -1,7 +1,7 @@
 extends Node2D
 
-const GRID_WIDTH: int = 60
-const GRID_HEIGHT: int = 40
+const GRID_WIDTH: int = 160
+const GRID_HEIGHT: int = 120
 const TILE_SIZE: int = 16
 
 const TERRAIN_GRASS: String = WorldGenerator.TERRAIN_GRASS
@@ -22,6 +22,7 @@ var rng := RandomNumberGenerator.new()
 var tiles: Array = []
 var hovered_tile: Vector2i = Vector2i(-1, -1)
 var tile_info_label: Label = null
+var show_resource_markers: bool = true
 
 
 func _ready() -> void:
@@ -36,6 +37,7 @@ func _ready() -> void:
     setup_seed()
     generate_world()
     update_tile_info_label()
+    print_resource_totals()
     queue_redraw()
 
 
@@ -47,6 +49,9 @@ func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_R:
             regenerate_world()
+
+        if event.keycode == KEY_T:
+            toggle_resource_markers()
 
 
 func setup_seed() -> void:
@@ -73,9 +78,57 @@ func regenerate_world() -> void:
     setup_seed()
     generate_world()
     update_tile_info_label()
+    print_resource_totals()
     queue_redraw()
 
     print("Regenerated world.")
+
+
+func toggle_resource_markers() -> void:
+    show_resource_markers = not show_resource_markers
+    queue_redraw()
+
+    print("Show Resource Markers: ", show_resource_markers)
+
+
+func print_resource_totals() -> void:
+    var resource_totals: Dictionary = {}
+
+    for y in range(GRID_HEIGHT):
+        for x in range(GRID_WIDTH):
+            var tile_data: Dictionary = tiles[y][x]
+            var resources: Array = tile_data.get("resources", [])
+
+            for resource_index in range(resources.size()):
+                var resource: Variant = resources[resource_index]
+
+                if typeof(resource) != TYPE_DICTIONARY:
+                    continue
+
+                var resource_dict: Dictionary = resource
+                var resource_name := str(resource_dict.get("name", "Unknown"))
+                var amount := int(resource_dict.get("amount", 0))
+
+                if not resource_totals.has(resource_name):
+                    resource_totals[resource_name] = 0
+
+                resource_totals[resource_name] += amount
+
+    print("")
+    print("Resource Totals:")
+
+    if resource_totals.is_empty():
+        print("- None")
+        return
+
+    var resource_names: Array = resource_totals.keys()
+    resource_names.sort()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name: Variant = resource_names[resource_index]
+        print(str(resource_name) + ": " + str(resource_totals[resource_name]))
+
+    print("")
 
 
 func update_hovered_tile() -> void:
@@ -144,7 +197,10 @@ func get_resources_text(tile_data: Dictionary) -> String:
 
 func _draw() -> void:
     draw_world_tiles()
-    draw_resource_markers()
+
+    if show_resource_markers:
+        draw_resource_markers()
+
     draw_grid_lines()
     draw_hovered_tile()
 
