@@ -103,6 +103,7 @@ func update_tile_info_label() -> void:
 
     var elevation_text := str(snapped(float(tile_data.get("elevation", 0.0)), 0.001))
     var moisture_text := str(snapped(float(tile_data.get("moisture", 0.0)), 0.001))
+    var resources_text := get_resources_text(tile_data)
 
     tile_info_label.text = (
         "Tile: " + str(hovered_tile.x) + ", " + str(hovered_tile.y) + "\n"
@@ -112,12 +113,38 @@ func update_tile_info_label() -> void:
         + "Elevation: " + elevation_text + "\n"
         + "Moisture: " + moisture_text + "\n"
         + "Walkable: " + str(tile_data.get("walkable", false)) + "\n"
-        + "Buildable: " + str(tile_data.get("buildable", false))
+        + "Buildable: " + str(tile_data.get("buildable", false)) + "\n"
+        + "Resources:\n" + resources_text
     )
+
+
+func get_resources_text(tile_data: Dictionary) -> String:
+    var resources: Array = tile_data.get("resources", [])
+
+    if resources.is_empty():
+        return "- None"
+
+    var text := ""
+
+    for resource_index in range(resources.size()):
+        var resource: Variant = resources[resource_index]
+
+        if typeof(resource) != TYPE_DICTIONARY:
+            continue
+
+        var resource_dict: Dictionary = resource
+        var resource_name := str(resource_dict.get("name", "Unknown"))
+        var amount := int(resource_dict.get("amount", 0))
+        var max_amount := int(resource_dict.get("max_amount", amount))
+
+        text += "- " + resource_name + ": " + str(amount) + "/" + str(max_amount) + "\n"
+
+    return text.strip_edges()
 
 
 func _draw() -> void:
     draw_world_tiles()
+    draw_resource_markers()
     draw_grid_lines()
     draw_hovered_tile()
 
@@ -125,13 +152,73 @@ func _draw() -> void:
 func draw_world_tiles() -> void:
     for y in range(GRID_HEIGHT):
         for x in range(GRID_WIDTH):
-            var tile_data = tiles[y][x]
+            var tile_data: Dictionary = tiles[y][x]
             var tile_color := get_tile_color(tile_data)
 
             var tile_position := Vector2(x * TILE_SIZE, y * TILE_SIZE)
             var tile_rect := Rect2(tile_position, Vector2(TILE_SIZE, TILE_SIZE))
 
             draw_rect(tile_rect, tile_color, true)
+
+
+func draw_resource_markers() -> void:
+    for y in range(GRID_HEIGHT):
+        for x in range(GRID_WIDTH):
+            var tile_data: Dictionary = tiles[y][x]
+            var resources: Array = tile_data.get("resources", [])
+
+            if resources.is_empty():
+                continue
+
+            draw_tile_resource_markers(x, y, resources)
+
+
+func draw_tile_resource_markers(tile_x: int, tile_y: int, resources: Array) -> void:
+    var marker_radius: float = 2.0
+    var marker_spacing: float = 5.0
+    var max_markers: int = 4
+
+    var tile_origin := Vector2(tile_x * TILE_SIZE, tile_y * TILE_SIZE)
+    var start_position := tile_origin + Vector2(4, 4)
+
+    var marker_count: int = mini(resources.size(), max_markers)
+
+    for i in range(marker_count):
+        var resource: Variant = resources[i]
+
+        if typeof(resource) != TYPE_DICTIONARY:
+            continue
+
+        var resource_dict: Dictionary = resource
+        var resource_id := str(resource_dict.get("id", "unknown"))
+        var marker_color := get_resource_marker_color(resource_id)
+        var marker_position := start_position + Vector2(i * marker_spacing, 0)
+
+        draw_circle(marker_position, marker_radius, marker_color)
+
+
+func get_resource_marker_color(resource_id: String) -> Color:
+    match resource_id:
+        ResourceSpawner.RESOURCE_WOOD:
+            return Color(0.45, 0.25, 0.08)
+        ResourceSpawner.RESOURCE_BERRIES:
+            return Color(0.85, 0.05, 0.08)
+        ResourceSpawner.RESOURCE_MUSHROOMS:
+            return Color(0.55, 0.20, 0.75)
+        ResourceSpawner.RESOURCE_STONE:
+            return Color(0.55, 0.55, 0.55)
+        ResourceSpawner.RESOURCE_FLINT:
+            return Color(0.18, 0.18, 0.18)
+        ResourceSpawner.RESOURCE_REEDS:
+            return Color(0.70, 0.78, 0.25)
+        ResourceSpawner.RESOURCE_CLAY:
+            return Color(0.70, 0.32, 0.12)
+        ResourceSpawner.RESOURCE_FISH:
+            return Color(0.45, 0.80, 1.00)
+        ResourceSpawner.RESOURCE_FIBER:
+            return Color(0.75, 0.95, 0.55)
+        _:
+            return Color(1.0, 1.0, 1.0)
 
 
 func draw_grid_lines() -> void:

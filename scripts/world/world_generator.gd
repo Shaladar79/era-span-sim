@@ -18,6 +18,9 @@ static func generate_noise_world(
     grid_height: int,
     world_seed: int
 ) -> Array:
+    var rng := RandomNumberGenerator.new()
+    rng.seed = world_seed + 2222
+
     var elevation_noise := FastNoiseLite.new()
     var moisture_noise := FastNoiseLite.new()
 
@@ -46,6 +49,8 @@ static func generate_noise_world(
                 "walkable": terrain != TERRAIN_WATER,
                 "buildable": terrain != TERRAIN_WATER and terrain != TERRAIN_MOUNTAIN
             }
+
+            tile_data = ResourceSpawner.add_resources_to_tile(tile_data, rng)
 
             row.append(tile_data)
 
