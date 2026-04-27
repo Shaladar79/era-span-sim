@@ -1,14 +1,23 @@
 extends Node2D
 
+signal region_requested(
+    selected_world_tiles: Array,
+    source_world_seed: int,
+    selection_origin: Vector2i,
+    source_resource_totals: Dictionary
+)
+
 const GRID_WIDTH: int = 160
 const GRID_HEIGHT: int = 120
 const TILE_SIZE: int = 16
+const REGION_SELECTION_SIZE: int = 6
 
 const TERRAIN_GRASS: String = WorldGenerator.TERRAIN_GRASS
 const TERRAIN_FOREST: String = WorldGenerator.TERRAIN_FOREST
 const TERRAIN_HILLS: String = WorldGenerator.TERRAIN_HILLS
 const TERRAIN_MOUNTAIN: String = WorldGenerator.TERRAIN_MOUNTAIN
 const TERRAIN_WATER: String = WorldGenerator.TERRAIN_WATER
+const TERRAIN_OCEAN: String = WorldGenerator.TERRAIN_OCEAN
 const TERRAIN_SWAMP: String = WorldGenerator.TERRAIN_SWAMP
 
 const SUB_BIOME_BASE_MOUNTAIN: String = WorldGenerator.SUB_BIOME_BASE_MOUNTAIN
@@ -21,6 +30,8 @@ const SUB_BIOME_SNOWY_PEAK: String = WorldGenerator.SUB_BIOME_SNOWY_PEAK
 var rng := RandomNumberGenerator.new()
 var tiles: Array = []
 var hovered_tile: Vector2i = Vector2i(-1, -1)
+var selected_tile: Vector2i = Vector2i(-1, -1)
+var selected_region_origin: Vector2i = Vector2i(-1, -1)
 var tile_info_label: Label = null
 var show_resource_markers: bool = true
 
@@ -41,6 +52,23 @@ func _ready() -> void:
     queue_redraw()
 
 
+func activate() -> void:
+    set_process(true)
+    set_process_unhandled_input(true)
+
+
+func deactivate() -> void:
+    set_process(false)
+    set_process_unhandled_input(false)
+
+
+func get_map_center() -> Vector2:
+    return Vector2(
+        float(GRID_WIDTH * TILE_SIZE) / 2.0,
+        float(GRID_HEIGHT * TILE_SIZE) / 2.0
+    )
+
+
 func _process(_delta: float) -> void:
     update_hovered_tile()
 
@@ -52,6 +80,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
         if event.keycode == KEY_T:
             toggle_resource_markers()
+
+        if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+            request_region_from_selection()
+
+    if event is InputEventMouseButton and event.pressed:
+        if event.button_index == MOUSE_BUTTON_LEFT:
+            select_hovered_region()
 
 
 func setup_seed() -> void:
@@ -77,6 +112,11 @@ func regenerate_world() -> void:
     world_seed = rng.randi()
     setup_seed()
     generate_world()
+
+    if not is_region_origin_in_bounds(selected_region_origin):
+        selected_tile = Vector2i(-1, -1)
+        selected_region_origin = Vector2i(-1, -1)
+
     update_tile_info_label()
     print_resource_totals()
     queue_redraw()
@@ -89,6 +129,133 @@ func toggle_resource_markers() -> void:
     queue_redraw()
 
     print("Show Resource Markers: ", show_resource_markers)
+
+
+func select_hovered_region() -> void:
+    if not is_tile_in_bounds(hovered_tile):
+        selected_tile = Vector2i(-1, -1)
+        selected_region_origin = Vector2i(-1, -1)
+    else:
+        selected_tile = hovered_tile
+        selected_region_origin = get_clamped_region_origin(hovered_tile)
+
+    update_tile_info_label()
+    queue_redraw()
+
+    print("Selected World Region Origin: ", selected_region_origin)
+
+
+func get_clamped_region_origin(tile_position: Vector2i) -> Vector2i:
+    var max_x := GRID_WIDTH - REGION_SELECTION_SIZE
+    var max_y := GRID_HEIGHT - REGION_SELECTION_SIZE
+
+    return Vector2i(
+        clampi(tile_position.x, 0, max_x),
+        clampi(tile_position.y, 0, max_y)
+    )
+
+
+func is_region_origin_in_bounds(origin: Vector2i) -> bool:
+    return (
+        origin.x >= 0
+        and origin.y >= 0
+        and origin.x + REGION_SELECTION_SIZE <= GRID_WIDTH
+        and origin.y + REGION_SELECTION_SIZE <= GRID_HEIGHT
+    )
+
+
+func request_region_from_selection() -> void:
+    if not is_region_origin_in_bounds(selected_region_origin):
+        print("No valid 6x6 world region selected.")
+        return
+
+    var selected_world_tiles: Array = get_selected_world_tiles()
+    var selected_resource_totals: Dictionary = get_resource_totals_from_world_tiles(selected_world_tiles)
+
+    print_world_selection_resource_totals(selected_resource_totals)
+
+    emit_signal(
+        "region_requested",
+        selected_world_tiles,
+        world_seed,
+        selected_region_origin,
+        selected_resource_totals
+    )
+
+
+func get_selected_world_tiles() -> Array:
+    var selected_world_tiles: Array = []
+
+    for local_y in range(REGION_SELECTION_SIZE):
+        var row: Array = []
+
+        for local_x in range(REGION_SELECTION_SIZE):
+            var world_x := selected_region_origin.x + local_x
+            var world_y := selected_region_origin.y + local_y
+            var tile_data: Dictionary = tiles[world_y][world_x]
+
+            row.append(tile_data.duplicate(true))
+
+        selected_world_tiles.append(row)
+
+    return selected_world_tiles
+
+
+func get_resource_totals_from_world_tiles(world_tile_selection: Array) -> Dictionary:
+    var resource_totals: Dictionary = {}
+
+    for row_index in range(world_tile_selection.size()):
+        var row_variant: Variant = world_tile_selection[row_index]
+
+        if typeof(row_variant) != TYPE_ARRAY:
+            continue
+
+        var row: Array = row_variant
+
+        for tile_index in range(row.size()):
+            var tile_variant: Variant = row[tile_index]
+
+            if typeof(tile_variant) != TYPE_DICTIONARY:
+                continue
+
+            var world_tile: Dictionary = tile_variant
+            var resources: Array = world_tile.get("resources", [])
+
+            for resource_index in range(resources.size()):
+                var resource: Variant = resources[resource_index]
+
+                if typeof(resource) != TYPE_DICTIONARY:
+                    continue
+
+                var resource_dict: Dictionary = resource
+                var resource_name: String = str(resource_dict.get("name", "Unknown"))
+                var amount: int = int(resource_dict.get("amount", 0))
+
+                if not resource_totals.has(resource_name):
+                    resource_totals[resource_name] = 0
+
+                resource_totals[resource_name] += amount
+
+    return resource_totals
+
+
+func print_world_selection_resource_totals(resource_totals: Dictionary) -> void:
+    print("")
+    print("World Selection 6x6 Resource Totals:")
+
+    if resource_totals.is_empty():
+        print("- None")
+        return
+
+    var resource_names: Array = resource_totals.keys()
+    resource_names.sort()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name_variant: Variant = resource_names[resource_index]
+        var resource_name: String = str(resource_name_variant)
+        print(resource_name + ": " + str(resource_totals[resource_name]))
+
+    print("")
 
 
 func print_resource_totals() -> void:
@@ -149,7 +316,10 @@ func update_tile_info_label() -> void:
         return
 
     if not is_tile_in_bounds(hovered_tile):
-        tile_info_label.text = "Tile: outside map"
+        tile_info_label.text = (
+			"Hover Tile: outside map\n"
+            + "Selected Region: " + get_selected_region_text()
+        )
         return
 
     var tile_data: Dictionary = tiles[hovered_tile.y][hovered_tile.x]
@@ -159,7 +329,9 @@ func update_tile_info_label() -> void:
     var resources_text := get_resources_text(tile_data)
 
     tile_info_label.text = (
-        "Tile: " + str(hovered_tile.x) + ", " + str(hovered_tile.y) + "\n"
+        "Hover Tile: " + str(hovered_tile.x) + ", " + str(hovered_tile.y) + "\n"
+        + "Selected Region: " + get_selected_region_text() + "\n"
+        + "Enter: Open Region\n"
         + "Terrain: " + str(tile_data.get("terrain", "unknown")) + "\n"
         + "Biome: " + str(tile_data.get("biome", "unknown")) + "\n"
         + "Sub-Biome: " + str(tile_data.get("sub_biome", "none")) + "\n"
@@ -168,6 +340,21 @@ func update_tile_info_label() -> void:
         + "Walkable: " + str(tile_data.get("walkable", false)) + "\n"
         + "Buildable: " + str(tile_data.get("buildable", false)) + "\n"
         + "Resources:\n" + resources_text
+    )
+
+
+func get_selected_region_text() -> String:
+    if not is_region_origin_in_bounds(selected_region_origin):
+        return "none"
+
+    return (
+        str(selected_region_origin.x)
+        + ", "
+        + str(selected_region_origin.y)
+        + " to "
+        + str(selected_region_origin.x + REGION_SELECTION_SIZE - 1)
+        + ", "
+        + str(selected_region_origin.y + REGION_SELECTION_SIZE - 1)
     )
 
 
@@ -202,6 +389,7 @@ func _draw() -> void:
         draw_resource_markers()
 
     draw_grid_lines()
+    draw_selected_region()
     draw_hovered_tile()
 
 
@@ -291,6 +479,25 @@ func draw_grid_lines() -> void:
         draw_line(start_pos, end_pos, grid_color, 1.0)
 
 
+func draw_selected_region() -> void:
+    if not is_region_origin_in_bounds(selected_region_origin):
+        return
+
+    var tile_position := Vector2(
+        selected_region_origin.x * TILE_SIZE,
+        selected_region_origin.y * TILE_SIZE
+    )
+
+    var region_size := Vector2(
+        REGION_SELECTION_SIZE * TILE_SIZE,
+        REGION_SELECTION_SIZE * TILE_SIZE
+    )
+
+    var region_rect := Rect2(tile_position, region_size)
+
+    draw_rect(region_rect, Color(1.0, 0.9, 0.1, 1.0), false, 3.0)
+
+
 func draw_hovered_tile() -> void:
     if not is_tile_in_bounds(hovered_tile):
         return
@@ -326,6 +533,8 @@ func get_tile_color(tile_data: Dictionary) -> Color:
             return Color(0.45, 0.45, 0.45)
         TERRAIN_WATER:
             return Color(0.1, 0.35, 0.75)
+        TERRAIN_OCEAN:
+            return Color(0.02, 0.12, 0.45)
         TERRAIN_SWAMP:
             return Color(0.2, 0.38, 0.18)
         _:

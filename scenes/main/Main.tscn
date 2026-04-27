@@ -1,5 +1,7 @@
 [gd_scene format=3 uid="uid://5necpadsa5c3"]
 
+[ext_resource type="Script" uid="uid://dsdbki5x5a6fr" path="res://scripts/main/main.gd" id="1_dc040"]
+[ext_resource type="PackedScene" uid="uid://f06je7d7k60h" path="res://scenes/region/Region.tscn" id="1_gyg6b"]
 [ext_resource type="PackedScene" uid="uid://cti1m8t1rggb2" path="res://scenes/world/World.tscn" id="1_u1xfj"]
 [ext_resource type="Script" uid="uid://bpy1cjdhu4hfv" path="res://scripts/world/world.gd" id="2_q24mn"]
 [ext_resource type="Script" uid="uid://clrx8b2pq80ao" path="res://scripts/core/main_camera.gd" id="3_q24mn"]
@@ -7,6 +9,9 @@
 [sub_resource type="LabelSettings" id="LabelSettings_q24mn"]
 
 [node name="Main" type="Node2D" unique_id=1538121569]
+script = ExtResource("1_dc040")
+
+[node name="Region" parent="." unique_id=453203254 instance=ExtResource("1_gyg6b")]
 
 [node name="World" parent="." unique_id=754916054 instance=ExtResource("1_u1xfj")]
 script = ExtResource("2_q24mn")
