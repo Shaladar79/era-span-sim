@@ -30,7 +30,6 @@ const RESOURCE_CLAY: String = RegionGenerator.RESOURCE_CLAY
 const RESOURCE_FISH: String = RegionGenerator.RESOURCE_FISH
 const RESOURCE_FIBER: String = RegionGenerator.RESOURCE_FIBER
 
-const BUILD_MODE_NONE: String = "none"
 const BUILDING_CAMPFIRE: String = RegionBuildingData.BUILDING_CAMPFIRE
 
 const HARVEST_ASSIGN_RADIUS: int = 8
@@ -48,12 +47,9 @@ var hovered_tile: Vector2i = Vector2i(-1, -1)
 var selected_tile: Vector2i = Vector2i(-1, -1)
 
 var show_resource_markers: bool = true
-var current_build_mode: String = BUILD_MODE_NONE
-var current_building_id: String = ""
-
-var region_buildings: Array = []
 
 var inventory := RegionInventory.new()
+var building_manager := RegionBuildingManager.new()
 var villager_manager := VillagerManager.new()
 
 var is_dragging_villager: bool = false
@@ -99,7 +95,7 @@ func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventMouseButton:
         if event.button_index == MOUSE_BUTTON_LEFT:
             if event.pressed:
-                if current_build_mode != BUILD_MODE_NONE:
+                if building_manager.is_in_build_mode():
                     try_place_current_building(hovered_tile)
                 else:
                     try_start_villager_drag_or_select()
@@ -122,7 +118,7 @@ func _unhandled_input(event: InputEvent) -> void:
             start_campfire_placement()
 
         if event.keycode == KEY_ESCAPE:
-            if current_build_mode != BUILD_MODE_NONE:
+            if building_manager.is_in_build_mode():
                 cancel_build_mode()
             elif is_dragging_villager:
                 cancel_villager_drag()
@@ -137,6 +133,7 @@ func generate_region() -> void:
         region_seed
     )
 
+    setup_building_manager()
     clear_buildings()
     reset_test_inventory()
     setup_villager_manager()
@@ -167,12 +164,11 @@ func generate_from_world_selection(
         source_world_tiles
     )
 
+    setup_building_manager()
     clear_buildings()
 
     hovered_tile = Vector2i(-1, -1)
     selected_tile = Vector2i(-1, -1)
-    current_build_mode = BUILD_MODE_NONE
-    current_building_id = ""
     is_dragging_villager = false
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
@@ -218,13 +214,12 @@ func regenerate_region() -> void:
             region_seed
         )
 
+    setup_building_manager()
     clear_buildings()
 
     if not is_tile_in_bounds(selected_tile):
         selected_tile = Vector2i(-1, -1)
 
-    current_build_mode = BUILD_MODE_NONE
-    current_building_id = ""
     is_dragging_villager = false
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
@@ -242,6 +237,16 @@ func regenerate_region() -> void:
 
 func reset_test_inventory() -> void:
     inventory.reset()
+
+
+func setup_building_manager() -> void:
+    building_manager.setup(
+        region_tiles,
+        REGION_WIDTH,
+        REGION_HEIGHT
+    )
+
+    building_manager.cancel_build_mode()
 
 
 func setup_villager_manager() -> void:
@@ -270,16 +275,7 @@ func update_villager_manager(delta: float) -> void:
 
 
 func clear_buildings() -> void:
-    region_buildings.clear()
-
-    if region_tiles.is_empty():
-        return
-
-    for y in range(REGION_HEIGHT):
-        for x in range(REGION_WIDTH):
-            var tile_data: Dictionary = region_tiles[y][x]
-            tile_data["occupied"] = false
-            tile_data.erase("building_id")
+    building_manager.clear_buildings()
 
 
 func toggle_resource_markers() -> void:
@@ -297,245 +293,33 @@ func toggle_simulation_pause() -> void:
     else:
         print("Simulation Resumed.")
 
+    queue_redraw()
+
 
 func start_campfire_placement() -> void:
     start_building_placement(BUILDING_CAMPFIRE)
 
 
 func start_building_placement(building_id: String) -> void:
-    var building_data: Dictionary = RegionBuildingData.get_building(building_id)
-
-    if building_data.is_empty():
-        push_warning("Unknown building id: " + building_id)
-        return
-
-    if not bool(building_data.get("unlocked", false)):
-        print("Building is locked: ", str(building_data.get("name", building_id)))
-        return
-
-    current_build_mode = building_id
-    current_building_id = building_id
-
+    building_manager.start_building_placement(building_id)
     queue_redraw()
-
-    print(str(building_data.get("name", building_id)) + " placement mode: ON")
-    print("Cost: " + get_cost_text_from_dictionary(building_data.get("cost", {})))
 
 
 func cancel_build_mode() -> void:
-    current_build_mode = BUILD_MODE_NONE
-    current_building_id = ""
+    building_manager.cancel_build_mode()
     queue_redraw()
-
-    print("Build mode cancelled.")
 
 
 func try_place_current_building(origin_tile: Vector2i) -> void:
-    if current_building_id == "":
-        print("No building selected.")
-        return
-
-    var building_data: Dictionary = RegionBuildingData.get_building(current_building_id)
-
-    if building_data.is_empty():
-        push_warning("Cannot place unknown building: " + current_building_id)
-        cancel_build_mode()
-        return
-
-    if not is_tile_in_bounds(origin_tile):
-        print("Cannot place building outside the map.")
-        return
-
-    var footprint_width: int = int(building_data.get("width", 1))
-    var footprint_height: int = int(building_data.get("height", 1))
-    var building_name: String = str(building_data.get("name", current_building_id))
-    var cost_variant: Variant = building_data.get("cost", {})
-    var cost: Dictionary = {}
-
-    if typeof(cost_variant) == TYPE_DICTIONARY:
-        cost = cost_variant
-
-    if not can_place_building(origin_tile, footprint_width, footprint_height):
-        print("Cannot place " + building_name + " here.")
-        print_building_placement_failure_reason(
-            origin_tile,
-            footprint_width,
-            footprint_height
-        )
-        return
-
-    if not inventory.has_cost(cost):
-        print("Not enough resources to build " + building_name + ".")
-        print("Need: " + get_cost_text_from_dictionary(cost))
-        print_settlement_inventory()
-        return
-
-    inventory.spend_cost(cost)
-
-    place_building(
-        current_building_id,
-        building_name,
+    var did_place_building: bool = building_manager.try_place_current_building(
         origin_tile,
-        footprint_width,
-        footprint_height
+        inventory
     )
 
-    print(building_name + " built at: ", origin_tile)
-    print_settlement_inventory()
-
-    current_build_mode = BUILD_MODE_NONE
-    current_building_id = ""
+    if did_place_building:
+        print_settlement_inventory()
 
     queue_redraw()
-
-
-func can_place_building(
-    origin_tile: Vector2i,
-    footprint_width: int,
-    footprint_height: int
-) -> bool:
-    if origin_tile.x < 0 or origin_tile.y < 0:
-        return false
-
-    if origin_tile.x + footprint_width > REGION_WIDTH:
-        return false
-
-    if origin_tile.y + footprint_height > REGION_HEIGHT:
-        return false
-
-    for y_offset in range(footprint_height):
-        for x_offset in range(footprint_width):
-            var tile_position := Vector2i(
-                origin_tile.x + x_offset,
-                origin_tile.y + y_offset
-            )
-
-            var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
-
-            if not bool(tile_data.get("buildable", false)):
-                return false
-
-            if bool(tile_data.get("occupied", false)):
-                return false
-
-    return true
-
-
-func print_building_placement_failure_reason(
-    origin_tile: Vector2i,
-    footprint_width: int,
-    footprint_height: int
-) -> void:
-    print("")
-    print("Placement Debug:")
-    print("Origin: ", origin_tile)
-    print("Footprint: ", footprint_width, "x", footprint_height)
-
-    if origin_tile.x < 0 or origin_tile.y < 0:
-        print("- Origin is outside the map.")
-        return
-
-    if origin_tile.x + footprint_width > REGION_WIDTH:
-        print("- Footprint extends past right edge of map.")
-        return
-
-    if origin_tile.y + footprint_height > REGION_HEIGHT:
-        print("- Footprint extends past bottom edge of map.")
-        return
-
-    for y_offset in range(footprint_height):
-        for x_offset in range(footprint_width):
-            var tile_position := Vector2i(
-                origin_tile.x + x_offset,
-                origin_tile.y + y_offset
-            )
-
-            if not is_tile_in_bounds(tile_position):
-                print("- Tile outside map: ", tile_position)
-                continue
-
-            var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
-
-            var terrain: String = str(tile_data.get("terrain", "unknown"))
-            var feature: String = str(tile_data.get("feature", "unknown"))
-            var buildable: bool = bool(tile_data.get("buildable", false))
-            var walkable: bool = bool(tile_data.get("walkable", false))
-            var occupied: bool = bool(tile_data.get("occupied", false))
-            var resources: Array = tile_data.get("resources", [])
-
-            if not buildable or occupied:
-                print(
-                    "- Blocking tile ",
-                    tile_position,
-                    " terrain=",
-                    terrain,
-                    " feature=",
-                    feature,
-                    " buildable=",
-                    buildable,
-                    " walkable=",
-                    walkable,
-                    " occupied=",
-                    occupied,
-                    " resources=",
-                    resources.size()
-                )
-
-    print("")
-
-
-func get_cost_text_from_dictionary(cost_variant: Variant) -> String:
-    if typeof(cost_variant) != TYPE_DICTIONARY:
-        return "Free"
-
-    var cost: Dictionary = cost_variant
-
-    if cost.is_empty():
-        return "Free"
-
-    var parts: Array = []
-    var resource_names: Array = cost.keys()
-    resource_names.sort()
-
-    for resource_index in range(resource_names.size()):
-        var resource_name_variant: Variant = resource_names[resource_index]
-        var resource_name: String = str(resource_name_variant)
-        var amount: int = int(cost.get(resource_name, 0))
-
-        parts.append(resource_name + " " + str(amount))
-
-    return ", ".join(parts)
-
-
-func place_building(
-    building_id: String,
-    display_name: String,
-    origin_tile: Vector2i,
-    footprint_width: int,
-    footprint_height: int
-) -> void:
-    var building_data := {
-        "id": building_id,
-        "name": display_name,
-        "x": origin_tile.x,
-        "y": origin_tile.y,
-        "width": footprint_width,
-        "height": footprint_height,
-        "active": true
-    }
-
-    region_buildings.append(building_data)
-
-    for y_offset in range(footprint_height):
-        for x_offset in range(footprint_width):
-            var tile_position := Vector2i(
-                origin_tile.x + x_offset,
-                origin_tile.y + y_offset
-            )
-
-            var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
-            tile_data["occupied"] = true
-            tile_data["building_id"] = building_id
 
 
 func try_start_villager_drag_or_select() -> void:
@@ -822,8 +606,10 @@ func draw_plus_marker(position: Vector2, size: float, color: Color) -> void:
 
 
 func draw_buildings() -> void:
-    for building_index in range(region_buildings.size()):
-        var building_variant: Variant = region_buildings[building_index]
+    var manager_buildings: Array = building_manager.get_buildings()
+
+    for building_index in range(manager_buildings.size()):
+        var building_variant: Variant = manager_buildings[building_index]
 
         if typeof(building_variant) != TYPE_DICTIONARY:
             continue
@@ -975,25 +761,15 @@ func draw_harvest_area_marker(
 
 
 func draw_building_preview() -> void:
-    if current_build_mode == BUILD_MODE_NONE or current_building_id == "":
+    if not building_manager.is_in_build_mode():
         return
 
     if not is_tile_in_bounds(hovered_tile):
         return
 
-    var building_data: Dictionary = RegionBuildingData.get_building(current_building_id)
+    var footprint: Vector2i = building_manager.get_current_building_footprint()
 
-    if building_data.is_empty():
-        return
-
-    var footprint_width: int = int(building_data.get("width", 1))
-    var footprint_height: int = int(building_data.get("height", 1))
-
-    var can_place := can_place_building(
-        hovered_tile,
-        footprint_width,
-        footprint_height
-    )
+    var can_place := building_manager.can_place_current_building(hovered_tile)
 
     var preview_position := Vector2(
         hovered_tile.x * REGION_TILE_SIZE,
@@ -1001,8 +777,8 @@ func draw_building_preview() -> void:
     )
 
     var preview_size := Vector2(
-        footprint_width * REGION_TILE_SIZE,
-        footprint_height * REGION_TILE_SIZE
+        footprint.x * REGION_TILE_SIZE,
+        footprint.y * REGION_TILE_SIZE
     )
 
     var preview_rect := Rect2(preview_position, preview_size)
