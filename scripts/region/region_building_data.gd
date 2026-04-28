@@ -18,11 +18,9 @@ const STORAGE_BASE_RESOURCE_CAP: int = 20
 const STORAGE_AREA_CAPACITY: int = 50
 
 const SHELTER_CAPACITY: int = 2
-const SHELTER_HARVEST_SPEED_BONUS: float = 0.02
 
 const CHIEFTAINS_SHELTER_REQUIRED_SHELTERS: int = 3
-const CHIEFTAINS_SHELTER_CAPACITY: int = 2
-const CHIEFTAINS_SHELTER_HARVEST_SPEED_BONUS: float = 0.04
+const CHIEFTAINS_SHELTER_CAPACITY: int = 0
 
 const THINKERS_SPOT_RESEARCH_PER_MINUTE: int = 1
 
@@ -147,8 +145,7 @@ static func get_all_buildings() -> Dictionary:
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": SHELTER_CAPACITY,
-            "assigned_harvest_speed_bonus": SHELTER_HARVEST_SPEED_BONUS,
-            "description": "A basic temporary dwelling. It shelters 2 villagers. Villagers assigned to a Shelter harvest 2% faster. It must be built within range of a Campfire. Building 3 Shelters unlocks the Chieftain's Shelter."
+            "description": "A basic temporary dwelling. It shelters 2 normal villagers. It must be built within range of a Campfire. Building 3 Shelters unlocks the Chieftain's Shelter."
         },
 
         BUILDING_CHIEFTAINS_SHELTER: {
@@ -166,9 +163,9 @@ static func get_all_buildings() -> Dictionary:
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": CHIEFTAINS_SHELTER_CAPACITY,
-            "assigned_harvest_speed_bonus": CHIEFTAINS_SHELTER_HARVEST_SPEED_BONUS,
+            "houses_chieftain": true,
             "grants_generic_chieftain": true,
-            "description": "A larger, more respected shelter used by the village leader. It unlocks after 3 Shelters are built. Building it grants a generic Chieftain for now and unlocks the Making Spot and Thinker's Spot."
+            "description": "A larger, more respected shelter used by the village leader. It unlocks after 3 Shelters are built. Building it grants a generic Chieftain for now and unlocks the Making Spot and Thinker's Spot. It houses the Chieftain only."
         },
 
         BUILDING_MAKING_SPOT: {

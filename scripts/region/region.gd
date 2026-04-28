@@ -1,6 +1,5 @@
 extends Node2D
 
-@warning_ignore("unused_signal")
 signal return_to_world_requested
 
 const REGION_WIDTH: int = 120
@@ -21,8 +20,8 @@ const STORAGE_SELECTOR_BUTTON_WIDTH: int = 96
 const STORAGE_SELECTOR_BUTTON_HEIGHT: int = 22
 const STORAGE_SELECTOR_BUTTON_GAP: int = 2
 
-const TOP_INFO_PANEL_WIDTH: int = 220
-const TOP_INFO_PANEL_HEIGHT: int = 34
+const TOP_INFO_PANEL_WIDTH: int = 240
+const TOP_INFO_PANEL_HEIGHT: int = 58
 const TOP_INFO_PANEL_MARGIN: int = 12
 
 @export var region_seed: int = 12345
@@ -253,9 +252,12 @@ func setup_villager_manager() -> void:
 
 
 func update_villager_manager(delta: float) -> void:
+    var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
+
     var harvested_resources: Dictionary = villager_manager.update(
         delta,
-        inventory
+        inventory,
+        normal_housing_capacity
     )
 
     if not harvested_resources.is_empty():
@@ -722,14 +724,25 @@ func draw_top_info_panel() -> void:
     var research_text := "Research: " + str(research.get_research_points())
     var villager_text := "Villagers: " + str(villager_manager.get_population_count())
 
+    var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
+    var available_shelter: int = max(
+        0,
+        normal_housing_capacity - villager_manager.get_population_count()
+    )
+
+    var shelter_text := "Shelter: " + str(available_shelter) + " open"
+
     var font_size: int = int(max(10.0, 14.0 * world_per_screen_y))
-    var text_y: float = panel_world_position.y + (22.0 * world_per_screen_y)
+    var small_font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
+
+    var first_line_y: float = panel_world_position.y + (22.0 * world_per_screen_y)
+    var second_line_y: float = panel_world_position.y + (44.0 * world_per_screen_y)
 
     draw_string(
         ThemeDB.fallback_font,
         Vector2(
             panel_world_position.x + (10.0 * world_per_screen_x),
-            text_y
+            first_line_y
         ),
         research_text,
         HORIZONTAL_ALIGNMENT_LEFT,
@@ -741,14 +754,27 @@ func draw_top_info_panel() -> void:
     draw_string(
         ThemeDB.fallback_font,
         Vector2(
-            panel_world_position.x + (112.0 * world_per_screen_x),
-            text_y
+            panel_world_position.x + (126.0 * world_per_screen_x),
+            first_line_y
         ),
         villager_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         font_size,
         Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        Vector2(
+            panel_world_position.x + (126.0 * world_per_screen_x),
+            second_line_y
+        ),
+        shelter_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
     )
 
 

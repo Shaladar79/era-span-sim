@@ -68,6 +68,13 @@ func get_chieftain_data() -> Dictionary:
     return chieftain_data.duplicate(true)
 
 
+func get_chieftain_tile() -> Vector2i:
+    if not has_chieftain:
+        return Vector2i(-1, -1)
+
+    return chieftain_data.get("tile", Vector2i(-1, -1))
+
+
 func start_building_placement(building_id: String) -> void:
     var building_data: Dictionary = RegionBuildingData.get_building(building_id)
 
@@ -153,7 +160,7 @@ func try_place_current_building(
 
     inventory.spend_cost(cost)
 
-    place_building(
+    var placed_building_instance_id: int = place_building(
         current_building_id,
         building_name,
         origin_tile,
@@ -163,7 +170,10 @@ func try_place_current_building(
 
     RegionBuildingData.notify_building_built(current_building_id)
 
-    apply_building_unlock_side_effects(current_building_id)
+    apply_building_unlock_side_effects(
+        current_building_id,
+        placed_building_instance_id
+    )
 
     print(building_name + " built at: ", origin_tile)
 
@@ -173,18 +183,22 @@ func try_place_current_building(
     return true
 
 
-func apply_building_unlock_side_effects(building_id: String) -> void:
+func apply_building_unlock_side_effects(
+    building_id: String,
+    building_instance_id: int
+) -> void:
     if building_id == RegionBuildingData.BUILDING_SHELTER:
         var shelter_count: int = get_built_shelter_count()
         RegionBuildingData.notify_shelter_count_changed(shelter_count)
 
         print("Shelters built: ", shelter_count)
+        print("Normal housing capacity: ", get_normal_housing_capacity())
 
         if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER):
             print("Chieftain's Shelter unlocked.")
 
     if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
-        grant_generic_chieftain()
+        grant_generic_chieftain(building_instance_id)
 
         if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_MAKING_SPOT):
             print("Making Spot unlocked.")
@@ -200,17 +214,25 @@ func apply_building_unlock_side_effects(building_id: String) -> void:
             print("Woodworking Bench unlocked.")
 
 
-func grant_generic_chieftain() -> void:
+func grant_generic_chieftain(source_building_instance_id: int) -> void:
     if has_chieftain:
         print("The village already has a Chieftain.")
         return
+
+    var source_building: Dictionary = get_building_by_instance_id(source_building_instance_id)
+    var chieftain_tile := Vector2i(region_width / 2, region_height / 2)
+
+    if not source_building.is_empty():
+        chieftain_tile = get_building_center_tile(source_building)
 
     has_chieftain = true
     chieftain_data = {
         "name": "Generic Chieftain",
         "skills": {},
         "traits": {},
-        "source": RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER
+        "source": RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER,
+        "shelter_instance_id": source_building_instance_id,
+        "tile": chieftain_tile
     }
 
     print("A generic Chieftain now leads the village.")
@@ -383,7 +405,7 @@ func place_building(
     origin_tile: Vector2i,
     footprint_width: int,
     footprint_height: int
-) -> void:
+) -> int:
     var building_instance_id: int = next_building_instance_id
     next_building_instance_id += 1
 
@@ -405,12 +427,10 @@ func place_building(
     if building_id == RegionBuildingData.BUILDING_SHELTER:
         building_data["housing_capacity"] = RegionBuildingData.SHELTER_CAPACITY
         building_data["assigned_villagers"] = []
-        building_data["assigned_harvest_speed_bonus"] = RegionBuildingData.SHELTER_HARVEST_SPEED_BONUS
 
     if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
         building_data["housing_capacity"] = RegionBuildingData.CHIEFTAINS_SHELTER_CAPACITY
-        building_data["assigned_villagers"] = []
-        building_data["assigned_harvest_speed_bonus"] = RegionBuildingData.CHIEFTAINS_SHELTER_HARVEST_SPEED_BONUS
+        building_data["houses_chieftain"] = true
         building_data["grants_generic_chieftain"] = true
 
     if building_id == RegionBuildingData.BUILDING_CAMPFIRE:
@@ -438,6 +458,35 @@ func place_building(
             tile_data["occupied"] = true
             tile_data["building_id"] = building_id
             tile_data["building_instance_id"] = building_instance_id
+
+    return building_instance_id
+
+
+func get_normal_housing_capacity() -> int:
+    var housing_capacity: int = 0
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", ""))
+
+        if building_id != RegionBuildingData.BUILDING_SHELTER:
+            continue
+
+        if not bool(building_data.get("active", true)):
+            continue
+
+        housing_capacity += int(building_data.get("housing_capacity", 0))
+
+    return housing_capacity
+
+
+func has_available_normal_housing(current_villager_count: int) -> bool:
+    return get_normal_housing_capacity() > current_villager_count
 
 
 func get_built_shelter_count() -> int:
@@ -474,6 +523,18 @@ func get_building_count_by_id(target_building_id: String) -> int:
             building_count += 1
 
     return building_count
+
+
+func get_building_center_tile(building_data: Dictionary) -> Vector2i:
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 1))
+    var height: int = int(building_data.get("height", 1))
+
+    return Vector2i(
+        tile_x + int(floor(float(width) / 2.0)),
+        tile_y + int(floor(float(height) / 2.0))
+    )
 
 
 func get_building_at_tile(tile_position: Vector2i) -> Dictionary:

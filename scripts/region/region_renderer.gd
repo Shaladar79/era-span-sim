@@ -28,6 +28,7 @@ const RESOURCE_FIBER: String = RegionGenerator.RESOURCE_FIBER
 const BUILDING_CAMPFIRE: String = RegionBuildingData.BUILDING_CAMPFIRE
 const BUILDING_STORAGE_AREA: String = RegionBuildingData.BUILDING_STORAGE_AREA
 const BUILDING_SHELTER: String = RegionBuildingData.BUILDING_SHELTER
+const BUILDING_CHIEFTAINS_SHELTER: String = RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER
 
 
 func draw_all(
@@ -88,6 +89,12 @@ func draw_all(
     draw_villagers(
         canvas,
         villager_manager
+    )
+
+    draw_chieftain(
+        canvas,
+        building_manager,
+        region_tile_size
     )
 
     draw_villager_assignment_markers(
@@ -396,6 +403,12 @@ func draw_buildings(
                     building_data,
                     region_tile_size
                 )
+            BUILDING_CHIEFTAINS_SHELTER:
+                draw_chieftains_shelter_building(
+                    canvas,
+                    building_data,
+                    region_tile_size
+                )
             _:
                 draw_generic_building(
                     canvas,
@@ -450,6 +463,47 @@ func draw_shelter_building(
 
     canvas.draw_line(roof_left, roof_peak, Color(0.90, 0.78, 0.55, 1.0), 2.0)
     canvas.draw_line(roof_peak, roof_right, Color(0.90, 0.78, 0.55, 1.0), 2.0)
+
+
+func draw_chieftains_shelter_building(
+    canvas: CanvasItem,
+    building_data: Dictionary,
+    region_tile_size: int
+) -> void:
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 4))
+    var height: int = int(building_data.get("height", 3))
+
+    var building_position := Vector2(tile_x * region_tile_size, tile_y * region_tile_size)
+    var building_size := Vector2(width * region_tile_size, height * region_tile_size)
+    var building_rect := Rect2(building_position, building_size)
+
+    canvas.draw_rect(building_rect, Color(0.30, 0.17, 0.08, 0.96), true)
+    canvas.draw_rect(building_rect, Color(1.0, 0.82, 0.32, 1.0), false, 2.5)
+
+    var roof_peak := building_position + Vector2(building_size.x / 2.0, 3.0)
+    var roof_left := building_position + Vector2(4.0, building_size.y - 5.0)
+    var roof_right := building_position + Vector2(building_size.x - 4.0, building_size.y - 5.0)
+
+    canvas.draw_line(roof_left, roof_peak, Color(1.0, 0.90, 0.55, 1.0), 2.5)
+    canvas.draw_line(roof_peak, roof_right, Color(1.0, 0.90, 0.55, 1.0), 2.5)
+
+    var banner_top := building_position + Vector2(building_size.x - 8.0, 6.0)
+    var banner_bottom := banner_top + Vector2(0.0, 18.0)
+
+    canvas.draw_line(
+        banner_top,
+        banner_bottom,
+        Color(0.95, 0.85, 0.45, 1.0),
+        2.0
+    )
+
+    canvas.draw_rect(
+        Rect2(banner_top + Vector2(0.0, 1.0), Vector2(8.0, 6.0)),
+        Color(0.65, 0.10, 0.08, 1.0),
+        true
+    )
 
 
 func draw_storage_area_building(
@@ -536,6 +590,7 @@ func draw_villager(
 ) -> void:
     var center: Vector2 = villager_data.get("world_position", Vector2.ZERO)
     var state: String = str(villager_data.get("state", VillagerManager.VILLAGER_STATE_IDLE))
+    var is_housed: bool = bool(villager_data.get("is_housed", false))
 
     var body_color := Color(0.85, 0.82, 0.72, 1.0)
 
@@ -546,6 +601,9 @@ func draw_villager(
             body_color = Color(0.95, 0.82, 0.45, 1.0)
         _:
             body_color = Color(0.85, 0.82, 0.72, 1.0)
+
+    if not is_housed:
+        body_color = body_color.darkened(0.25)
 
     var outline_color := Color(0.15, 0.10, 0.08, 1.0)
 
@@ -561,6 +619,94 @@ func draw_villager(
 
     canvas.draw_circle(center + Vector2(0, 3), 4.2, outline_color, false, 1.0)
     canvas.draw_circle(center + Vector2(0, -3), 2.7, outline_color, false, 1.0)
+
+
+func draw_chieftain(
+    canvas: CanvasItem,
+    building_manager: RegionBuildingManager,
+    region_tile_size: int
+) -> void:
+    if not building_manager.get_has_chieftain():
+        return
+
+    var chieftain_tile: Vector2i = building_manager.get_chieftain_tile()
+
+    if chieftain_tile.x < 0 or chieftain_tile.y < 0:
+        return
+
+    var center := Vector2(
+        chieftain_tile.x * region_tile_size + region_tile_size / 2.0,
+        chieftain_tile.y * region_tile_size + region_tile_size / 2.0
+    )
+
+    draw_chieftain_piece(
+        canvas,
+        center
+    )
+
+
+func draw_chieftain_piece(
+    canvas: CanvasItem,
+    center: Vector2
+) -> void:
+    var body_color := Color(0.95, 0.86, 0.44, 1.0)
+    var outline_color := Color(0.18, 0.11, 0.04, 1.0)
+    var crown_color := Color(1.0, 0.95, 0.55, 1.0)
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-5.0, 5.0), Vector2(10.0, 3.0)),
+        outline_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-4.0, 1.0), Vector2(8.0, 6.0)),
+        body_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-4.0, 1.0), Vector2(8.0, 6.0)),
+        outline_color,
+        false,
+        1.0
+    )
+
+    canvas.draw_circle(
+        center + Vector2(0.0, -3.0),
+        4.0,
+        body_color
+    )
+
+    canvas.draw_circle(
+        center + Vector2(0.0, -3.0),
+        4.0,
+        outline_color,
+        false,
+        1.0
+    )
+
+    var crown_base_left := center + Vector2(-5.0, -7.0)
+    var crown_base_right := center + Vector2(5.0, -7.0)
+    var crown_peak := center + Vector2(0.0, -12.0)
+
+    canvas.draw_line(crown_base_left, crown_peak, crown_color, 2.0)
+    canvas.draw_line(crown_peak, crown_base_right, crown_color, 2.0)
+    canvas.draw_line(crown_base_left, crown_base_right, crown_color, 2.0)
+
+    canvas.draw_line(
+        center + Vector2(0.0, -15.0),
+        center + Vector2(0.0, -10.0),
+        crown_color,
+        1.5
+    )
+
+    canvas.draw_line(
+        center + Vector2(-2.5, -13.0),
+        center + Vector2(2.5, -13.0),
+        crown_color,
+        1.5
+    )
 
 
 func draw_villager_assignment_markers(

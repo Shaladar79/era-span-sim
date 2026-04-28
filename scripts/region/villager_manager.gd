@@ -149,13 +149,25 @@ func reset_and_spawn_starting_villagers() -> void:
     print("Starting Population: ", villagers.size())
 
 
-func process_population_growth(delta: float) -> void:
+func process_population_growth(
+    delta: float,
+    normal_housing_capacity: int
+) -> void:
     population_growth_timer += delta
 
     if population_growth_timer < POPULATION_GROWTH_INTERVAL:
         return
 
     population_growth_timer -= POPULATION_GROWTH_INTERVAL
+
+    if normal_housing_capacity <= villagers.size():
+        print(
+            "Population growth skipped. Housing is full: ",
+            villagers.size(),
+            "/",
+            normal_housing_capacity
+        )
+        return
 
     var roll: float = rng.randf()
 
@@ -166,6 +178,44 @@ func process_population_growth(delta: float) -> void:
         return
 
     spawn_new_villager_near_village_center()
+    auto_assign_villager_housing(normal_housing_capacity)
+
+
+func auto_assign_villager_housing(normal_housing_capacity: int) -> void:
+    var housed_count: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if housed_count < normal_housing_capacity:
+            villager_data["is_housed"] = true
+            housed_count += 1
+        else:
+            villager_data["is_housed"] = false
+
+        villagers[villager_index] = villager_data
+
+
+func get_housed_villager_count() -> int:
+    var housed_count: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if bool(villager_data.get("is_housed", false)):
+            housed_count += 1
+
+    return housed_count
 
 
 func spawn_new_villager_near_village_center() -> bool:
@@ -196,8 +246,7 @@ func spawn_villager_at_tile(spawn_tile: Vector2i) -> void:
         "harvest_timer": 0.0,
         "assigned_harvest_center": NO_ASSIGNED_AREA,
         "assigned_harvest_radius": 0,
-        "assigned_shelter_id": "",
-        "shelter_harvest_speed_bonus": 0.0
+        "is_housed": false
     }
 
     villagers.append(villager_data)
@@ -261,11 +310,16 @@ func find_nearest_available_spawn_tile(origin_tile: Vector2i) -> Vector2i:
     return Vector2i(-1, -1)
 
 
-func update(delta: float, inventory: RegionInventory) -> Dictionary:
+func update(
+    delta: float,
+    inventory: RegionInventory,
+    normal_housing_capacity: int
+) -> Dictionary:
     harvested_resources_this_frame.clear()
     did_change_tiles = false
 
-    process_population_growth(delta)
+    auto_assign_villager_housing(normal_housing_capacity)
+    process_population_growth(delta, normal_housing_capacity)
 
     if villagers.is_empty():
         return harvested_resources_this_frame
@@ -365,29 +419,6 @@ func clear_harvest_area_assignment(villager_id: int) -> void:
         return
 
 
-func assign_shelter_bonus(
-    villager_id: int,
-    shelter_id: String,
-    harvest_speed_bonus: float
-) -> void:
-    for villager_index in range(villagers.size()):
-        var villager_variant: Variant = villagers[villager_index]
-
-        if typeof(villager_variant) != TYPE_DICTIONARY:
-            continue
-
-        var villager_data: Dictionary = villager_variant
-
-        if int(villager_data.get("id", 0)) != villager_id:
-            continue
-
-        villager_data["assigned_shelter_id"] = shelter_id
-        villager_data["shelter_harvest_speed_bonus"] = harvest_speed_bonus
-
-        villagers[villager_index] = villager_data
-        return
-
-
 func process_villager(villager_index: int, delta: float, inventory: RegionInventory) -> void:
     if villager_index < 0 or villager_index >= villagers.size():
         return
@@ -471,7 +502,7 @@ func process_moving_villager(
 
     if current_tile == target_tile:
         villager_data["state"] = VILLAGER_STATE_HARVESTING
-        villager_data["harvest_timer"] = get_harvest_duration_for_tile(harvest_tile, villager_data)
+        villager_data["harvest_timer"] = get_harvest_duration_for_tile(harvest_tile)
         return
 
     var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
@@ -640,7 +671,7 @@ func get_work_tile_for_resource(origin_tile: Vector2i, resource_tile: Vector2i) 
     return best_tile
 
 
-func get_harvest_duration_for_tile(tile_position: Vector2i, villager_data: Dictionary) -> float:
+func get_harvest_duration_for_tile(tile_position: Vector2i) -> float:
     if not is_tile_in_bounds(tile_position):
         return DEFAULT_HARVEST_DURATION
 
@@ -664,9 +695,7 @@ func get_harvest_duration_for_tile(tile_position: Vector2i, villager_data: Dicti
 
         longest_time = max(longest_time, base_time)
 
-    var personal_bonus: float = float(villager_data.get("shelter_harvest_speed_bonus", 0.0))
-    var total_speed_multiplier: float = harvest_speed_multiplier + personal_bonus
-    var adjusted_time: float = longest_time / max(0.1, total_speed_multiplier)
+    var adjusted_time: float = longest_time / max(0.1, harvest_speed_multiplier)
 
     return adjusted_time
 
