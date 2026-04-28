@@ -33,6 +33,7 @@ var inventory := RegionInventory.new()
 var building_manager := RegionBuildingManager.new()
 var villager_manager := VillagerManager.new()
 var renderer := RegionRenderer.new()
+var input_controller := RegionInputController.new()
 
 var is_dragging_villager: bool = false
 var dragged_villager_id: int = 0
@@ -41,6 +42,8 @@ var simulation_paused: bool = false
 
 
 func _ready() -> void:
+    input_controller.setup(self)
+
     generate_region()
     print_region_resource_totals()
     print_settlement_inventory()
@@ -74,38 +77,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventMouseButton:
-        if event.button_index == MOUSE_BUTTON_LEFT:
-            if event.pressed:
-                if building_manager.is_in_build_mode():
-                    try_place_current_building(hovered_tile)
-                else:
-                    try_start_villager_drag_or_select()
-            else:
-                if is_dragging_villager:
-                    finish_villager_drag_assignment()
-
-    if event is InputEventKey and event.pressed and not event.echo:
-        if event.keycode == KEY_SPACE:
-            toggle_simulation_pause()
-            return
-
-        if event.keycode == KEY_R:
-            regenerate_region()
-
-        if event.keycode == KEY_T:
-            toggle_resource_markers()
-
-        if event.keycode == KEY_C:
-            start_campfire_placement()
-
-        if event.keycode == KEY_ESCAPE:
-            if building_manager.is_in_build_mode():
-                cancel_build_mode()
-            elif is_dragging_villager:
-                cancel_villager_drag()
-            else:
-                emit_signal("return_to_world_requested")
+    input_controller.handle_unhandled_input(event)
 
 
 func generate_region() -> void:
