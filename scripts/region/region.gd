@@ -16,6 +16,10 @@ const BUILDING_CAMPFIRE: String = RegionBuildingData.BUILDING_CAMPFIRE
 const HARVEST_ASSIGN_RADIUS: int = 8
 const VILLAGER_DRAG_HIT_RADIUS: float = 8.0
 
+const STORAGE_SELECTOR_BUTTON_WIDTH: int = 96
+const STORAGE_SELECTOR_BUTTON_HEIGHT: int = 22
+const STORAGE_SELECTOR_BUTTON_GAP: int = 2
+
 @export var region_seed: int = 12345
 
 var region_tiles: Array = []
@@ -28,6 +32,7 @@ var hovered_tile: Vector2i = Vector2i(-1, -1)
 var selected_tile: Vector2i = Vector2i(-1, -1)
 
 var show_resource_markers: bool = true
+var show_campfire_radius: bool = false
 
 var inventory := RegionInventory.new()
 var building_manager := RegionBuildingManager.new()
@@ -39,6 +44,11 @@ var is_dragging_villager: bool = false
 var dragged_villager_id: int = 0
 var drag_assignment_tile: Vector2i = Vector2i(-1, -1)
 var simulation_paused: bool = false
+
+var storage_selector_open: bool = false
+var selected_storage_building_instance_id: int = 0
+var storage_selector_anchor_tile: Vector2i = Vector2i(-1, -1)
+var storage_selector_options: Array = []
 
 
 func _ready() -> void:
@@ -92,6 +102,7 @@ func generate_region() -> void:
     clear_buildings()
     reset_test_inventory()
     setup_villager_manager()
+    close_storage_selector()
 
     print("Region Seed: ", region_seed)
 
@@ -129,6 +140,7 @@ func generate_from_world_selection(
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
+    close_storage_selector()
 
     reset_test_inventory()
     setup_villager_manager()
@@ -181,6 +193,7 @@ func regenerate_region() -> void:
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
+    close_storage_selector()
 
     reset_test_inventory()
     setup_villager_manager()
@@ -221,7 +234,10 @@ func setup_villager_manager() -> void:
 
 
 func update_villager_manager(delta: float) -> void:
-    var harvested_resources: Dictionary = villager_manager.update(delta)
+    var harvested_resources: Dictionary = villager_manager.update(
+        delta,
+        inventory
+    )
 
     if not harvested_resources.is_empty():
         inventory.add_resources(harvested_resources)
@@ -242,6 +258,13 @@ func toggle_resource_markers() -> void:
     print("Show Region Resource Markers: ", show_resource_markers)
 
 
+func toggle_campfire_radius() -> void:
+    show_campfire_radius = not show_campfire_radius
+    queue_redraw()
+
+    print("Show Campfire Radius: ", show_campfire_radius)
+
+
 func toggle_simulation_pause() -> void:
     simulation_paused = not simulation_paused
 
@@ -258,6 +281,7 @@ func start_campfire_placement() -> void:
 
 
 func start_building_placement(building_id: String) -> void:
+    close_storage_selector()
     building_manager.start_building_placement(building_id)
     queue_redraw()
 
@@ -268,6 +292,8 @@ func cancel_build_mode() -> void:
 
 
 func try_place_current_building(origin_tile: Vector2i) -> void:
+    close_storage_selector()
+
     var did_place_building: bool = building_manager.try_place_current_building(
         origin_tile,
         inventory
@@ -280,6 +306,15 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
 
 
 func try_start_villager_drag_or_select() -> void:
+    if storage_selector_open:
+        if try_select_storage_resource_from_mouse():
+            return
+
+        close_storage_selector()
+
+    if try_open_storage_selector_at_tile(hovered_tile):
+        return
+
     var mouse_world_position := get_global_mouse_position()
     var villager_id: int = villager_manager.get_villager_at_world_position(
         mouse_world_position,
@@ -324,6 +359,111 @@ func cancel_villager_drag() -> void:
     is_dragging_villager = false
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
+
+
+func try_open_storage_selector_at_tile(tile_position: Vector2i) -> bool:
+    if not is_tile_in_bounds(tile_position):
+        return false
+
+    var building_data: Dictionary = building_manager.get_building_at_tile(tile_position)
+
+    if building_data.is_empty():
+        return false
+
+    if not building_manager.is_storage_area_building(building_data):
+        return false
+
+    var selectable_resources: Array = inventory.get_selectable_storage_resources()
+
+    if selectable_resources.is_empty():
+        print("No storage resource options available. Gather at least 1 of a resource first.")
+        return true
+
+    storage_selector_open = true
+    selected_storage_building_instance_id = int(building_data.get("instance_id", 0))
+    storage_selector_anchor_tile = Vector2i(
+        int(building_data.get("x", tile_position.x)),
+        int(building_data.get("y", tile_position.y))
+    )
+    storage_selector_options = selectable_resources
+
+    print("Storage Area selected. Choose resource:")
+    for option_index in range(storage_selector_options.size()):
+        print(str(option_index + 1) + ". " + str(storage_selector_options[option_index]))
+
+    queue_redraw()
+    return true
+
+
+func try_select_storage_resource_from_mouse() -> bool:
+    if not storage_selector_open:
+        return false
+
+    var mouse_world_position := get_global_mouse_position()
+    var selected_index: int = get_storage_selector_option_index_at_position(mouse_world_position)
+
+    if selected_index < 0:
+        return false
+
+    if selected_index >= storage_selector_options.size():
+        return false
+
+    var selected_resource: String = str(storage_selector_options[selected_index])
+
+    var did_assign: bool = building_manager.assign_storage_area_resource(
+        selected_storage_building_instance_id,
+        selected_resource,
+        inventory
+    )
+
+    if did_assign:
+        print_settlement_inventory()
+
+    close_storage_selector()
+    queue_redraw()
+
+    return true
+
+
+func get_storage_selector_option_index_at_position(world_position: Vector2) -> int:
+    if not storage_selector_open:
+        return -1
+
+    var selector_origin := get_storage_selector_world_position()
+
+    for option_index in range(storage_selector_options.size()):
+        var option_rect := Rect2(
+            selector_origin + Vector2(
+                0,
+                option_index * (STORAGE_SELECTOR_BUTTON_HEIGHT + STORAGE_SELECTOR_BUTTON_GAP)
+            ),
+            Vector2(
+                STORAGE_SELECTOR_BUTTON_WIDTH,
+                STORAGE_SELECTOR_BUTTON_HEIGHT
+            )
+        )
+
+        if option_rect.has_point(world_position):
+            return option_index
+
+    return -1
+
+
+func get_storage_selector_world_position() -> Vector2:
+    return Vector2(
+        storage_selector_anchor_tile.x * REGION_TILE_SIZE,
+        (storage_selector_anchor_tile.y * REGION_TILE_SIZE) - (
+            storage_selector_options.size() * (STORAGE_SELECTOR_BUTTON_HEIGHT + STORAGE_SELECTOR_BUTTON_GAP)
+        ) - 4
+    )
+
+
+func close_storage_selector() -> void:
+    storage_selector_open = false
+    selected_storage_building_instance_id = 0
+    storage_selector_anchor_tile = Vector2i(-1, -1)
+    storage_selector_options = []
+    queue_redraw()
 
 
 func print_settlement_inventory() -> void:
@@ -459,6 +599,7 @@ func _draw() -> void:
         REGION_HEIGHT,
         REGION_TILE_SIZE,
         show_resource_markers,
+        show_campfire_radius,
         building_manager,
         villager_manager,
         hovered_tile,
@@ -468,6 +609,44 @@ func _draw() -> void:
         HARVEST_ASSIGN_RADIUS,
         simulation_paused
     )
+
+    draw_storage_selector()
+
+
+func draw_storage_selector() -> void:
+    if not storage_selector_open:
+        return
+
+    var selector_origin := get_storage_selector_world_position()
+
+    for option_index in range(storage_selector_options.size()):
+        var resource_name: String = str(storage_selector_options[option_index])
+
+        var option_position := selector_origin + Vector2(
+            0,
+            option_index * (STORAGE_SELECTOR_BUTTON_HEIGHT + STORAGE_SELECTOR_BUTTON_GAP)
+        )
+
+        var option_rect := Rect2(
+            option_position,
+            Vector2(
+                STORAGE_SELECTOR_BUTTON_WIDTH,
+                STORAGE_SELECTOR_BUTTON_HEIGHT
+            )
+        )
+
+        draw_rect(option_rect, Color(0.08, 0.07, 0.05, 0.92), true)
+        draw_rect(option_rect, Color(0.95, 0.82, 0.45, 1.0), false, 1.5)
+
+        draw_string(
+            ThemeDB.fallback_font,
+            option_position + Vector2(6, 15),
+            resource_name,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            14,
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
 
 
 func is_tile_in_bounds(tile_position: Vector2i) -> bool:

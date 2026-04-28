@@ -11,6 +11,7 @@ var current_build_mode: String = BUILD_MODE_NONE
 var current_building_id: String = ""
 
 var region_buildings: Array = []
+var next_building_instance_id: int = 1
 
 
 func setup(
@@ -25,6 +26,7 @@ func setup(
 
 func clear_buildings() -> void:
     region_buildings.clear()
+    next_building_instance_id = 1
 
     if region_tiles.is_empty():
         return
@@ -34,6 +36,7 @@ func clear_buildings() -> void:
             var tile_data: Dictionary = region_tiles[y][x]
             tile_data["occupied"] = false
             tile_data.erase("building_id")
+            tile_data.erase("building_instance_id")
 
 
 func get_buildings() -> Array:
@@ -68,6 +71,9 @@ func start_building_placement(building_id: String) -> void:
 
     print(str(building_data.get("name", building_id)) + " placement mode: ON")
     print("Cost: " + get_cost_text_from_dictionary(building_data.get("cost", {})))
+
+    if current_building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
+        print("Storage Area starts unassigned. Click it after building to choose what resource it stores.")
 
     if bool(building_data.get("requires_campfire_range", false)):
         print("Placement Requirement: Must be within Campfire range.")
@@ -117,7 +123,12 @@ func try_place_current_building(
         )
         return false
 
-    if not meets_campfire_range_requirement(building_data, origin_tile, footprint_width, footprint_height):
+    if not meets_campfire_range_requirement(
+        building_data,
+        origin_tile,
+        footprint_width,
+        footprint_height
+    ):
         print("Cannot place " + building_name + " here.")
         print("- Building must be within range " + str(RegionBuildingData.CAMPFIRE_BUILD_RADIUS) + " of a Campfire.")
         return false
@@ -162,7 +173,12 @@ func can_place_current_building(origin_tile: Vector2i) -> bool:
     if not can_place_building(origin_tile, footprint_width, footprint_height):
         return false
 
-    if not meets_campfire_range_requirement(building_data, origin_tile, footprint_width, footprint_height):
+    if not meets_campfire_range_requirement(
+        building_data,
+        origin_tile,
+        footprint_width,
+        footprint_height
+    ):
         return false
 
     return true
@@ -310,7 +326,11 @@ func place_building(
     footprint_width: int,
     footprint_height: int
 ) -> void:
+    var building_instance_id: int = next_building_instance_id
+    next_building_instance_id += 1
+
     var building_data := {
+        "instance_id": building_instance_id,
         "id": building_id,
         "name": display_name,
         "x": origin_tile.x,
@@ -319,6 +339,18 @@ func place_building(
         "height": footprint_height,
         "active": true
     }
+
+    if building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
+        building_data["storage_resource"] = ""
+        building_data["storage_capacity"] = RegionBuildingData.STORAGE_AREA_CAPACITY
+
+    if building_id == RegionBuildingData.BUILDING_SHELTER:
+        building_data["housing_capacity"] = RegionBuildingData.SHELTER_CAPACITY
+        building_data["assigned_villagers"] = []
+        building_data["assigned_harvest_speed_bonus"] = RegionBuildingData.SHELTER_HARVEST_SPEED_BONUS
+
+    if building_id == RegionBuildingData.BUILDING_CAMPFIRE:
+        building_data["campfire_radius"] = RegionBuildingData.CAMPFIRE_BUILD_RADIUS
 
     region_buildings.append(building_data)
 
@@ -332,6 +364,93 @@ func place_building(
             var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
             tile_data["occupied"] = true
             tile_data["building_id"] = building_id
+            tile_data["building_instance_id"] = building_instance_id
+
+
+func get_building_at_tile(tile_position: Vector2i) -> Dictionary:
+    if not is_tile_in_bounds(tile_position):
+        return {}
+
+    var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
+
+    if not bool(tile_data.get("occupied", false)):
+        return {}
+
+    var building_instance_id: int = int(tile_data.get("building_instance_id", 0))
+
+    if building_instance_id <= 0:
+        return {}
+
+    return get_building_by_instance_id(building_instance_id)
+
+
+func get_building_by_instance_id(building_instance_id: int) -> Dictionary:
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+
+        if int(building_data.get("instance_id", 0)) == building_instance_id:
+            return building_data
+
+    return {}
+
+
+func is_storage_area_building(building_data: Dictionary) -> bool:
+    return str(building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA
+
+
+func assign_storage_area_resource(
+    building_instance_id: int,
+    new_resource_name: String,
+    inventory: RegionInventory
+) -> bool:
+    if new_resource_name == "":
+        return false
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+
+        if int(building_data.get("instance_id", 0)) != building_instance_id:
+            continue
+
+        if not is_storage_area_building(building_data):
+            return false
+
+        var old_resource_name: String = str(building_data.get("storage_resource", ""))
+
+        if old_resource_name == new_resource_name:
+            print("Storage Area is already assigned to ", new_resource_name)
+            return true
+
+        if old_resource_name != "":
+            inventory.remove_storage_capacity(
+                old_resource_name,
+                RegionBuildingData.STORAGE_AREA_CAPACITY
+            )
+
+        building_data["storage_resource"] = new_resource_name
+
+        inventory.add_storage_capacity(
+            new_resource_name,
+            RegionBuildingData.STORAGE_AREA_CAPACITY
+        )
+
+        region_buildings[building_index] = building_data
+
+        print("Storage Area assigned to: ", new_resource_name)
+
+        return true
+
+    return false
 
 
 func print_building_placement_failure_reason(

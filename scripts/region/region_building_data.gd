@@ -11,6 +11,12 @@ const BUILDING_THINKERS_SPOT: String = "thinkers_spot"
 
 const CAMPFIRE_BUILD_RADIUS: int = 6
 
+const STORAGE_BASE_RESOURCE_CAP: int = 20
+const STORAGE_AREA_CAPACITY: int = 50
+
+const SHELTER_CAPACITY: int = 2
+const SHELTER_HARVEST_SPEED_BONUS: float = 0.02
+
 static var runtime_unlocked_buildings: Dictionary = {}
 
 
@@ -26,6 +32,7 @@ static func notify_building_built(building_id: String) -> void:
 
     if building_id == BUILDING_CAMPFIRE:
         runtime_unlocked_buildings[BUILDING_SHELTER] = true
+        runtime_unlocked_buildings[BUILDING_STORAGE_AREA] = true
 
 
 static func is_building_unlocked(building_id: String) -> bool:
@@ -69,6 +76,20 @@ static func get_unlocked_buildings() -> Array:
     return unlocked_buildings
 
 
+static func get_storage_resource_options() -> Array:
+    return [
+        "Wood",
+        "Stone",
+        "Fiber",
+        "Flint",
+        "Berries",
+        "Mushrooms",
+        "Reeds",
+        "Clay",
+        "Fish"
+    ]
+
+
 static func get_all_buildings() -> Dictionary:
     return {
         BUILDING_CAMPFIRE: {
@@ -84,7 +105,7 @@ static func get_all_buildings() -> Dictionary:
             "movable": false,
             "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "description": "The center of a Stone Age camp. It gives warmth, comfort, and security, keeping wild animals away. Building a Campfire unlocks Shelter construction nearby."
+            "description": "The center of a Stone Age camp. It gives warmth, comfort, and security, keeping wild animals away. Building a Campfire unlocks Shelter and Storage Area construction nearby."
         },
 
         BUILDING_SHELTER: {
@@ -100,7 +121,9 @@ static func get_all_buildings() -> Dictionary:
             "movable": true,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "description": "A basic temporary dwelling. It must be built within range of a Campfire."
+            "housing_capacity": SHELTER_CAPACITY,
+            "assigned_harvest_speed_bonus": SHELTER_HARVEST_SPEED_BONUS,
+            "description": "A basic temporary dwelling. It shelters 2 villagers. Villagers assigned to a Shelter harvest 2% faster. It must be built within range of a Campfire."
         },
 
         BUILDING_MAKING_SPOT: {
@@ -126,13 +149,14 @@ static func get_all_buildings() -> Dictionary:
             "width": 2,
             "height": 2,
             "cost": {
-                "Wood": 2,
-                "Stone": 1
+                "Wood": 5
             },
             "movable": false,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "description": "A cleared storage area for keeping gathered supplies organized. It must be built within range of a Campfire."
+            "storage_capacity": STORAGE_AREA_CAPACITY,
+            "storage_resource": "",
+            "description": "A cleared storage area for one selected resource type. Each Storage Area increases that resource's cap by 50. It must be built within range of a Campfire."
         },
 
         BUILDING_THINKERS_SPOT: {

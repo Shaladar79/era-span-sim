@@ -53,6 +53,9 @@ func handle_key(event: InputEventKey) -> void:
         KEY_T:
             region.toggle_resource_markers()
 
+        KEY_G:
+            region.toggle_campfire_radius()
+
         KEY_C:
             region.start_campfire_placement()
 
@@ -64,6 +67,10 @@ func handle_key(event: InputEventKey) -> void:
 
 
 func handle_escape_key() -> void:
+    if region.storage_selector_open:
+        region.close_storage_selector()
+        return
+
     if region.building_manager.is_in_build_mode():
         region.cancel_build_mode()
         return

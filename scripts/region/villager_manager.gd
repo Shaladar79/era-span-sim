@@ -150,7 +150,9 @@ func reset_and_spawn_starting_villagers() -> void:
             "move_timer": 0.0,
             "harvest_timer": 0.0,
             "assigned_harvest_center": NO_ASSIGNED_AREA,
-            "assigned_harvest_radius": 0
+            "assigned_harvest_radius": 0,
+            "assigned_shelter_id": "",
+            "shelter_harvest_speed_bonus": 0.0
         }
 
         villagers.append(villager_data)
@@ -160,7 +162,7 @@ func reset_and_spawn_starting_villagers() -> void:
     print("Starting Population: ", villagers.size())
 
 
-func update(delta: float) -> Dictionary:
+func update(delta: float, inventory: RegionInventory) -> Dictionary:
     harvested_resources_this_frame.clear()
     did_change_tiles = false
 
@@ -168,7 +170,7 @@ func update(delta: float) -> Dictionary:
         return harvested_resources_this_frame
 
     for villager_index in range(villagers.size()):
-        process_villager(villager_index, delta)
+        process_villager(villager_index, delta, inventory)
 
     return harvested_resources_this_frame.duplicate(true)
 
@@ -262,7 +264,30 @@ func clear_harvest_area_assignment(villager_id: int) -> void:
         return
 
 
-func process_villager(villager_index: int, delta: float) -> void:
+func assign_shelter_bonus(
+    villager_id: int,
+    shelter_id: String,
+    harvest_speed_bonus: float
+) -> void:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if int(villager_data.get("id", 0)) != villager_id:
+            continue
+
+        villager_data["assigned_shelter_id"] = shelter_id
+        villager_data["shelter_harvest_speed_bonus"] = harvest_speed_bonus
+
+        villagers[villager_index] = villager_data
+        return
+
+
+func process_villager(villager_index: int, delta: float, inventory: RegionInventory) -> void:
     if villager_index < 0 or villager_index >= villagers.size():
         return
 
@@ -277,23 +302,28 @@ func process_villager(villager_index: int, delta: float) -> void:
 
     match villager_state:
         VILLAGER_STATE_IDLE:
-            assign_next_harvest_target(villager_data, villager_id)
+            assign_next_harvest_target(villager_data, villager_id, inventory)
 
         VILLAGER_STATE_MOVING:
-            process_moving_villager(villager_data, delta)
+            process_moving_villager(villager_data, delta, inventory)
 
         VILLAGER_STATE_HARVESTING:
-            process_harvesting_villager(villager_data, delta)
+            process_harvesting_villager(villager_data, delta, inventory)
 
     villagers[villager_index] = villager_data
 
 
-func assign_next_harvest_target(villager_data: Dictionary, villager_id: int) -> void:
+func assign_next_harvest_target(
+    villager_data: Dictionary,
+    villager_id: int,
+    inventory: RegionInventory
+) -> void:
     var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
     var resource_tile: Vector2i = find_harvest_target_for_villager(
         current_tile,
         villager_id,
-        villager_data
+        villager_data,
+        inventory
     )
 
     if not is_tile_in_bounds(resource_tile):
@@ -310,7 +340,11 @@ func assign_next_harvest_target(villager_data: Dictionary, villager_id: int) -> 
     villager_data["move_timer"] = 0.0
 
 
-func process_moving_villager(villager_data: Dictionary, delta: float) -> void:
+func process_moving_villager(
+    villager_data: Dictionary,
+    delta: float,
+    inventory: RegionInventory
+) -> void:
     var move_timer: float = float(villager_data.get("move_timer", 0.0))
     move_timer -= delta
     villager_data["move_timer"] = move_timer
@@ -328,7 +362,7 @@ func process_moving_villager(villager_data: Dictionary, delta: float) -> void:
         villager_data["harvest_tile"] = Vector2i(-1, -1)
         return
 
-    if not is_tile_harvestable_at_position(harvest_tile):
+    if not is_tile_harvestable_at_position(harvest_tile, inventory):
         villager_data["state"] = VILLAGER_STATE_IDLE
         villager_data["target_tile"] = Vector2i(-1, -1)
         villager_data["harvest_tile"] = Vector2i(-1, -1)
@@ -336,7 +370,7 @@ func process_moving_villager(villager_data: Dictionary, delta: float) -> void:
 
     if current_tile == target_tile:
         villager_data["state"] = VILLAGER_STATE_HARVESTING
-        villager_data["harvest_timer"] = get_harvest_duration_for_tile(harvest_tile)
+        villager_data["harvest_timer"] = get_harvest_duration_for_tile(harvest_tile, villager_data)
         return
 
     var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
@@ -351,7 +385,11 @@ func process_moving_villager(villager_data: Dictionary, delta: float) -> void:
         villager_data["harvest_tile"] = Vector2i(-1, -1)
 
 
-func process_harvesting_villager(villager_data: Dictionary, delta: float) -> void:
+func process_harvesting_villager(
+    villager_data: Dictionary,
+    delta: float,
+    inventory: RegionInventory
+) -> void:
     var harvest_timer: float = float(villager_data.get("harvest_timer", DEFAULT_HARVEST_DURATION))
     harvest_timer -= delta
     villager_data["harvest_timer"] = harvest_timer
@@ -362,18 +400,26 @@ func process_harvesting_villager(villager_data: Dictionary, delta: float) -> voi
     var harvest_target: Vector2i = villager_data.get("harvest_tile", Vector2i(-1, -1))
     var villager_name: String = str(villager_data.get("name", "Villager"))
 
-    harvest_resource_at_tile(harvest_target, villager_name)
+    var did_harvest: bool = harvest_resource_at_tile(
+        harvest_target,
+        villager_name,
+        inventory
+    )
 
     villager_data["state"] = VILLAGER_STATE_IDLE
     villager_data["target_tile"] = Vector2i(-1, -1)
     villager_data["harvest_tile"] = Vector2i(-1, -1)
     villager_data["harvest_timer"] = 0.0
 
+    if not did_harvest:
+        return
+
 
 func find_harvest_target_for_villager(
     origin_tile: Vector2i,
     villager_id: int,
-    villager_data: Dictionary
+    villager_data: Dictionary,
+    inventory: RegionInventory
 ) -> Vector2i:
     var assigned_center: Vector2i = villager_data.get("assigned_harvest_center", NO_ASSIGNED_AREA)
     var assigned_radius: int = int(villager_data.get("assigned_harvest_radius", 0))
@@ -383,17 +429,19 @@ func find_harvest_target_for_villager(
             origin_tile,
             assigned_center,
             assigned_radius,
-            villager_id
+            villager_id,
+            inventory
         )
 
-    return find_random_harvestable_tile_global(origin_tile, villager_id)
+    return find_random_harvestable_tile_global(origin_tile, villager_id, inventory)
 
 
 func find_random_harvestable_tile_in_area(
     origin_tile: Vector2i,
     center_tile: Vector2i,
     radius: int,
-    villager_id: int
+    villager_id: int,
+    inventory: RegionInventory
 ) -> Vector2i:
     var candidates: Array = []
 
@@ -409,7 +457,7 @@ func find_random_harvestable_tile_in_area(
             if distance > radius:
                 continue
 
-            if not is_tile_harvestable_at_position(tile_position):
+            if not is_tile_harvestable_at_position(tile_position, inventory):
                 continue
 
             if is_resource_tile_reserved(tile_position, villager_id):
@@ -429,14 +477,18 @@ func find_random_harvestable_tile_in_area(
     return candidates[selected_index]
 
 
-func find_random_harvestable_tile_global(origin_tile: Vector2i, villager_id: int) -> Vector2i:
+func find_random_harvestable_tile_global(
+    origin_tile: Vector2i,
+    villager_id: int,
+    inventory: RegionInventory
+) -> Vector2i:
     var candidates: Array = []
 
     for y in range(region_height):
         for x in range(region_width):
             var tile_position := Vector2i(x, y)
 
-            if not is_tile_harvestable_at_position(tile_position):
+            if not is_tile_harvestable_at_position(tile_position, inventory):
                 continue
 
             if is_resource_tile_reserved(tile_position, villager_id):
@@ -490,7 +542,7 @@ func get_work_tile_for_resource(origin_tile: Vector2i, resource_tile: Vector2i) 
     return best_tile
 
 
-func get_harvest_duration_for_tile(tile_position: Vector2i) -> float:
+func get_harvest_duration_for_tile(tile_position: Vector2i, villager_data: Dictionary) -> float:
     if not is_tile_in_bounds(tile_position):
         return DEFAULT_HARVEST_DURATION
 
@@ -514,7 +566,9 @@ func get_harvest_duration_for_tile(tile_position: Vector2i) -> float:
 
         longest_time = max(longest_time, base_time)
 
-    var adjusted_time: float = longest_time / max(0.1, harvest_speed_multiplier)
+    var personal_bonus: float = float(villager_data.get("shelter_harvest_speed_bonus", 0.0))
+    var total_speed_multiplier: float = harvest_speed_multiplier + personal_bonus
+    var adjusted_time: float = longest_time / max(0.1, total_speed_multiplier)
 
     return adjusted_time
 
@@ -614,16 +668,22 @@ func is_tree_wood_tile(tile_data: Dictionary) -> bool:
     return false
 
 
-func is_tile_harvestable_at_position(tile_position: Vector2i) -> bool:
+func is_tile_harvestable_at_position(
+    tile_position: Vector2i,
+    inventory: RegionInventory
+) -> bool:
     if not is_tile_in_bounds(tile_position):
         return false
 
     var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
 
-    return is_tile_harvestable(tile_data)
+    return is_tile_harvestable(tile_data, inventory)
 
 
-func is_tile_harvestable(tile_data: Dictionary) -> bool:
+func is_tile_harvestable(
+    tile_data: Dictionary,
+    inventory: RegionInventory
+) -> bool:
     var resources: Array = tile_data.get("resources", [])
 
     if resources.is_empty():
@@ -634,7 +694,41 @@ func is_tile_harvestable(tile_data: Dictionary) -> bool:
     if terrain == terrain_water:
         return false
 
-    return true
+    for resource_index in range(resources.size()):
+        var resource_variant: Variant = resources[resource_index]
+
+        if typeof(resource_variant) != TYPE_DICTIONARY:
+            continue
+
+        var resource_dict: Dictionary = resource_variant
+        var resource_name: String = str(resource_dict.get("name", "Unknown"))
+
+        if can_accept_resource_after_pending(resource_name, inventory):
+            return true
+
+    return false
+
+
+func can_accept_resource_after_pending(
+    resource_name: String,
+    inventory: RegionInventory
+) -> bool:
+    var current_amount: int = inventory.get_amount(resource_name)
+    var cap_amount: int = inventory.get_resource_cap(resource_name)
+    var pending_amount: int = int(harvested_resources_this_frame.get(resource_name, 0))
+
+    return current_amount + pending_amount < cap_amount
+
+
+func get_available_space_after_pending(
+    resource_name: String,
+    inventory: RegionInventory
+) -> int:
+    var current_amount: int = inventory.get_amount(resource_name)
+    var cap_amount: int = inventory.get_resource_cap(resource_name)
+    var pending_amount: int = int(harvested_resources_this_frame.get(resource_name, 0))
+
+    return max(0, cap_amount - current_amount - pending_amount)
 
 
 func is_resource_tile_reserved(tile_position: Vector2i, except_villager_id: int) -> bool:
@@ -694,7 +788,11 @@ func get_next_step_toward_tile(from_tile: Vector2i, to_tile: Vector2i) -> Vector
     return from_tile
 
 
-func harvest_resource_at_tile(tile_position: Vector2i, villager_name: String) -> bool:
+func harvest_resource_at_tile(
+    tile_position: Vector2i,
+    villager_name: String,
+    inventory: RegionInventory
+) -> bool:
     if not is_tile_in_bounds(tile_position):
         return false
 
@@ -705,6 +803,7 @@ func harvest_resource_at_tile(tile_position: Vector2i, villager_name: String) ->
         return false
 
     var harvested_parts: Array = []
+    var remaining_resources: Array = []
 
     for resource_index in range(resources.size()):
         var resource_variant: Variant = resources[resource_index]
@@ -725,18 +824,40 @@ func harvest_resource_at_tile(tile_position: Vector2i, villager_name: String) ->
             int(round(float(resource_amount) * get_resource_yield_multiplier(resource_id)))
         )
 
+        var available_space: int = get_available_space_after_pending(
+            resource_name,
+            inventory
+        )
+
+        if available_space <= 0:
+            remaining_resources.append(resource_dict)
+            continue
+
+        var accepted_amount: int = mini(adjusted_amount, available_space)
+
         if not harvested_resources_this_frame.has(resource_name):
             harvested_resources_this_frame[resource_name] = 0
 
-        harvested_resources_this_frame[resource_name] = int(harvested_resources_this_frame[resource_name]) + adjusted_amount
+        harvested_resources_this_frame[resource_name] = int(harvested_resources_this_frame[resource_name]) + accepted_amount
+        harvested_parts.append(resource_name + " " + str(accepted_amount))
 
-        harvested_parts.append(resource_name + " " + str(adjusted_amount))
+        if accepted_amount < adjusted_amount:
+            var remaining_resource: Dictionary = resource_dict.duplicate(true)
+            remaining_resource["amount"] = adjusted_amount - accepted_amount
+            remaining_resource["max_amount"] = int(remaining_resource.get("max_amount", remaining_resource["amount"]))
+            remaining_resources.append(remaining_resource)
 
-    tile_data["resources"] = []
-    tile_data["feature"] = feature_none
-    tile_data["walkable"] = true
-    tile_data["buildable"] = true
-    tile_data["terrain"] = terrain_grass
+    if harvested_parts.is_empty():
+        return false
+
+    if remaining_resources.is_empty():
+        tile_data["resources"] = []
+        tile_data["feature"] = feature_none
+        tile_data["walkable"] = true
+        tile_data["buildable"] = true
+        tile_data["terrain"] = terrain_grass
+    else:
+        tile_data["resources"] = remaining_resources
 
     did_change_tiles = true
 

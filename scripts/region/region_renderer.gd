@@ -26,6 +26,8 @@ const RESOURCE_FISH: String = RegionGenerator.RESOURCE_FISH
 const RESOURCE_FIBER: String = RegionGenerator.RESOURCE_FIBER
 
 const BUILDING_CAMPFIRE: String = RegionBuildingData.BUILDING_CAMPFIRE
+const BUILDING_STORAGE_AREA: String = RegionBuildingData.BUILDING_STORAGE_AREA
+const BUILDING_SHELTER: String = RegionBuildingData.BUILDING_SHELTER
 
 
 func draw_all(
@@ -35,6 +37,7 @@ func draw_all(
     region_height: int,
     region_tile_size: int,
     show_resource_markers: bool,
+    show_campfire_radius: bool,
     building_manager: RegionBuildingManager,
     villager_manager: VillagerManager,
     hovered_tile: Vector2i,
@@ -66,6 +69,13 @@ func draw_all(
             region_tiles,
             region_width,
             region_height,
+            region_tile_size
+        )
+
+    if show_campfire_radius:
+        draw_campfire_radius_markers(
+            canvas,
+            building_manager,
             region_tile_size
         )
 
@@ -287,6 +297,70 @@ func draw_plus_marker(
     )
 
 
+func draw_campfire_radius_markers(
+    canvas: CanvasItem,
+    building_manager: RegionBuildingManager,
+    region_tile_size: int
+) -> void:
+    var manager_buildings: Array = building_manager.get_buildings()
+
+    for building_index in range(manager_buildings.size()):
+        var building_variant: Variant = manager_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", ""))
+
+        if building_id != BUILDING_CAMPFIRE:
+            continue
+
+        draw_campfire_radius_marker(
+            canvas,
+            building_data,
+            region_tile_size
+        )
+
+
+func draw_campfire_radius_marker(
+    canvas: CanvasItem,
+    building_data: Dictionary,
+    region_tile_size: int
+) -> void:
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 2))
+    var height: int = int(building_data.get("height", 2))
+    var radius: int = int(building_data.get("campfire_radius", RegionBuildingData.CAMPFIRE_BUILD_RADIUS))
+
+    var center_tile := Vector2(
+        float(tile_x) + float(width) / 2.0,
+        float(tile_y) + float(height) / 2.0
+    )
+
+    var center_world := Vector2(
+        center_tile.x * region_tile_size,
+        center_tile.y * region_tile_size
+    )
+
+    var radius_pixels: float = float(radius * region_tile_size)
+
+    canvas.draw_circle(
+        center_world,
+        radius_pixels,
+        Color(1.0, 0.55, 0.12, 0.12)
+    )
+
+    canvas.draw_circle(
+        center_world,
+        radius_pixels,
+        Color(1.0, 0.65, 0.20, 0.85),
+        false,
+        2.0
+    )
+
+
 func draw_buildings(
     canvas: CanvasItem,
     building_manager: RegionBuildingManager,
@@ -306,6 +380,18 @@ func draw_buildings(
         match building_id:
             BUILDING_CAMPFIRE:
                 draw_campfire_building(
+                    canvas,
+                    building_data,
+                    region_tile_size
+                )
+            BUILDING_STORAGE_AREA:
+                draw_storage_area_building(
+                    canvas,
+                    building_data,
+                    region_tile_size
+                )
+            BUILDING_SHELTER:
+                draw_shelter_building(
                     canvas,
                     building_data,
                     region_tile_size
@@ -339,6 +425,71 @@ func draw_campfire_building(
 
     canvas.draw_circle(center, 6.0, Color(1.0, 0.42, 0.05, 1.0))
     canvas.draw_circle(center, 3.0, Color(1.0, 0.9, 0.2, 1.0))
+
+
+func draw_shelter_building(
+    canvas: CanvasItem,
+    building_data: Dictionary,
+    region_tile_size: int
+) -> void:
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 3))
+    var height: int = int(building_data.get("height", 2))
+
+    var building_position := Vector2(tile_x * region_tile_size, tile_y * region_tile_size)
+    var building_size := Vector2(width * region_tile_size, height * region_tile_size)
+    var building_rect := Rect2(building_position, building_size)
+
+    canvas.draw_rect(building_rect, Color(0.34, 0.22, 0.11, 0.95), true)
+    canvas.draw_rect(building_rect, Color(0.82, 0.66, 0.42, 1.0), false, 2.0)
+
+    var roof_peak := building_position + Vector2(building_size.x / 2.0, 4.0)
+    var roof_left := building_position + Vector2(4.0, building_size.y - 4.0)
+    var roof_right := building_position + Vector2(building_size.x - 4.0, building_size.y - 4.0)
+
+    canvas.draw_line(roof_left, roof_peak, Color(0.90, 0.78, 0.55, 1.0), 2.0)
+    canvas.draw_line(roof_peak, roof_right, Color(0.90, 0.78, 0.55, 1.0), 2.0)
+
+
+func draw_storage_area_building(
+    canvas: CanvasItem,
+    building_data: Dictionary,
+    region_tile_size: int
+) -> void:
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 2))
+    var height: int = int(building_data.get("height", 2))
+    var storage_resource: String = str(building_data.get("storage_resource", ""))
+
+    var building_position := Vector2(tile_x * region_tile_size, tile_y * region_tile_size)
+    var building_size := Vector2(width * region_tile_size, height * region_tile_size)
+    var building_rect := Rect2(building_position, building_size)
+
+    canvas.draw_rect(building_rect, Color(0.24, 0.18, 0.10, 0.95), true)
+    canvas.draw_rect(building_rect, Color(0.95, 0.82, 0.45, 1.0), false, 2.0)
+
+    var center := building_position + building_size / 2.0
+    var icon_rect := Rect2(center - Vector2(7, 6), Vector2(14, 12))
+
+    canvas.draw_rect(icon_rect, Color(0.58, 0.42, 0.20, 1.0), true)
+    canvas.draw_rect(icon_rect, Color(0.95, 0.85, 0.60, 1.0), false, 1.5)
+
+    var label: String = "?"
+
+    if storage_resource != "":
+        label = get_short_resource_label(storage_resource)
+
+    canvas.draw_string(
+        ThemeDB.fallback_font,
+        building_position + Vector2(3, 12),
+        label,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        12,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
 
 
 func draw_generic_building(
@@ -659,6 +810,30 @@ func draw_hovered_tile(
 
     canvas.draw_rect(tile_rect, Color(1, 1, 1, 0.22), true)
     canvas.draw_rect(tile_rect, Color(1, 1, 1, 0.9), false, 2.0)
+
+
+func get_short_resource_label(resource_name: String) -> String:
+    match resource_name:
+        "Wood":
+            return "Wd"
+        "Stone":
+            return "St"
+        "Fiber":
+            return "Fb"
+        "Flint":
+            return "Fl"
+        "Berries":
+            return "Br"
+        "Mushrooms":
+            return "Mu"
+        "Reeds":
+            return "Rd"
+        "Clay":
+            return "Cl"
+        "Fish":
+            return "Fi"
+        _:
+            return resource_name.substr(0, min(2, resource_name.length()))
 
 
 func get_resource_marker_color(resource_id: String) -> Color:
