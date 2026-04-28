@@ -69,6 +69,9 @@ func start_building_placement(building_id: String) -> void:
     print(str(building_data.get("name", building_id)) + " placement mode: ON")
     print("Cost: " + get_cost_text_from_dictionary(building_data.get("cost", {})))
 
+    if bool(building_data.get("requires_campfire_range", false)):
+        print("Placement Requirement: Must be within Campfire range.")
+
 
 func cancel_build_mode() -> void:
     current_build_mode = BUILD_MODE_NONE
@@ -114,6 +117,11 @@ func try_place_current_building(
         )
         return false
 
+    if not meets_campfire_range_requirement(building_data, origin_tile, footprint_width, footprint_height):
+        print("Cannot place " + building_name + " here.")
+        print("- Building must be within range " + str(RegionBuildingData.CAMPFIRE_BUILD_RADIUS) + " of a Campfire.")
+        return false
+
     if not inventory.has_cost(cost):
         print("Not enough resources to build " + building_name + ".")
         print("Need: " + get_cost_text_from_dictionary(cost))
@@ -128,6 +136,8 @@ func try_place_current_building(
         footprint_width,
         footprint_height
     )
+
+    RegionBuildingData.notify_building_built(current_building_id)
 
     print(building_name + " built at: ", origin_tile)
 
@@ -149,7 +159,13 @@ func can_place_current_building(origin_tile: Vector2i) -> bool:
     var footprint_width: int = int(building_data.get("width", 1))
     var footprint_height: int = int(building_data.get("height", 1))
 
-    return can_place_building(origin_tile, footprint_width, footprint_height)
+    if not can_place_building(origin_tile, footprint_width, footprint_height):
+        return false
+
+    if not meets_campfire_range_requirement(building_data, origin_tile, footprint_width, footprint_height):
+        return false
+
+    return true
 
 
 func get_current_building_footprint() -> Vector2i:
@@ -197,6 +213,94 @@ func can_place_building(
                 return false
 
     return true
+
+
+func meets_campfire_range_requirement(
+    building_data: Dictionary,
+    origin_tile: Vector2i,
+    footprint_width: int,
+    footprint_height: int
+) -> bool:
+    if not bool(building_data.get("requires_campfire_range", false)):
+        return true
+
+    return is_footprint_in_campfire_range(
+        origin_tile,
+        footprint_width,
+        footprint_height
+    )
+
+
+func is_footprint_in_campfire_range(
+    origin_tile: Vector2i,
+    footprint_width: int,
+    footprint_height: int
+) -> bool:
+    var campfire_radius: int = RegionBuildingData.CAMPFIRE_BUILD_RADIUS
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", ""))
+
+        if building_id != RegionBuildingData.BUILDING_CAMPFIRE:
+            continue
+
+        var campfire_origin := Vector2i(
+            int(building_data.get("x", 0)),
+            int(building_data.get("y", 0))
+        )
+
+        var campfire_width: int = int(building_data.get("width", 1))
+        var campfire_height: int = int(building_data.get("height", 1))
+
+        if footprints_are_within_range(
+            origin_tile,
+            footprint_width,
+            footprint_height,
+            campfire_origin,
+            campfire_width,
+            campfire_height,
+            campfire_radius
+        ):
+            return true
+
+    return false
+
+
+func footprints_are_within_range(
+    first_origin: Vector2i,
+    first_width: int,
+    first_height: int,
+    second_origin: Vector2i,
+    second_width: int,
+    second_height: int,
+    radius: int
+) -> bool:
+    for first_y_offset in range(first_height):
+        for first_x_offset in range(first_width):
+            var first_tile := Vector2i(
+                first_origin.x + first_x_offset,
+                first_origin.y + first_y_offset
+            )
+
+            for second_y_offset in range(second_height):
+                for second_x_offset in range(second_width):
+                    var second_tile := Vector2i(
+                        second_origin.x + second_x_offset,
+                        second_origin.y + second_y_offset
+                    )
+
+                    var distance: int = abs(first_tile.x - second_tile.x) + abs(first_tile.y - second_tile.y)
+
+                    if distance <= radius:
+                        return true
+
+    return false
 
 
 func place_building(

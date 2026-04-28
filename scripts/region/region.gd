@@ -87,6 +87,7 @@ func generate_region() -> void:
         region_seed
     )
 
+    RegionBuildingData.reset_runtime_unlocks()
     setup_building_manager()
     clear_buildings()
     reset_test_inventory()
@@ -118,6 +119,7 @@ func generate_from_world_selection(
         source_world_tiles
     )
 
+    RegionBuildingData.reset_runtime_unlocks()
     setup_building_manager()
     clear_buildings()
 
@@ -168,6 +170,7 @@ func regenerate_region() -> void:
             region_seed
         )
 
+    RegionBuildingData.reset_runtime_unlocks()
     setup_building_manager()
     clear_buildings()
 
