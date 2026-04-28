@@ -457,19 +457,19 @@ static func get_resources_for_region_tile(
     var resources: Array = []
 
     if feature == FEATURE_TREE:
-        try_add_region_resource(resources, rng, RESOURCE_WOOD, "Wood", 1.0, 25, 70)
+        try_add_region_resource(resources, rng, RESOURCE_WOOD, "Wood", 1.0, 3, 8)
 
     if feature == FEATURE_BUSH:
-        try_add_region_resource(resources, rng, RESOURCE_BERRIES, "Berries", 0.65, 5, 20)
-        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.35, 4, 14)
+        try_add_region_resource(resources, rng, RESOURCE_BERRIES, "Berries", 0.65, 2, 6)
+        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.35, 1, 4)
 
     if feature == FEATURE_STONE:
-        try_add_region_resource(resources, rng, RESOURCE_STONE, "Stone", 0.90, 18, 55)
-        try_add_region_resource(resources, rng, RESOURCE_FLINT, "Flint", 0.25, 3, 12)
+        try_add_region_resource(resources, rng, RESOURCE_STONE, "Stone", 0.90, 3, 8)
+        try_add_region_resource(resources, rng, RESOURCE_FLINT, "Flint", 0.25, 1, 3)
 
     if feature == FEATURE_REEDS:
-        try_add_region_resource(resources, rng, RESOURCE_REEDS, "Reeds", 0.90, 8, 28)
-        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.30, 4, 12)
+        try_add_region_resource(resources, rng, RESOURCE_REEDS, "Reeds", 0.90, 2, 6)
+        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.30, 1, 4)
 
     if terrain == REGION_TERRAIN_WATER:
         var water_influence: float = (
@@ -478,19 +478,19 @@ static func get_resources_for_region_tile(
         )
 
         if water_influence > 0.25:
-            try_add_region_resource(resources, rng, RESOURCE_FISH, "Fish", 0.35, 5, 22)
+            try_add_region_resource(resources, rng, RESOURCE_FISH, "Fish", 0.35, 2, 6)
 
     if terrain == REGION_TERRAIN_MUD:
-        try_add_region_resource(resources, rng, RESOURCE_CLAY, "Clay", 0.35, 6, 24)
-        try_add_region_resource(resources, rng, RESOURCE_MUSHROOMS, "Mushrooms", 0.18, 3, 12)
+        try_add_region_resource(resources, rng, RESOURCE_CLAY, "Clay", 0.35, 2, 6)
+        try_add_region_resource(resources, rng, RESOURCE_MUSHROOMS, "Mushrooms", 0.18, 1, 4)
 
     if terrain == REGION_TERRAIN_FOREST:
-        try_add_region_resource(resources, rng, RESOURCE_MUSHROOMS, "Mushrooms", 0.10, 3, 10)
-        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.12, 3, 12)
+        try_add_region_resource(resources, rng, RESOURCE_MUSHROOMS, "Mushrooms", 0.10, 1, 3)
+        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.12, 1, 3)
 
     if terrain == REGION_TERRAIN_GRASS:
         if dominant_world_terrain == WORLD_TERRAIN_GRASS:
-            try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.10, 3, 10)
+            try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.10, 1, 3)
 
     if terrain == REGION_TERRAIN_ROCK:
         var rocky_influence: float = (
@@ -499,7 +499,7 @@ static func get_resources_for_region_tile(
         )
 
         if rocky_influence > 0.40:
-            try_add_region_resource(resources, rng, RESOURCE_STONE, "Stone", 0.18, 10, 28)
+            try_add_region_resource(resources, rng, RESOURCE_STONE, "Stone", 0.18, 2, 6)
 
     return resources
 

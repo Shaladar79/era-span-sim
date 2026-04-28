@@ -33,6 +33,9 @@ const RESOURCE_FIBER: String = RegionGenerator.RESOURCE_FIBER
 const BUILD_MODE_NONE: String = "none"
 const BUILDING_CAMPFIRE: String = RegionBuildingData.BUILDING_CAMPFIRE
 
+const HARVEST_ASSIGN_RADIUS: int = 8
+const VILLAGER_DRAG_HIT_RADIUS: float = 8.0
+
 @export var region_seed: int = 12345
 
 var region_tiles: Array = []
@@ -50,9 +53,18 @@ var current_building_id: String = ""
 
 var region_buildings: Array = []
 
+var villager_manager := VillagerManager.new()
+
+var is_dragging_villager: bool = false
+var dragged_villager_id: int = 0
+var drag_assignment_tile: Vector2i = Vector2i(-1, -1)
+var simulation_paused: bool = false
+
 var settlement_inventory: Dictionary = {
-    "Wood": 20,
-    "Stone": 10
+    "Wood": 0,
+    "Stone": 0,
+    "Fiber": 0,
+    "Flint": 0
 }
 
 
@@ -80,19 +92,32 @@ func get_map_center() -> Vector2:
     )
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
     update_hovered_tile()
+
+    if simulation_paused:
+        return
+
+    update_villager_manager(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventMouseButton and event.pressed:
+    if event is InputEventMouseButton:
         if event.button_index == MOUSE_BUTTON_LEFT:
-            if current_build_mode != BUILD_MODE_NONE:
-                try_place_current_building(hovered_tile)
+            if event.pressed:
+                if current_build_mode != BUILD_MODE_NONE:
+                    try_place_current_building(hovered_tile)
+                else:
+                    try_start_villager_drag_or_select()
             else:
-                select_hovered_tile()
+                if is_dragging_villager:
+                    finish_villager_drag_assignment()
 
     if event is InputEventKey and event.pressed and not event.echo:
+        if event.keycode == KEY_SPACE:
+            toggle_simulation_pause()
+            return
+
         if event.keycode == KEY_R:
             regenerate_region()
 
@@ -105,6 +130,8 @@ func _unhandled_input(event: InputEvent) -> void:
         if event.keycode == KEY_ESCAPE:
             if current_build_mode != BUILD_MODE_NONE:
                 cancel_build_mode()
+            elif is_dragging_villager:
+                cancel_villager_drag()
             else:
                 emit_signal("return_to_world_requested")
 
@@ -117,6 +144,8 @@ func generate_region() -> void:
     )
 
     clear_buildings()
+    reset_test_inventory()
+    setup_villager_manager()
 
     print("Region Seed: ", region_seed)
 
@@ -150,8 +179,13 @@ func generate_from_world_selection(
     selected_tile = Vector2i(-1, -1)
     current_build_mode = BUILD_MODE_NONE
     current_building_id = ""
+    is_dragging_villager = false
+    dragged_villager_id = 0
+    drag_assignment_tile = Vector2i(-1, -1)
+    simulation_paused = false
 
     reset_test_inventory()
+    setup_villager_manager()
 
     print("Region Seed: ", region_seed)
     print("Source World Region Origin: ", source_selection_origin)
@@ -184,7 +218,11 @@ func regenerate_region() -> void:
 
         print_source_world_selection_resource_totals()
     else:
-        generate_region()
+        region_tiles = RegionGenerator.generate_region(
+            REGION_WIDTH,
+            REGION_HEIGHT,
+            region_seed
+        )
 
     clear_buildings()
 
@@ -193,7 +231,13 @@ func regenerate_region() -> void:
 
     current_build_mode = BUILD_MODE_NONE
     current_building_id = ""
+    is_dragging_villager = false
+    dragged_villager_id = 0
+    drag_assignment_tile = Vector2i(-1, -1)
+    simulation_paused = false
+
     reset_test_inventory()
+    setup_villager_manager()
 
     print_region_resource_totals()
     print_settlement_inventory()
@@ -204,9 +248,48 @@ func regenerate_region() -> void:
 
 func reset_test_inventory() -> void:
     settlement_inventory = {
-        "Wood": 20,
-        "Stone": 10
+        "Wood": 0,
+        "Stone": 0,
+        "Fiber": 0,
+        "Flint": 0
     }
+
+
+func setup_villager_manager() -> void:
+    villager_manager.setup(
+        region_tiles,
+        REGION_WIDTH,
+        REGION_HEIGHT,
+        REGION_TILE_SIZE,
+        REGION_TERRAIN_GRASS,
+        REGION_TERRAIN_WATER,
+        FEATURE_NONE
+    )
+
+    villager_manager.reset_and_spawn_starting_villagers()
+
+
+func update_villager_manager(delta: float) -> void:
+    var harvested_resources: Dictionary = villager_manager.update(delta)
+
+    if not harvested_resources.is_empty():
+        add_harvested_resources_to_inventory(harvested_resources)
+        print_settlement_inventory()
+
+    if villager_manager.has_tile_changes():
+        queue_redraw()
+
+
+func add_harvested_resources_to_inventory(harvested_resources: Dictionary) -> void:
+    var resource_names: Array = harvested_resources.keys()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name_variant: Variant = resource_names[resource_index]
+        var resource_name: String = str(resource_name_variant)
+        var harvested_amount: int = int(harvested_resources.get(resource_name, 0))
+        var current_amount: int = int(settlement_inventory.get(resource_name, 0))
+
+        settlement_inventory[resource_name] = current_amount + harvested_amount
 
 
 func clear_buildings() -> void:
@@ -227,6 +310,15 @@ func toggle_resource_markers() -> void:
     queue_redraw()
 
     print("Show Region Resource Markers: ", show_resource_markers)
+
+
+func toggle_simulation_pause() -> void:
+    simulation_paused = not simulation_paused
+
+    if simulation_paused:
+        print("Simulation Paused. You can drag villagers to assign harvest areas.")
+    else:
+        print("Simulation Resumed.")
 
 
 func start_campfire_placement() -> void:
@@ -280,10 +372,19 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
     var footprint_width: int = int(building_data.get("width", 1))
     var footprint_height: int = int(building_data.get("height", 1))
     var building_name: String = str(building_data.get("name", current_building_id))
-    var cost: Dictionary = building_data.get("cost", {})
+    var cost_variant: Variant = building_data.get("cost", {})
+    var cost: Dictionary = {}
+
+    if typeof(cost_variant) == TYPE_DICTIONARY:
+        cost = cost_variant
 
     if not can_place_building(origin_tile, footprint_width, footprint_height):
         print("Cannot place " + building_name + " here.")
+        print_building_placement_failure_reason(
+            origin_tile,
+            footprint_width,
+            footprint_height
+        )
         return
 
     if not has_building_cost(cost):
@@ -341,6 +442,69 @@ func can_place_building(
                 return false
 
     return true
+
+
+func print_building_placement_failure_reason(
+    origin_tile: Vector2i,
+    footprint_width: int,
+    footprint_height: int
+) -> void:
+    print("")
+    print("Placement Debug:")
+    print("Origin: ", origin_tile)
+    print("Footprint: ", footprint_width, "x", footprint_height)
+
+    if origin_tile.x < 0 or origin_tile.y < 0:
+        print("- Origin is outside the map.")
+        return
+
+    if origin_tile.x + footprint_width > REGION_WIDTH:
+        print("- Footprint extends past right edge of map.")
+        return
+
+    if origin_tile.y + footprint_height > REGION_HEIGHT:
+        print("- Footprint extends past bottom edge of map.")
+        return
+
+    for y_offset in range(footprint_height):
+        for x_offset in range(footprint_width):
+            var tile_position := Vector2i(
+                origin_tile.x + x_offset,
+                origin_tile.y + y_offset
+            )
+
+            if not is_tile_in_bounds(tile_position):
+                print("- Tile outside map: ", tile_position)
+                continue
+
+            var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
+
+            var terrain: String = str(tile_data.get("terrain", "unknown"))
+            var feature: String = str(tile_data.get("feature", "unknown"))
+            var buildable: bool = bool(tile_data.get("buildable", false))
+            var walkable: bool = bool(tile_data.get("walkable", false))
+            var occupied: bool = bool(tile_data.get("occupied", false))
+            var resources: Array = tile_data.get("resources", [])
+
+            if not buildable or occupied:
+                print(
+                    "- Blocking tile ",
+                    tile_position,
+                    " terrain=",
+                    terrain,
+                    " feature=",
+                    feature,
+                    " buildable=",
+                    buildable,
+                    " walkable=",
+                    walkable,
+                    " occupied=",
+                    occupied,
+                    " resources=",
+                    resources.size()
+                )
+
+    print("")
 
 
 func has_building_cost(cost: Dictionary) -> bool:
@@ -424,6 +588,53 @@ func place_building(
             tile_data["building_id"] = building_id
 
 
+func try_start_villager_drag_or_select() -> void:
+    var mouse_world_position := get_global_mouse_position()
+    var villager_id: int = villager_manager.get_villager_at_world_position(
+        mouse_world_position,
+        VILLAGER_DRAG_HIT_RADIUS
+    )
+
+    if villager_id > 0:
+        is_dragging_villager = true
+        dragged_villager_id = villager_id
+        drag_assignment_tile = hovered_tile
+
+        print("Started dragging villager id: ", dragged_villager_id)
+
+        queue_redraw()
+        return
+
+    select_hovered_tile()
+
+
+func finish_villager_drag_assignment() -> void:
+    if dragged_villager_id <= 0:
+        cancel_villager_drag()
+        return
+
+    if not is_tile_in_bounds(hovered_tile):
+        cancel_villager_drag()
+        return
+
+    drag_assignment_tile = hovered_tile
+
+    villager_manager.assign_harvest_area(
+        dragged_villager_id,
+        drag_assignment_tile,
+        HARVEST_ASSIGN_RADIUS
+    )
+
+    cancel_villager_drag()
+    queue_redraw()
+
+
+func cancel_villager_drag() -> void:
+    is_dragging_villager = false
+    dragged_villager_id = 0
+    drag_assignment_tile = Vector2i(-1, -1)
+
+
 func print_settlement_inventory() -> void:
     print("")
     print("Settlement Inventory:")
@@ -436,6 +647,7 @@ func print_settlement_inventory() -> void:
         var resource_name: String = str(resource_name_variant)
         print(resource_name + ": " + str(int(settlement_inventory.get(resource_name, 0))))
 
+    print("Population: " + str(villager_manager.get_population_count()))
     print("")
 
 
@@ -508,6 +720,10 @@ func update_hovered_tile() -> void:
 
     if new_hovered_tile != hovered_tile:
         hovered_tile = new_hovered_tile
+
+        if is_dragging_villager:
+            drag_assignment_tile = hovered_tile
+
         queue_redraw()
 
 
@@ -528,6 +744,13 @@ func select_hovered_tile() -> void:
 func print_selected_tile_resources() -> void:
     var tile_data: Dictionary = region_tiles[selected_tile.y][selected_tile.x]
     var resources: Array = tile_data.get("resources", [])
+
+    print("Selected Region Tile Data:")
+    print("- Terrain: ", str(tile_data.get("terrain", "unknown")))
+    print("- Feature: ", str(tile_data.get("feature", "unknown")))
+    print("- Walkable: ", bool(tile_data.get("walkable", false)))
+    print("- Buildable: ", bool(tile_data.get("buildable", false)))
+    print("- Occupied: ", bool(tile_data.get("occupied", false)))
 
     print("Selected Region Tile Resources:")
 
@@ -557,10 +780,14 @@ func _draw() -> void:
         draw_region_resource_markers()
 
     draw_buildings()
+    draw_villagers()
+    draw_villager_assignment_markers()
+    draw_villager_drag_preview()
     draw_grid_lines()
     draw_building_preview()
     draw_selected_tile()
     draw_hovered_tile()
+    draw_pause_overlay()
 
 
 func draw_region_tiles() -> void:
@@ -705,6 +932,110 @@ func draw_generic_building(building_data: Dictionary) -> void:
     draw_rect(building_rect, Color(0.85, 0.70, 0.45, 1.0), false, 2.0)
 
 
+func draw_villagers() -> void:
+    var manager_villagers: Array = villager_manager.get_villagers()
+
+    for villager_index in range(manager_villagers.size()):
+        var villager_variant: Variant = manager_villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        draw_villager(villager_data)
+
+
+func draw_villager(villager_data: Dictionary) -> void:
+    var center: Vector2 = villager_data.get("world_position", Vector2.ZERO)
+    var state: String = str(villager_data.get("state", VillagerManager.VILLAGER_STATE_IDLE))
+
+    var body_color := Color(0.85, 0.82, 0.72, 1.0)
+
+    match state:
+        VillagerManager.VILLAGER_STATE_MOVING:
+            body_color = Color(0.75, 0.88, 0.95, 1.0)
+        VillagerManager.VILLAGER_STATE_HARVESTING:
+            body_color = Color(0.95, 0.82, 0.45, 1.0)
+        _:
+            body_color = Color(0.85, 0.82, 0.72, 1.0)
+
+    var outline_color := Color(0.15, 0.10, 0.08, 1.0)
+
+    draw_circle(center + Vector2(0, 3), 4.2, body_color)
+    draw_circle(center + Vector2(0, -3), 2.7, body_color)
+    draw_line(
+        center + Vector2(-4, 7),
+        center + Vector2(4, 7),
+        outline_color,
+        2.0
+    )
+    draw_circle(center + Vector2(0, 3), 4.2, outline_color, false, 1.0)
+    draw_circle(center + Vector2(0, -3), 2.7, outline_color, false, 1.0)
+
+
+func draw_villager_assignment_markers() -> void:
+    var manager_villagers: Array = villager_manager.get_villagers()
+
+    for villager_index in range(manager_villagers.size()):
+        var villager_variant: Variant = manager_villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        var assigned_center: Vector2i = villager_data.get(
+            "assigned_harvest_center",
+            VillagerManager.NO_ASSIGNED_AREA
+        )
+
+        var assigned_radius: int = int(villager_data.get("assigned_harvest_radius", 0))
+
+        if not is_tile_in_bounds(assigned_center):
+            continue
+
+        if assigned_radius <= 0:
+            continue
+
+        draw_harvest_area_marker(
+            assigned_center,
+            assigned_radius,
+            Color(0.95, 0.85, 0.25, 0.18),
+            Color(0.95, 0.85, 0.25, 0.85)
+        )
+
+
+func draw_villager_drag_preview() -> void:
+    if not is_dragging_villager:
+        return
+
+    if not is_tile_in_bounds(drag_assignment_tile):
+        return
+
+    draw_harvest_area_marker(
+        drag_assignment_tile,
+        HARVEST_ASSIGN_RADIUS,
+        Color(0.25, 0.75, 1.0, 0.18),
+        Color(0.25, 0.75, 1.0, 0.9)
+    )
+
+
+func draw_harvest_area_marker(
+    center_tile: Vector2i,
+    radius: int,
+    fill_color: Color,
+    outline_color: Color
+) -> void:
+    var center_world := Vector2(
+        center_tile.x * REGION_TILE_SIZE + REGION_TILE_SIZE / 2.0,
+        center_tile.y * REGION_TILE_SIZE + REGION_TILE_SIZE / 2.0
+    )
+
+    var radius_pixels: float = float(radius * REGION_TILE_SIZE)
+
+    draw_circle(center_world, radius_pixels, fill_color)
+    draw_circle(center_world, radius_pixels, outline_color, false, 2.0)
+
+
 func draw_building_preview() -> void:
     if current_build_mode == BUILD_MODE_NONE or current_building_id == "":
         return
@@ -744,6 +1075,30 @@ func draw_building_preview() -> void:
     else:
         draw_rect(preview_rect, Color(0.9, 0.1, 0.1, 0.28), true)
         draw_rect(preview_rect, Color(1.0, 0.1, 0.1, 0.95), false, 2.0)
+
+
+func draw_pause_overlay() -> void:
+    if not simulation_paused:
+        return
+
+    var viewport_size := get_viewport_rect().size
+    var label_position := Vector2(16, 16)
+
+    draw_rect(
+        Rect2(label_position - Vector2(6, 4), Vector2(190, 26)),
+        Color(0.0, 0.0, 0.0, 0.55),
+        true
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        label_position + Vector2(0, 16),
+        "PAUSED - assign orders",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        16,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
 
 
 func get_resource_marker_color(resource_id: String) -> Color:
