@@ -115,7 +115,7 @@ func setup_building_button_theme(button: Button) -> void:
     hover_style.bg_color = Color(0.28, 0.28, 0.28, 0.95)
 
     var pressed_style := normal_style.duplicate()
-    pressed_style.bg_color = Color(0.10, 0.10, 0.95)
+    pressed_style.bg_color = Color(0.10, 0.10, 0.10, 0.95)
 
     button.add_theme_stylebox_override("normal", normal_style)
     button.add_theme_stylebox_override("hover", hover_style)

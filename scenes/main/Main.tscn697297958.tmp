@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://5necpadsa5c3"]
+
+[ext_resource type="Script" uid="uid://dsdbki5x5a6fr" path="res://scripts/main/main.gd" id="1_dc040"]
+[ext_resource type="PackedScene" uid="uid://f06je7d7k60h" path="res://scenes/region/Region.tscn" id="1_gyg6b"]
+[ext_resource type="PackedScene" uid="uid://cti1m8t1rggb2" path="res://scenes/world/World.tscn" id="1_u1xfj"]
+[ext_resource type="Script" uid="uid://bpy1cjdhu4hfv" path="res://scripts/world/world.gd" id="2_q24mn"]
+[ext_resource type="Script" uid="uid://clrx8b2pq80ao" path="res://scripts/core/main_camera.gd" id="3_q24mn"]
+[ext_resource type="Script" uid="uid://cf6mn25b7ls8e" path="res://scripts/main/main_ui.gd" id="6_1rhdn"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_q24mn"]
+
+[node name="Main" type="Node2D" unique_id=1538121569]
+script = ExtResource("1_dc040")
+
+[node name="Region" parent="." unique_id=453203254 instance=ExtResource("1_gyg6b")]
+
+[node name="World" parent="." unique_id=754916054 instance=ExtResource("1_u1xfj")]
+script = ExtResource("2_q24mn")
+tile_info_label_path = NodePath("../UI/TileInfoLabel")
+
+[node name="MainCamera" type="Camera2D" parent="." unique_id=1455484640]
+offset = Vector2(480, 320)
+script = ExtResource("3_q24mn")
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=2059825496]
+script = ExtResource("6_1rhdn")
+
+[node name="TileInfoLabel" type="Label" parent="UI" unique_id=1439456619]
+custom_minimum_size = Vector2(10, 10)
+offset_right = 40.0
+offset_bottom = 23.0
+text = "Tile Info"
+label_settings = SubResource("LabelSettings_q24mn")
+
+[node name="BuildButton" type="Button" parent="UI" unique_id=1165520889]
+custom_minimum_size = Vector2(10, 180)
+offset_left = -95.0
+offset_top = 610.0
+offset_right = -47.0
+offset_bottom = 641.0
+text = "Build"
+
+[node name="BuildMenu" type="Panel" parent="UI" unique_id=1177642545]
+offset_left = -94.0
+offset_top = 570.0
+offset_right = 1056.0
+offset_bottom = 610.0
+
+[node name="CampfireButton" type="Button" parent="UI/BuildMenu" unique_id=1731287903]
+layout_mode = 0
+offset_right = 80.0
+offset_bottom = 31.0
+text = "Campfire"

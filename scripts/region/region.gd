@@ -31,14 +31,7 @@ const RESOURCE_FISH: String = RegionGenerator.RESOURCE_FISH
 const RESOURCE_FIBER: String = RegionGenerator.RESOURCE_FIBER
 
 const BUILD_MODE_NONE: String = "none"
-const BUILD_MODE_CAMPFIRE: String = "campfire"
-
-const BUILDING_CAMPFIRE: String = "campfire"
-
-const CAMPFIRE_WIDTH: int = 2
-const CAMPFIRE_HEIGHT: int = 2
-const CAMPFIRE_WOOD_COST: int = 4
-const CAMPFIRE_STONE_COST: int = 2
+const BUILDING_CAMPFIRE: String = RegionBuildingData.BUILDING_CAMPFIRE
 
 @export var region_seed: int = 12345
 
@@ -53,6 +46,7 @@ var selected_tile: Vector2i = Vector2i(-1, -1)
 
 var show_resource_markers: bool = true
 var current_build_mode: String = BUILD_MODE_NONE
+var current_building_id: String = ""
 
 var region_buildings: Array = []
 
@@ -93,8 +87,8 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_LEFT:
-            if current_build_mode == BUILD_MODE_CAMPFIRE:
-                try_place_campfire(hovered_tile)
+            if current_build_mode != BUILD_MODE_NONE:
+                try_place_current_building(hovered_tile)
             else:
                 select_hovered_tile()
 
@@ -155,6 +149,7 @@ func generate_from_world_selection(
     hovered_tile = Vector2i(-1, -1)
     selected_tile = Vector2i(-1, -1)
     current_build_mode = BUILD_MODE_NONE
+    current_building_id = ""
 
     reset_test_inventory()
 
@@ -197,6 +192,7 @@ func regenerate_region() -> void:
         selected_tile = Vector2i(-1, -1)
 
     current_build_mode = BUILD_MODE_NONE
+    current_building_id = ""
     reset_test_inventory()
 
     print_region_resource_totals()
@@ -234,48 +230,83 @@ func toggle_resource_markers() -> void:
 
 
 func start_campfire_placement() -> void:
-    current_build_mode = BUILD_MODE_CAMPFIRE
+    start_building_placement(BUILDING_CAMPFIRE)
+
+
+func start_building_placement(building_id: String) -> void:
+    var building_data: Dictionary = RegionBuildingData.get_building(building_id)
+
+    if building_data.is_empty():
+        push_warning("Unknown building id: " + building_id)
+        return
+
+    if not bool(building_data.get("unlocked", false)):
+        print("Building is locked: ", str(building_data.get("name", building_id)))
+        return
+
+    current_build_mode = building_id
+    current_building_id = building_id
+
     queue_redraw()
 
-    print("Campfire placement mode: ON")
-    print("Campfire Cost: 4 Wood, 2 Stone")
+    print(str(building_data.get("name", building_id)) + " placement mode: ON")
+    print("Cost: " + get_cost_text_from_dictionary(building_data.get("cost", {})))
 
 
 func cancel_build_mode() -> void:
     current_build_mode = BUILD_MODE_NONE
+    current_building_id = ""
     queue_redraw()
 
     print("Build mode cancelled.")
 
 
-func try_place_campfire(origin_tile: Vector2i) -> void:
+func try_place_current_building(origin_tile: Vector2i) -> void:
+    if current_building_id == "":
+        print("No building selected.")
+        return
+
+    var building_data: Dictionary = RegionBuildingData.get_building(current_building_id)
+
+    if building_data.is_empty():
+        push_warning("Cannot place unknown building: " + current_building_id)
+        cancel_build_mode()
+        return
+
     if not is_tile_in_bounds(origin_tile):
-        print("Cannot place Campfire outside the map.")
+        print("Cannot place building outside the map.")
         return
 
-    if not can_place_building(origin_tile, CAMPFIRE_WIDTH, CAMPFIRE_HEIGHT):
-        print("Cannot place Campfire here.")
+    var footprint_width: int = int(building_data.get("width", 1))
+    var footprint_height: int = int(building_data.get("height", 1))
+    var building_name: String = str(building_data.get("name", current_building_id))
+    var cost: Dictionary = building_data.get("cost", {})
+
+    if not can_place_building(origin_tile, footprint_width, footprint_height):
+        print("Cannot place " + building_name + " here.")
         return
 
-    if not has_building_cost(CAMPFIRE_WOOD_COST, CAMPFIRE_STONE_COST):
-        print("Not enough resources to build Campfire.")
-        print("Need: 4 Wood, 2 Stone")
+    if not has_building_cost(cost):
+        print("Not enough resources to build " + building_name + ".")
+        print("Need: " + get_cost_text_from_dictionary(cost))
         print_settlement_inventory()
         return
 
-    spend_building_cost(CAMPFIRE_WOOD_COST, CAMPFIRE_STONE_COST)
+    spend_building_cost(cost)
+
     place_building(
-        BUILDING_CAMPFIRE,
-        "Campfire",
+        current_building_id,
+        building_name,
         origin_tile,
-        CAMPFIRE_WIDTH,
-        CAMPFIRE_HEIGHT
+        footprint_width,
+        footprint_height
     )
 
-    current_build_mode = BUILD_MODE_NONE
-
-    print("Campfire built at: ", origin_tile)
+    print(building_name + " built at: ", origin_tile)
     print_settlement_inventory()
+
+    current_build_mode = BUILD_MODE_NONE
+    current_building_id = ""
 
     queue_redraw()
 
@@ -312,16 +343,54 @@ func can_place_building(
     return true
 
 
-func has_building_cost(wood_cost: int, stone_cost: int) -> bool:
-    var current_wood: int = int(settlement_inventory.get("Wood", 0))
-    var current_stone: int = int(settlement_inventory.get("Stone", 0))
+func has_building_cost(cost: Dictionary) -> bool:
+    var resource_names: Array = cost.keys()
 
-    return current_wood >= wood_cost and current_stone >= stone_cost
+    for resource_index in range(resource_names.size()):
+        var resource_name_variant: Variant = resource_names[resource_index]
+        var resource_name: String = str(resource_name_variant)
+        var required_amount: int = int(cost.get(resource_name, 0))
+        var current_amount: int = int(settlement_inventory.get(resource_name, 0))
+
+        if current_amount < required_amount:
+            return false
+
+    return true
 
 
-func spend_building_cost(wood_cost: int, stone_cost: int) -> void:
-    settlement_inventory["Wood"] = int(settlement_inventory.get("Wood", 0)) - wood_cost
-    settlement_inventory["Stone"] = int(settlement_inventory.get("Stone", 0)) - stone_cost
+func spend_building_cost(cost: Dictionary) -> void:
+    var resource_names: Array = cost.keys()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name_variant: Variant = resource_names[resource_index]
+        var resource_name: String = str(resource_name_variant)
+        var required_amount: int = int(cost.get(resource_name, 0))
+        var current_amount: int = int(settlement_inventory.get(resource_name, 0))
+
+        settlement_inventory[resource_name] = current_amount - required_amount
+
+
+func get_cost_text_from_dictionary(cost_variant: Variant) -> String:
+    if typeof(cost_variant) != TYPE_DICTIONARY:
+        return "Free"
+
+    var cost: Dictionary = cost_variant
+
+    if cost.is_empty():
+        return "Free"
+
+    var parts: Array = []
+    var resource_names: Array = cost.keys()
+    resource_names.sort()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name_variant: Variant = resource_names[resource_index]
+        var resource_name: String = str(resource_name_variant)
+        var amount: int = int(cost.get(resource_name, 0))
+
+        parts.append(resource_name + " " + str(amount))
+
+    return ", ".join(parts)
 
 
 func place_building(
@@ -358,8 +427,15 @@ func place_building(
 func print_settlement_inventory() -> void:
     print("")
     print("Settlement Inventory:")
-    print("Wood: ", int(settlement_inventory.get("Wood", 0)))
-    print("Stone: ", int(settlement_inventory.get("Stone", 0)))
+
+    var resource_names: Array = settlement_inventory.keys()
+    resource_names.sort()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name_variant: Variant = resource_names[resource_index]
+        var resource_name: String = str(resource_name_variant)
+        print(resource_name + ": " + str(int(settlement_inventory.get(resource_name, 0))))
+
     print("")
 
 
@@ -594,14 +670,14 @@ func draw_buildings() -> void:
             BUILDING_CAMPFIRE:
                 draw_campfire_building(building_data)
             _:
-                pass
+                draw_generic_building(building_data)
 
 
 func draw_campfire_building(building_data: Dictionary) -> void:
     var tile_x: int = int(building_data.get("x", 0))
     var tile_y: int = int(building_data.get("y", 0))
-    var width: int = int(building_data.get("width", CAMPFIRE_WIDTH))
-    var height: int = int(building_data.get("height", CAMPFIRE_HEIGHT))
+    var width: int = int(building_data.get("width", 2))
+    var height: int = int(building_data.get("height", 2))
 
     var building_position := Vector2(tile_x * REGION_TILE_SIZE, tile_y * REGION_TILE_SIZE)
     var building_size := Vector2(width * REGION_TILE_SIZE, height * REGION_TILE_SIZE)
@@ -615,17 +691,39 @@ func draw_campfire_building(building_data: Dictionary) -> void:
     draw_circle(center, 3.0, Color(1.0, 0.9, 0.2, 1.0))
 
 
+func draw_generic_building(building_data: Dictionary) -> void:
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 1))
+    var height: int = int(building_data.get("height", 1))
+
+    var building_position := Vector2(tile_x * REGION_TILE_SIZE, tile_y * REGION_TILE_SIZE)
+    var building_size := Vector2(width * REGION_TILE_SIZE, height * REGION_TILE_SIZE)
+    var building_rect := Rect2(building_position, building_size)
+
+    draw_rect(building_rect, Color(0.35, 0.22, 0.12, 0.90), true)
+    draw_rect(building_rect, Color(0.85, 0.70, 0.45, 1.0), false, 2.0)
+
+
 func draw_building_preview() -> void:
-    if current_build_mode != BUILD_MODE_CAMPFIRE:
+    if current_build_mode == BUILD_MODE_NONE or current_building_id == "":
         return
 
     if not is_tile_in_bounds(hovered_tile):
         return
 
+    var building_data: Dictionary = RegionBuildingData.get_building(current_building_id)
+
+    if building_data.is_empty():
+        return
+
+    var footprint_width: int = int(building_data.get("width", 1))
+    var footprint_height: int = int(building_data.get("height", 1))
+
     var can_place := can_place_building(
         hovered_tile,
-        CAMPFIRE_WIDTH,
-        CAMPFIRE_HEIGHT
+        footprint_width,
+        footprint_height
     )
 
     var preview_position := Vector2(
@@ -634,8 +732,8 @@ func draw_building_preview() -> void:
     )
 
     var preview_size := Vector2(
-        CAMPFIRE_WIDTH * REGION_TILE_SIZE,
-        CAMPFIRE_HEIGHT * REGION_TILE_SIZE
+        footprint_width * REGION_TILE_SIZE,
+        footprint_height * REGION_TILE_SIZE
     )
 
     var preview_rect := Rect2(preview_position, preview_size)
