@@ -30,6 +30,16 @@ const RESOURCE_CLAY: String = RegionGenerator.RESOURCE_CLAY
 const RESOURCE_FISH: String = RegionGenerator.RESOURCE_FISH
 const RESOURCE_FIBER: String = RegionGenerator.RESOURCE_FIBER
 
+const BUILD_MODE_NONE: String = "none"
+const BUILD_MODE_CAMPFIRE: String = "campfire"
+
+const BUILDING_CAMPFIRE: String = "campfire"
+
+const CAMPFIRE_WIDTH: int = 2
+const CAMPFIRE_HEIGHT: int = 2
+const CAMPFIRE_WOOD_COST: int = 4
+const CAMPFIRE_STONE_COST: int = 2
+
 @export var region_seed: int = 12345
 
 var region_tiles: Array = []
@@ -37,14 +47,25 @@ var source_world_tiles: Array = []
 var source_world_seed: int = 0
 var source_selection_origin: Vector2i = Vector2i(-1, -1)
 var source_world_resource_totals: Dictionary = {}
+
 var hovered_tile: Vector2i = Vector2i(-1, -1)
 var selected_tile: Vector2i = Vector2i(-1, -1)
+
 var show_resource_markers: bool = true
+var current_build_mode: String = BUILD_MODE_NONE
+
+var region_buildings: Array = []
+
+var settlement_inventory: Dictionary = {
+    "Wood": 20,
+    "Stone": 10
+}
 
 
 func _ready() -> void:
     generate_region()
     print_region_resource_totals()
+    print_settlement_inventory()
     queue_redraw()
 
 
@@ -72,7 +93,10 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_LEFT:
-            select_hovered_tile()
+            if current_build_mode == BUILD_MODE_CAMPFIRE:
+                try_place_campfire(hovered_tile)
+            else:
+                select_hovered_tile()
 
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_R:
@@ -81,8 +105,14 @@ func _unhandled_input(event: InputEvent) -> void:
         if event.keycode == KEY_T:
             toggle_resource_markers()
 
+        if event.keycode == KEY_C:
+            start_campfire_placement()
+
         if event.keycode == KEY_ESCAPE:
-            emit_signal("return_to_world_requested")
+            if current_build_mode != BUILD_MODE_NONE:
+                cancel_build_mode()
+            else:
+                emit_signal("return_to_world_requested")
 
 
 func generate_region() -> void:
@@ -91,6 +121,8 @@ func generate_region() -> void:
         REGION_HEIGHT,
         region_seed
     )
+
+    clear_buildings()
 
     print("Region Seed: ", region_seed)
 
@@ -118,13 +150,19 @@ func generate_from_world_selection(
         source_world_tiles
     )
 
+    clear_buildings()
+
     hovered_tile = Vector2i(-1, -1)
     selected_tile = Vector2i(-1, -1)
+    current_build_mode = BUILD_MODE_NONE
+
+    reset_test_inventory()
 
     print("Region Seed: ", region_seed)
     print("Source World Region Origin: ", source_selection_origin)
     print_source_world_selection_resource_totals()
     print_region_resource_totals()
+    print_settlement_inventory()
 
     queue_redraw()
 
@@ -153,13 +191,39 @@ func regenerate_region() -> void:
     else:
         generate_region()
 
+    clear_buildings()
+
     if not is_tile_in_bounds(selected_tile):
         selected_tile = Vector2i(-1, -1)
 
+    current_build_mode = BUILD_MODE_NONE
+    reset_test_inventory()
+
     print_region_resource_totals()
+    print_settlement_inventory()
     queue_redraw()
 
     print("Regenerated region.")
+
+
+func reset_test_inventory() -> void:
+    settlement_inventory = {
+        "Wood": 20,
+        "Stone": 10
+    }
+
+
+func clear_buildings() -> void:
+    region_buildings.clear()
+
+    if region_tiles.is_empty():
+        return
+
+    for y in range(REGION_HEIGHT):
+        for x in range(REGION_WIDTH):
+            var tile_data: Dictionary = region_tiles[y][x]
+            tile_data["occupied"] = false
+            tile_data.erase("building_id")
 
 
 func toggle_resource_markers() -> void:
@@ -167,6 +231,136 @@ func toggle_resource_markers() -> void:
     queue_redraw()
 
     print("Show Region Resource Markers: ", show_resource_markers)
+
+
+func start_campfire_placement() -> void:
+    current_build_mode = BUILD_MODE_CAMPFIRE
+    queue_redraw()
+
+    print("Campfire placement mode: ON")
+    print("Campfire Cost: 4 Wood, 2 Stone")
+
+
+func cancel_build_mode() -> void:
+    current_build_mode = BUILD_MODE_NONE
+    queue_redraw()
+
+    print("Build mode cancelled.")
+
+
+func try_place_campfire(origin_tile: Vector2i) -> void:
+    if not is_tile_in_bounds(origin_tile):
+        print("Cannot place Campfire outside the map.")
+        return
+
+    if not can_place_building(origin_tile, CAMPFIRE_WIDTH, CAMPFIRE_HEIGHT):
+        print("Cannot place Campfire here.")
+        return
+
+    if not has_building_cost(CAMPFIRE_WOOD_COST, CAMPFIRE_STONE_COST):
+        print("Not enough resources to build Campfire.")
+        print("Need: 4 Wood, 2 Stone")
+        print_settlement_inventory()
+        return
+
+    spend_building_cost(CAMPFIRE_WOOD_COST, CAMPFIRE_STONE_COST)
+    place_building(
+        BUILDING_CAMPFIRE,
+        "Campfire",
+        origin_tile,
+        CAMPFIRE_WIDTH,
+        CAMPFIRE_HEIGHT
+    )
+
+    current_build_mode = BUILD_MODE_NONE
+
+    print("Campfire built at: ", origin_tile)
+    print_settlement_inventory()
+
+    queue_redraw()
+
+
+func can_place_building(
+    origin_tile: Vector2i,
+    footprint_width: int,
+    footprint_height: int
+) -> bool:
+    if origin_tile.x < 0 or origin_tile.y < 0:
+        return false
+
+    if origin_tile.x + footprint_width > REGION_WIDTH:
+        return false
+
+    if origin_tile.y + footprint_height > REGION_HEIGHT:
+        return false
+
+    for y_offset in range(footprint_height):
+        for x_offset in range(footprint_width):
+            var tile_position := Vector2i(
+                origin_tile.x + x_offset,
+                origin_tile.y + y_offset
+            )
+
+            var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
+
+            if not bool(tile_data.get("buildable", false)):
+                return false
+
+            if bool(tile_data.get("occupied", false)):
+                return false
+
+    return true
+
+
+func has_building_cost(wood_cost: int, stone_cost: int) -> bool:
+    var current_wood: int = int(settlement_inventory.get("Wood", 0))
+    var current_stone: int = int(settlement_inventory.get("Stone", 0))
+
+    return current_wood >= wood_cost and current_stone >= stone_cost
+
+
+func spend_building_cost(wood_cost: int, stone_cost: int) -> void:
+    settlement_inventory["Wood"] = int(settlement_inventory.get("Wood", 0)) - wood_cost
+    settlement_inventory["Stone"] = int(settlement_inventory.get("Stone", 0)) - stone_cost
+
+
+func place_building(
+    building_id: String,
+    display_name: String,
+    origin_tile: Vector2i,
+    footprint_width: int,
+    footprint_height: int
+) -> void:
+    var building_data := {
+        "id": building_id,
+        "name": display_name,
+        "x": origin_tile.x,
+        "y": origin_tile.y,
+        "width": footprint_width,
+        "height": footprint_height,
+        "active": true
+    }
+
+    region_buildings.append(building_data)
+
+    for y_offset in range(footprint_height):
+        for x_offset in range(footprint_width):
+            var tile_position := Vector2i(
+                origin_tile.x + x_offset,
+                origin_tile.y + y_offset
+            )
+
+            var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
+            tile_data["occupied"] = true
+            tile_data["building_id"] = building_id
+
+
+func print_settlement_inventory() -> void:
+    print("")
+    print("Settlement Inventory:")
+    print("Wood: ", int(settlement_inventory.get("Wood", 0)))
+    print("Stone: ", int(settlement_inventory.get("Stone", 0)))
+    print("")
 
 
 func print_source_world_selection_resource_totals() -> void:
@@ -286,7 +480,9 @@ func _draw() -> void:
     if show_resource_markers:
         draw_region_resource_markers()
 
+    draw_buildings()
     draw_grid_lines()
+    draw_building_preview()
     draw_selected_tile()
     draw_hovered_tile()
 
@@ -382,6 +578,74 @@ func draw_plus_marker(position: Vector2, size: float, color: Color) -> void:
         color,
         1.5
     )
+
+
+func draw_buildings() -> void:
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", "unknown"))
+
+        match building_id:
+            BUILDING_CAMPFIRE:
+                draw_campfire_building(building_data)
+            _:
+                pass
+
+
+func draw_campfire_building(building_data: Dictionary) -> void:
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", CAMPFIRE_WIDTH))
+    var height: int = int(building_data.get("height", CAMPFIRE_HEIGHT))
+
+    var building_position := Vector2(tile_x * REGION_TILE_SIZE, tile_y * REGION_TILE_SIZE)
+    var building_size := Vector2(width * REGION_TILE_SIZE, height * REGION_TILE_SIZE)
+    var building_rect := Rect2(building_position, building_size)
+
+    draw_rect(building_rect, Color(0.50, 0.22, 0.08, 0.95), true)
+    draw_rect(building_rect, Color(1.0, 0.55, 0.12, 1.0), false, 2.0)
+
+    var center := building_position + building_size / 2.0
+    draw_circle(center, 6.0, Color(1.0, 0.42, 0.05, 1.0))
+    draw_circle(center, 3.0, Color(1.0, 0.9, 0.2, 1.0))
+
+
+func draw_building_preview() -> void:
+    if current_build_mode != BUILD_MODE_CAMPFIRE:
+        return
+
+    if not is_tile_in_bounds(hovered_tile):
+        return
+
+    var can_place := can_place_building(
+        hovered_tile,
+        CAMPFIRE_WIDTH,
+        CAMPFIRE_HEIGHT
+    )
+
+    var preview_position := Vector2(
+        hovered_tile.x * REGION_TILE_SIZE,
+        hovered_tile.y * REGION_TILE_SIZE
+    )
+
+    var preview_size := Vector2(
+        CAMPFIRE_WIDTH * REGION_TILE_SIZE,
+        CAMPFIRE_HEIGHT * REGION_TILE_SIZE
+    )
+
+    var preview_rect := Rect2(preview_position, preview_size)
+
+    if can_place:
+        draw_rect(preview_rect, Color(0.1, 0.9, 0.1, 0.28), true)
+        draw_rect(preview_rect, Color(0.1, 1.0, 0.1, 0.95), false, 2.0)
+    else:
+        draw_rect(preview_rect, Color(0.9, 0.1, 0.1, 0.28), true)
+        draw_rect(preview_rect, Color(1.0, 0.1, 0.1, 0.95), false, 2.0)
 
 
 func get_resource_marker_color(resource_id: String) -> Color:
