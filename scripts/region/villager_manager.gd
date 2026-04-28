@@ -576,19 +576,42 @@ func is_tile_walkable_for_villager(tile_position: Vector2i) -> bool:
         return false
 
     var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
-
-    if not bool(tile_data.get("walkable", false)):
-        return false
-
-    if bool(tile_data.get("occupied", false)):
-        return false
-
     var terrain: String = str(tile_data.get("terrain", ""))
 
     if terrain == terrain_water:
         return false
 
-    return true
+    if bool(tile_data.get("occupied", false)):
+        return false
+
+    if bool(tile_data.get("walkable", false)):
+        return true
+
+    if is_tree_wood_tile(tile_data):
+        return true
+
+    return false
+
+
+func is_tree_wood_tile(tile_data: Dictionary) -> bool:
+    var resources: Array = tile_data.get("resources", [])
+
+    if resources.is_empty():
+        return false
+
+    for resource_index in range(resources.size()):
+        var resource_variant: Variant = resources[resource_index]
+
+        if typeof(resource_variant) != TYPE_DICTIONARY:
+            continue
+
+        var resource_dict: Dictionary = resource_variant
+        var resource_id: String = str(resource_dict.get("id", ""))
+
+        if resource_id == RESOURCE_WOOD:
+            return true
+
+    return false
 
 
 func is_tile_harvestable_at_position(tile_position: Vector2i) -> bool:

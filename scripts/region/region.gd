@@ -53,19 +53,13 @@ var current_building_id: String = ""
 
 var region_buildings: Array = []
 
+var inventory := RegionInventory.new()
 var villager_manager := VillagerManager.new()
 
 var is_dragging_villager: bool = false
 var dragged_villager_id: int = 0
 var drag_assignment_tile: Vector2i = Vector2i(-1, -1)
 var simulation_paused: bool = false
-
-var settlement_inventory: Dictionary = {
-    "Wood": 0,
-    "Stone": 0,
-    "Fiber": 0,
-    "Flint": 0
-}
 
 
 func _ready() -> void:
@@ -247,12 +241,7 @@ func regenerate_region() -> void:
 
 
 func reset_test_inventory() -> void:
-    settlement_inventory = {
-        "Wood": 0,
-        "Stone": 0,
-        "Fiber": 0,
-        "Flint": 0
-    }
+    inventory.reset()
 
 
 func setup_villager_manager() -> void:
@@ -273,23 +262,11 @@ func update_villager_manager(delta: float) -> void:
     var harvested_resources: Dictionary = villager_manager.update(delta)
 
     if not harvested_resources.is_empty():
-        add_harvested_resources_to_inventory(harvested_resources)
+        inventory.add_resources(harvested_resources)
         print_settlement_inventory()
 
     if villager_manager.has_tile_changes():
         queue_redraw()
-
-
-func add_harvested_resources_to_inventory(harvested_resources: Dictionary) -> void:
-    var resource_names: Array = harvested_resources.keys()
-
-    for resource_index in range(resource_names.size()):
-        var resource_name_variant: Variant = resource_names[resource_index]
-        var resource_name: String = str(resource_name_variant)
-        var harvested_amount: int = int(harvested_resources.get(resource_name, 0))
-        var current_amount: int = int(settlement_inventory.get(resource_name, 0))
-
-        settlement_inventory[resource_name] = current_amount + harvested_amount
 
 
 func clear_buildings() -> void:
@@ -387,13 +364,13 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
         )
         return
 
-    if not has_building_cost(cost):
+    if not inventory.has_cost(cost):
         print("Not enough resources to build " + building_name + ".")
         print("Need: " + get_cost_text_from_dictionary(cost))
         print_settlement_inventory()
         return
 
-    spend_building_cost(cost)
+    inventory.spend_cost(cost)
 
     place_building(
         current_building_id,
@@ -507,33 +484,6 @@ func print_building_placement_failure_reason(
     print("")
 
 
-func has_building_cost(cost: Dictionary) -> bool:
-    var resource_names: Array = cost.keys()
-
-    for resource_index in range(resource_names.size()):
-        var resource_name_variant: Variant = resource_names[resource_index]
-        var resource_name: String = str(resource_name_variant)
-        var required_amount: int = int(cost.get(resource_name, 0))
-        var current_amount: int = int(settlement_inventory.get(resource_name, 0))
-
-        if current_amount < required_amount:
-            return false
-
-    return true
-
-
-func spend_building_cost(cost: Dictionary) -> void:
-    var resource_names: Array = cost.keys()
-
-    for resource_index in range(resource_names.size()):
-        var resource_name_variant: Variant = resource_names[resource_index]
-        var resource_name: String = str(resource_name_variant)
-        var required_amount: int = int(cost.get(resource_name, 0))
-        var current_amount: int = int(settlement_inventory.get(resource_name, 0))
-
-        settlement_inventory[resource_name] = current_amount - required_amount
-
-
 func get_cost_text_from_dictionary(cost_variant: Variant) -> String:
     if typeof(cost_variant) != TYPE_DICTIONARY:
         return "Free"
@@ -636,19 +586,7 @@ func cancel_villager_drag() -> void:
 
 
 func print_settlement_inventory() -> void:
-    print("")
-    print("Settlement Inventory:")
-
-    var resource_names: Array = settlement_inventory.keys()
-    resource_names.sort()
-
-    for resource_index in range(resource_names.size()):
-        var resource_name_variant: Variant = resource_names[resource_index]
-        var resource_name: String = str(resource_name_variant)
-        print(resource_name + ": " + str(int(settlement_inventory.get(resource_name, 0))))
-
-    print("Population: " + str(villager_manager.get_population_count()))
-    print("")
+    inventory.print_inventory(villager_manager.get_population_count())
 
 
 func print_source_world_selection_resource_totals() -> void:
@@ -1081,7 +1019,6 @@ func draw_pause_overlay() -> void:
     if not simulation_paused:
         return
 
-    var viewport_size := get_viewport_rect().size
     var label_position := Vector2(16, 16)
 
     draw_rect(
