@@ -6,6 +6,9 @@ extends CanvasLayer
 @onready var region: Node2D = get_node_or_null("../Region")
 
 var generated_build_buttons: Array = []
+var generated_age_buttons: Array = []
+
+var selected_build_age: String = ""
 
 
 func _ready() -> void:
@@ -32,8 +35,6 @@ func _ready() -> void:
         campfire_button.visible = false
 
     build_button.pressed.connect(_on_build_button_pressed)
-
-    call_deferred("setup_build_menu_buttons")
 
 
 func _notification(what: int) -> void:
@@ -98,18 +99,32 @@ func setup_build_menu_theme() -> void:
     build_menu.add_theme_stylebox_override("panel", panel_style)
 
 
-func setup_building_button_theme(button: Button) -> void:
-    button.add_theme_font_size_override("font_size", 11)
+func setup_small_button_theme(
+    button: Button,
+    is_age_button: bool = false,
+    is_selected: bool = false
+) -> void:
+    button.add_theme_font_size_override("font_size", 10)
 
     var normal_style := StyleBoxFlat.new()
-    normal_style.bg_color = Color(0.18, 0.18, 0.18, 0.92)
-    normal_style.border_color = Color(0.7, 0.7, 0.7, 1.0)
+
+    if is_age_button:
+        if is_selected:
+            normal_style.bg_color = Color(0.34, 0.24, 0.10, 0.98)
+            normal_style.border_color = Color(1.0, 0.78, 0.28, 1.0)
+        else:
+            normal_style.bg_color = Color(0.22, 0.18, 0.10, 0.95)
+            normal_style.border_color = Color(0.95, 0.75, 0.35, 1.0)
+    else:
+        normal_style.bg_color = Color(0.18, 0.18, 0.18, 0.92)
+        normal_style.border_color = Color(0.7, 0.7, 0.7, 1.0)
+
     normal_style.set_border_width_all(1)
     normal_style.set_corner_radius_all(3)
     normal_style.content_margin_left = 4
     normal_style.content_margin_right = 4
-    normal_style.content_margin_top = 2
-    normal_style.content_margin_bottom = 2
+    normal_style.content_margin_top = 1
+    normal_style.content_margin_bottom = 1
 
     var hover_style := normal_style.duplicate()
     hover_style.bg_color = Color(0.28, 0.28, 0.28, 0.95)
@@ -142,27 +157,70 @@ func setup_build_ui_layout() -> void:
     if build_menu == null:
         return
 
+    build_menu.size = Vector2(
+        min(760.0, viewport_size.x - margin * 2.0),
+        84.0
+    )
+
     build_menu.position = Vector2(
         margin,
         build_button.position.y - build_menu.size.y - 8.0
     )
 
 
-func setup_build_menu_buttons() -> void:
+func setup_build_menu_age_buttons() -> void:
     if build_menu == null:
         return
 
+    clear_generated_age_buttons()
     clear_generated_build_buttons()
 
     if campfire_button != null:
         campfire_button.visible = false
 
+    create_age_button(
+        "Stone Age",
+        RegionBuildingData.AGE_STONE,
+        Vector2(8, 8)
+    )
+
+    # Later age buttons will be added here.
+    # Example:
+    # create_age_button("Copper Age", RegionBuildingData.AGE_COPPER, Vector2(90, 8))
+    # create_age_button("Bronze Age", RegionBuildingData.AGE_BRONZE, Vector2(180, 8))
+
+
+func create_age_button(display_name: String, age_id: String, position: Vector2) -> void:
+    var age_button := Button.new()
+    age_button.name = "AgeButton_" + age_id
+    age_button.text = display_name
+    age_button.position = position
+    age_button.size = Vector2(76, 20)
+    age_button.custom_minimum_size = Vector2(76, 20)
+    age_button.tooltip_text = "Show " + display_name + " buildings"
+
+    var is_selected: bool = selected_build_age == age_id
+    setup_small_button_theme(age_button, true, is_selected)
+
+    age_button.pressed.connect(
+        Callable(self, "_on_age_button_pressed").bind(age_id)
+    )
+
+    build_menu.add_child(age_button)
+    generated_age_buttons.append(age_button)
+
+
+func create_building_buttons_for_age(age_id: String) -> void:
+    clear_generated_build_buttons()
+
     var unlocked_buildings: Array = RegionBuildingData.get_unlocked_buildings()
 
-    var button_y: float = 8.0
-    var button_margin: float = 8.0
-    var button_height: float = 22.0
-    var button_width: float = max(80.0, build_menu.size.x - button_margin * 2.0)
+    var start_x: float = 8.0
+    var button_y: float = 36.0
+    var button_spacing: float = 6.0
+    var button_height: float = 20.0
+    var current_x: float = start_x
+    var max_x: float = build_menu.size.x - 8.0
 
     for building_index in range(unlocked_buildings.size()):
         var building_variant: Variant = unlocked_buildings[building_index]
@@ -171,16 +229,28 @@ func setup_build_menu_buttons() -> void:
             continue
 
         var building_data: Dictionary = building_variant
+        var building_age: String = str(building_data.get("age", ""))
+
+        if building_age != age_id:
+            continue
+
         var building_id: String = str(building_data.get("id", "unknown"))
+        var building_name: String = str(building_data.get("name", "Unknown"))
+
+        var button_width: float = get_building_button_width(building_name)
+
+        if current_x + button_width > max_x:
+            break
 
         var building_button := Button.new()
         building_button.name = "BuildButton_" + building_id
-        building_button.text = get_building_button_text(building_data)
-        building_button.position = Vector2(button_margin, button_y)
+        building_button.text = building_name
+        building_button.position = Vector2(current_x, button_y)
         building_button.size = Vector2(button_width, button_height)
         building_button.custom_minimum_size = Vector2(button_width, button_height)
+        building_button.tooltip_text = get_building_tooltip_text(building_data)
 
-        setup_building_button_theme(building_button)
+        setup_small_button_theme(building_button, false, false)
 
         building_button.pressed.connect(
             Callable(self, "_on_generated_building_button_pressed").bind(building_id)
@@ -189,7 +259,24 @@ func setup_build_menu_buttons() -> void:
         build_menu.add_child(building_button)
         generated_build_buttons.append(building_button)
 
-        button_y += button_height + 6.0
+        current_x += button_width + button_spacing
+
+
+func get_building_button_width(building_name: String) -> float:
+    var estimated_width: float = 18.0 + float(building_name.length()) * 6.0
+
+    return clampf(estimated_width, 52.0, 128.0)
+
+
+func clear_generated_age_buttons() -> void:
+    for button_index in range(generated_age_buttons.size()):
+        var button_variant: Variant = generated_age_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_age_buttons.clear()
 
 
 func clear_generated_build_buttons() -> void:
@@ -203,19 +290,37 @@ func clear_generated_build_buttons() -> void:
     generated_build_buttons.clear()
 
 
-func get_building_button_text(building_data: Dictionary) -> String:
+func get_building_tooltip_text(building_data: Dictionary) -> String:
     var building_name: String = str(building_data.get("name", "Unknown Building"))
+    var description: String = str(building_data.get("description", ""))
     var cost_text: String = get_cost_text(building_data.get("cost", {}))
+    var footprint_text: String = (
+        str(int(building_data.get("width", 1)))
+        + "x"
+        + str(int(building_data.get("height", 1)))
+    )
 
-    if cost_text == "":
-        return building_name
+    var movable_text := "Fixed"
 
-    return building_name + " - " + cost_text
+    if bool(building_data.get("movable", false)):
+        movable_text = "Movable"
+
+    return (
+        building_name
+        + "\nCost: "
+        + cost_text
+        + "\nFootprint: "
+        + footprint_text
+        + "\n"
+        + movable_text
+        + "\n\n"
+        + description
+    )
 
 
 func get_cost_text(cost_variant: Variant) -> String:
     if typeof(cost_variant) != TYPE_DICTIONARY:
-        return ""
+        return "Free"
 
     var cost: Dictionary = cost_variant
 
@@ -241,12 +346,35 @@ func _on_build_button_pressed() -> void:
         push_warning("BuildMenu was not found.")
         return
 
-    setup_build_menu_buttons()
     setup_build_ui_layout()
 
-    build_menu.visible = not build_menu.visible
+    if build_menu.visible:
+        build_menu.visible = false
+        selected_build_age = ""
+        clear_generated_age_buttons()
+        clear_generated_build_buttons()
+    else:
+        build_menu.visible = true
+        selected_build_age = ""
+        setup_build_menu_age_buttons()
 
     print("Build Menu Visible: ", build_menu.visible)
+
+
+func _on_age_button_pressed(age_id: String) -> void:
+    selected_build_age = age_id
+
+    clear_generated_age_buttons()
+
+    create_age_button(
+        "Stone Age",
+        RegionBuildingData.AGE_STONE,
+        Vector2(8, 8)
+    )
+
+    create_building_buttons_for_age(selected_build_age)
+
+    print("Selected Build Age: ", selected_build_age)
 
 
 func _on_generated_building_button_pressed(building_id: String) -> void:
