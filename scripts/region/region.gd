@@ -1,5 +1,6 @@
 extends Node2D
 
+@warning_ignore("unused_signal")
 signal return_to_world_requested
 
 const REGION_WIDTH: int = 120
@@ -20,6 +21,10 @@ const STORAGE_SELECTOR_BUTTON_WIDTH: int = 96
 const STORAGE_SELECTOR_BUTTON_HEIGHT: int = 22
 const STORAGE_SELECTOR_BUTTON_GAP: int = 2
 
+const TOP_INFO_PANEL_WIDTH: int = 220
+const TOP_INFO_PANEL_HEIGHT: int = 34
+const TOP_INFO_PANEL_MARGIN: int = 12
+
 @export var region_seed: int = 12345
 
 var region_tiles: Array = []
@@ -35,6 +40,7 @@ var show_resource_markers: bool = true
 var show_campfire_radius: bool = false
 
 var inventory := RegionInventory.new()
+var research := RegionResearch.new()
 var building_manager := RegionBuildingManager.new()
 var villager_manager := VillagerManager.new()
 var renderer := RegionRenderer.new()
@@ -57,6 +63,7 @@ func _ready() -> void:
     generate_region()
     print_region_resource_totals()
     print_settlement_inventory()
+    print_research_status()
     queue_redraw()
 
 
@@ -84,6 +91,9 @@ func _process(delta: float) -> void:
         return
 
     update_villager_manager(delta)
+    update_research(delta)
+
+    queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -101,6 +111,7 @@ func generate_region() -> void:
     setup_building_manager()
     clear_buildings()
     reset_test_inventory()
+    reset_research()
     setup_villager_manager()
     close_storage_selector()
 
@@ -143,6 +154,7 @@ func generate_from_world_selection(
     close_storage_selector()
 
     reset_test_inventory()
+    reset_research()
     setup_villager_manager()
 
     print("Region Seed: ", region_seed)
@@ -150,6 +162,7 @@ func generate_from_world_selection(
     print_source_world_selection_resource_totals()
     print_region_resource_totals()
     print_settlement_inventory()
+    print_research_status()
 
     queue_redraw()
 
@@ -196,10 +209,12 @@ func regenerate_region() -> void:
     close_storage_selector()
 
     reset_test_inventory()
+    reset_research()
     setup_villager_manager()
 
     print_region_resource_totals()
     print_settlement_inventory()
+    print_research_status()
     queue_redraw()
 
     print("Regenerated region.")
@@ -207,6 +222,10 @@ func regenerate_region() -> void:
 
 func reset_test_inventory() -> void:
     inventory.reset()
+
+
+func reset_research() -> void:
+    research.reset()
 
 
 func setup_building_manager() -> void:
@@ -245,6 +264,13 @@ func update_villager_manager(delta: float) -> void:
 
     if villager_manager.has_tile_changes():
         queue_redraw()
+
+
+func update_research(delta: float) -> void:
+    research.update(
+        delta,
+        building_manager
+    )
 
 
 func clear_buildings() -> void:
@@ -301,6 +327,7 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
 
     if did_place_building:
         print_settlement_inventory()
+        print_research_status()
 
     queue_redraw()
 
@@ -470,6 +497,10 @@ func print_settlement_inventory() -> void:
     inventory.print_inventory(villager_manager.get_population_count())
 
 
+func print_research_status() -> void:
+    research.print_research_status(building_manager)
+
+
 func print_source_world_selection_resource_totals() -> void:
     print("")
     print("Source World 6x6 Resource Totals:")
@@ -611,6 +642,7 @@ func _draw() -> void:
     )
 
     draw_storage_selector()
+    draw_top_info_panel()
 
 
 func draw_storage_selector() -> void:
@@ -647,6 +679,77 @@ func draw_storage_selector() -> void:
             14,
             Color(1.0, 1.0, 1.0, 1.0)
         )
+
+
+func draw_top_info_panel() -> void:
+    var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
+    var inverse_transform: Transform2D = canvas_transform.affine_inverse()
+    var viewport_size: Vector2 = get_viewport_rect().size
+
+    var world_per_screen_x: float = inverse_transform.basis_xform(Vector2.RIGHT).length()
+    var world_per_screen_y: float = inverse_transform.basis_xform(Vector2.DOWN).length()
+
+    var panel_screen_position := Vector2(
+        viewport_size.x - TOP_INFO_PANEL_WIDTH - TOP_INFO_PANEL_MARGIN,
+        TOP_INFO_PANEL_MARGIN
+    )
+
+    var panel_world_position: Vector2 = inverse_transform * panel_screen_position
+
+    var panel_world_size := Vector2(
+        TOP_INFO_PANEL_WIDTH * world_per_screen_x,
+        TOP_INFO_PANEL_HEIGHT * world_per_screen_y
+    )
+
+    var panel_rect := Rect2(
+        panel_world_position,
+        panel_world_size
+    )
+
+    draw_rect(
+        panel_rect,
+        Color(0.05, 0.05, 0.05, 0.82),
+        true
+    )
+
+    draw_rect(
+        panel_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        max(1.0, 1.5 * world_per_screen_y)
+    )
+
+    var research_text := "Research: " + str(research.get_research_points())
+    var villager_text := "Villagers: " + str(villager_manager.get_population_count())
+
+    var font_size: int = int(max(10.0, 14.0 * world_per_screen_y))
+    var text_y: float = panel_world_position.y + (22.0 * world_per_screen_y)
+
+    draw_string(
+        ThemeDB.fallback_font,
+        Vector2(
+            panel_world_position.x + (10.0 * world_per_screen_x),
+            text_y
+        ),
+        research_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        Vector2(
+            panel_world_position.x + (112.0 * world_per_screen_x),
+            text_y
+        ),
+        villager_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
 
 
 func is_tile_in_bounds(tile_position: Vector2i) -> bool:
