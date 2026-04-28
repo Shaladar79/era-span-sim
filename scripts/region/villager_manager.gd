@@ -2,6 +2,8 @@ extends RefCounted
 class_name VillagerManager
 
 const STARTING_POPULATION: int = 5
+const POPULATION_GROWTH_INTERVAL: float = 300.0
+const POPULATION_GROWTH_CHANCE: float = 0.25
 
 const VILLAGER_STATE_IDLE: String = "idle"
 const VILLAGER_STATE_MOVING: String = "moving"
@@ -81,6 +83,7 @@ var rng := RandomNumberGenerator.new()
 
 var harvest_speed_multiplier: float = 1.0
 var harvest_yield_multiplier: float = 1.0
+var population_growth_timer: float = 0.0
 
 
 func setup(
@@ -106,6 +109,7 @@ func setup(
 func reset_and_spawn_starting_villagers() -> void:
     villagers.clear()
     next_villager_id = 1
+    population_growth_timer = 0.0
 
     var center := Vector2i(region_width / 2, region_height / 2)
 
@@ -139,32 +143,129 @@ func reset_and_spawn_starting_villagers() -> void:
         if is_villager_on_tile(spawn_tile):
             continue
 
-        var villager_data := {
-            "id": next_villager_id,
-            "name": "Caveman " + str(next_villager_id),
-            "tile": spawn_tile,
-            "world_position": tile_to_world_center(spawn_tile),
-            "state": VILLAGER_STATE_IDLE,
-            "target_tile": Vector2i(-1, -1),
-            "harvest_tile": Vector2i(-1, -1),
-            "move_timer": 0.0,
-            "harvest_timer": 0.0,
-            "assigned_harvest_center": NO_ASSIGNED_AREA,
-            "assigned_harvest_radius": 0,
-            "assigned_shelter_id": "",
-            "shelter_harvest_speed_bonus": 0.0
-        }
-
-        villagers.append(villager_data)
-        next_villager_id += 1
+        spawn_villager_at_tile(spawn_tile)
         spawned_count += 1
 
     print("Starting Population: ", villagers.size())
 
 
+func process_population_growth(delta: float) -> void:
+    population_growth_timer += delta
+
+    if population_growth_timer < POPULATION_GROWTH_INTERVAL:
+        return
+
+    population_growth_timer -= POPULATION_GROWTH_INTERVAL
+
+    var roll: float = rng.randf()
+
+    print("Population growth check. Roll: ", roll, " Chance: ", POPULATION_GROWTH_CHANCE)
+
+    if roll > POPULATION_GROWTH_CHANCE:
+        print("No new villager joined this time.")
+        return
+
+    spawn_new_villager_near_village_center()
+
+
+func spawn_new_villager_near_village_center() -> bool:
+    var spawn_origin: Vector2i = get_village_spawn_center()
+    var spawn_tile: Vector2i = find_nearest_available_spawn_tile(spawn_origin)
+
+    if not is_tile_in_bounds(spawn_tile):
+        print("Population growth succeeded, but no valid spawn tile was found.")
+        return false
+
+    spawn_villager_at_tile(spawn_tile)
+
+    print("A new villager has joined the village. Population: ", villagers.size())
+
+    return true
+
+
+func spawn_villager_at_tile(spawn_tile: Vector2i) -> void:
+    var villager_data := {
+        "id": next_villager_id,
+        "name": "Caveman " + str(next_villager_id),
+        "tile": spawn_tile,
+        "world_position": tile_to_world_center(spawn_tile),
+        "state": VILLAGER_STATE_IDLE,
+        "target_tile": Vector2i(-1, -1),
+        "harvest_tile": Vector2i(-1, -1),
+        "move_timer": 0.0,
+        "harvest_timer": 0.0,
+        "assigned_harvest_center": NO_ASSIGNED_AREA,
+        "assigned_harvest_radius": 0,
+        "assigned_shelter_id": "",
+        "shelter_harvest_speed_bonus": 0.0
+    }
+
+    villagers.append(villager_data)
+    next_villager_id += 1
+
+
+func get_village_spawn_center() -> Vector2i:
+    if villagers.is_empty():
+        return Vector2i(region_width / 2, region_height / 2)
+
+    var total_x: int = 0
+    var total_y: int = 0
+    var counted_villagers: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        var villager_tile: Vector2i = villager_data.get(
+            "tile",
+            Vector2i(region_width / 2, region_height / 2)
+        )
+
+        total_x += villager_tile.x
+        total_y += villager_tile.y
+        counted_villagers += 1
+
+    if counted_villagers <= 0:
+        return Vector2i(region_width / 2, region_height / 2)
+
+    return Vector2i(
+        int(round(float(total_x) / float(counted_villagers))),
+        int(round(float(total_y) / float(counted_villagers)))
+    )
+
+
+func find_nearest_available_spawn_tile(origin_tile: Vector2i) -> Vector2i:
+    if is_tile_in_bounds(origin_tile):
+        if is_tile_walkable_for_villager(origin_tile) and not is_villager_on_tile(origin_tile):
+            return origin_tile
+
+    for radius in range(1, 20):
+        for y in range(origin_tile.y - radius, origin_tile.y + radius + 1):
+            for x in range(origin_tile.x - radius, origin_tile.x + radius + 1):
+                var tile_position := Vector2i(x, y)
+
+                if not is_tile_in_bounds(tile_position):
+                    continue
+
+                if not is_tile_walkable_for_villager(tile_position):
+                    continue
+
+                if is_villager_on_tile(tile_position):
+                    continue
+
+                return tile_position
+
+    return Vector2i(-1, -1)
+
+
 func update(delta: float, inventory: RegionInventory) -> Dictionary:
     harvested_resources_this_frame.clear()
     did_change_tiles = false
+
+    process_population_growth(delta)
 
     if villagers.is_empty():
         return harvested_resources_this_frame
@@ -400,7 +501,7 @@ func process_harvesting_villager(
     var harvest_target: Vector2i = villager_data.get("harvest_tile", Vector2i(-1, -1))
     var villager_name: String = str(villager_data.get("name", "Villager"))
 
-    var did_harvest: bool = harvest_resource_at_tile(
+    harvest_resource_at_tile(
         harvest_target,
         villager_name,
         inventory
@@ -410,9 +511,6 @@ func process_harvesting_villager(
     villager_data["target_tile"] = Vector2i(-1, -1)
     villager_data["harvest_tile"] = Vector2i(-1, -1)
     villager_data["harvest_timer"] = 0.0
-
-    if not did_harvest:
-        return
 
 
 func find_harvest_target_for_villager(

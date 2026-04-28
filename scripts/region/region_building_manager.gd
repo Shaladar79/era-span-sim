@@ -150,6 +150,15 @@ func try_place_current_building(
 
     RegionBuildingData.notify_building_built(current_building_id)
 
+    if current_building_id == RegionBuildingData.BUILDING_SHELTER:
+        var shelter_count: int = get_built_shelter_count()
+        RegionBuildingData.notify_shelter_count_changed(shelter_count)
+
+        print("Shelters built: ", shelter_count)
+
+        if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER):
+            print("Chieftain's Shelter unlocked.")
+
     print(building_name + " built at: ", origin_tile)
 
     current_build_mode = BUILD_MODE_NONE
@@ -349,6 +358,11 @@ func place_building(
         building_data["assigned_villagers"] = []
         building_data["assigned_harvest_speed_bonus"] = RegionBuildingData.SHELTER_HARVEST_SPEED_BONUS
 
+    if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
+        building_data["housing_capacity"] = RegionBuildingData.CHIEFTAINS_SHELTER_CAPACITY
+        building_data["assigned_villagers"] = []
+        building_data["assigned_harvest_speed_bonus"] = RegionBuildingData.CHIEFTAINS_SHELTER_HARVEST_SPEED_BONUS
+
     if building_id == RegionBuildingData.BUILDING_CAMPFIRE:
         building_data["campfire_radius"] = RegionBuildingData.CAMPFIRE_BUILD_RADIUS
 
@@ -365,6 +379,24 @@ func place_building(
             tile_data["occupied"] = true
             tile_data["building_id"] = building_id
             tile_data["building_instance_id"] = building_instance_id
+
+
+func get_built_shelter_count() -> int:
+    var shelter_count: int = 0
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", ""))
+
+        if building_id == RegionBuildingData.BUILDING_SHELTER:
+            shelter_count += 1
+
+    return shelter_count
 
 
 func get_building_at_tile(tile_position: Vector2i) -> Dictionary:

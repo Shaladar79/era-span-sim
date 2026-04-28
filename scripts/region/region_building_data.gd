@@ -5,6 +5,7 @@ const AGE_STONE: String = "stone_age"
 
 const BUILDING_CAMPFIRE: String = "campfire"
 const BUILDING_SHELTER: String = "shelter"
+const BUILDING_CHIEFTAINS_SHELTER: String = "chieftains_shelter"
 const BUILDING_MAKING_SPOT: String = "making_spot"
 const BUILDING_STORAGE_AREA: String = "storage_area"
 const BUILDING_THINKERS_SPOT: String = "thinkers_spot"
@@ -16,6 +17,10 @@ const STORAGE_AREA_CAPACITY: int = 50
 
 const SHELTER_CAPACITY: int = 2
 const SHELTER_HARVEST_SPEED_BONUS: float = 0.02
+
+const CHIEFTAINS_SHELTER_REQUIRED_SHELTERS: int = 3
+const CHIEFTAINS_SHELTER_CAPACITY: int = 2
+const CHIEFTAINS_SHELTER_HARVEST_SPEED_BONUS: float = 0.04
 
 static var runtime_unlocked_buildings: Dictionary = {}
 
@@ -33,6 +38,14 @@ static func notify_building_built(building_id: String) -> void:
     if building_id == BUILDING_CAMPFIRE:
         runtime_unlocked_buildings[BUILDING_SHELTER] = true
         runtime_unlocked_buildings[BUILDING_STORAGE_AREA] = true
+
+
+static func notify_shelter_count_changed(shelter_count: int) -> void:
+    if runtime_unlocked_buildings.is_empty():
+        reset_runtime_unlocks()
+
+    if shelter_count >= CHIEFTAINS_SHELTER_REQUIRED_SHELTERS:
+        runtime_unlocked_buildings[BUILDING_CHIEFTAINS_SHELTER] = true
 
 
 static func is_building_unlocked(building_id: String) -> bool:
@@ -123,7 +136,26 @@ static func get_all_buildings() -> Dictionary:
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": SHELTER_CAPACITY,
             "assigned_harvest_speed_bonus": SHELTER_HARVEST_SPEED_BONUS,
-            "description": "A basic temporary dwelling. It shelters 2 villagers. Villagers assigned to a Shelter harvest 2% faster. It must be built within range of a Campfire."
+            "description": "A basic temporary dwelling. It shelters 2 villagers. Villagers assigned to a Shelter harvest 2% faster. It must be built within range of a Campfire. Building 3 Shelters unlocks the Chieftain's Shelter."
+        },
+
+        BUILDING_CHIEFTAINS_SHELTER: {
+            "id": BUILDING_CHIEFTAINS_SHELTER,
+            "name": "Chieftain's Shelter",
+            "age": AGE_STONE,
+            "width": 4,
+            "height": 3,
+            "cost": {
+                "Wood": 12,
+                "Fiber": 4,
+                "Stone": 2
+            },
+            "movable": true,
+            "requires_campfire_range": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "housing_capacity": CHIEFTAINS_SHELTER_CAPACITY,
+            "assigned_harvest_speed_bonus": CHIEFTAINS_SHELTER_HARVEST_SPEED_BONUS,
+            "description": "A larger, more respected shelter used by the village leader. It unlocks after 3 Shelters are built. It must be built within range of a Campfire."
         },
 
         BUILDING_MAKING_SPOT: {
