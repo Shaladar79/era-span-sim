@@ -5,8 +5,6 @@ const STARTING_POPULATION: int = 5
 const POPULATION_GROWTH_INTERVAL: float = 300.0
 const POPULATION_GROWTH_CHANCE: float = 0.25
 
-const CURRENT_NAME_ERA: String = VillagerNameGenerator.NAME_ERA_STONE
-
 const VILLAGER_STATE_IDLE: String = "idle"
 const VILLAGER_STATE_MOVING: String = "moving"
 const VILLAGER_STATE_HARVESTING: String = "harvesting"
@@ -22,6 +20,7 @@ const HEALTH_STATE_WEAKENED: String = "weakened"
 const HEALTH_STATE_DEAD: String = "dead"
 
 const MAX_BELONGINGS: int = 2
+const CURRENT_NAME_ERA: String = VillagerNameGenerator.NAME_ERA_STONE
 
 const SKILL_GATHERING: String = "gathering"
 const SKILL_WOOD_WORKING: String = "wood_working"
@@ -112,6 +111,7 @@ var terrain_water: String = ""
 var feature_none: String = ""
 
 var harvested_resources_this_frame: Dictionary = {}
+var event_messages_this_frame: Array = []
 var did_change_tiles: bool = false
 
 var rng := RandomNumberGenerator.new()
@@ -145,6 +145,7 @@ func reset_and_spawn_starting_villagers() -> void:
     villagers.clear()
     next_villager_id = 1
     population_growth_timer = 0.0
+    event_messages_this_frame.clear()
 
     var center := Vector2i(region_width / 2, region_height / 2)
 
@@ -206,11 +207,11 @@ func process_population_growth(
     population_growth_timer -= POPULATION_GROWTH_INTERVAL
 
     if normal_housing_capacity <= villagers.size():
-        print(
-            "Population growth skipped. Housing is full: ",
-            villagers.size(),
-            "/",
-            normal_housing_capacity
+        add_event_message(
+            "Population growth skipped. Housing is full: "
+            + str(villagers.size())
+            + "/"
+            + str(normal_housing_capacity)
         )
         return
 
@@ -219,7 +220,7 @@ func process_population_growth(
     print("Population growth check. Roll: ", roll, " Chance: ", POPULATION_GROWTH_CHANCE)
 
     if roll > POPULATION_GROWTH_CHANCE:
-        print("No new villager joined this time.")
+        add_event_message("No new villager joined this time.")
         return
 
     spawn_new_villager_near_village_center()
@@ -268,14 +269,18 @@ func spawn_new_villager_near_village_center() -> bool:
     var spawn_tile: Vector2i = find_nearest_available_spawn_tile(spawn_origin)
 
     if not is_tile_in_bounds(spawn_tile):
-        print("Population growth succeeded, but no valid spawn tile was found.")
+        add_event_message("Population growth succeeded, but no valid spawn tile was found.")
         return false
 
     spawn_villager_at_tile(spawn_tile)
 
-    print("A new villager has joined the village. Population: ", villagers.size())
-
     var newest_villager: Dictionary = villagers[villagers.size() - 1]
+    var newest_name: String = str(newest_villager.get("name", "A villager"))
+
+    add_event_message(
+        newest_name + " joined the village. Population: " + str(villagers.size())
+    )
+
     print_villager_summary(newest_villager)
 
     return true
@@ -288,11 +293,11 @@ func spawn_villager_at_tile(
     var used_names: Array = get_used_villager_names()
     var gender: String = VillagerNameGenerator.generate_gender(rng)
     var villager_name: String = VillagerNameGenerator.generate_name(
-    rng,
-    gender,
-    used_names,
-    CURRENT_NAME_ERA
-)
+        rng,
+        gender,
+        used_names,
+        CURRENT_NAME_ERA
+    )
 
     var villager_data := {
         "id": next_villager_id,
@@ -447,6 +452,7 @@ func update(
     normal_housing_capacity: int
 ) -> Dictionary:
     harvested_resources_this_frame.clear()
+    event_messages_this_frame.clear()
     did_change_tiles = false
 
     auto_assign_villager_housing(normal_housing_capacity)
@@ -463,6 +469,18 @@ func update(
 
 func has_tile_changes() -> bool:
     return did_change_tiles
+
+
+func get_event_messages() -> Array:
+    return event_messages_this_frame.duplicate(true)
+
+
+func add_event_message(message: String) -> void:
+    if message == "":
+        return
+
+    event_messages_this_frame.append(message)
+    print(message)
 
 
 func get_population_count() -> int:
@@ -489,6 +507,7 @@ func get_villager_at_world_position(world_position: Vector2, hit_radius: float =
 
     return 0
 
+
 func get_villager_data_at_world_position(world_position: Vector2, hit_radius: float = 8.0) -> Dictionary:
     for villager_index in range(villagers.size()):
         var villager_variant: Variant = villagers[villager_index]
@@ -503,7 +522,8 @@ func get_villager_data_at_world_position(world_position: Vector2, hit_radius: fl
             return villager_data.duplicate(true)
 
     return {}
-    
+
+
 func assign_harvest_area(
     villager_id: int,
     center_tile: Vector2i,
@@ -530,12 +550,11 @@ func assign_harvest_area(
 
         villagers[villager_index] = villager_data
 
-        print(
-            str(villager_data.get("name", "Villager")),
-            " assigned to harvest near ",
-            center_tile,
-            " radius ",
-            radius
+        add_event_message(
+            str(villager_data.get("name", "Villager"))
+            + " assigned to harvest near "
+            + str(center_tile)
+            + "."
         )
         return
 
@@ -560,7 +579,7 @@ func clear_harvest_area_assignment(villager_id: int) -> void:
 
         villagers[villager_index] = villager_data
 
-        print(str(villager_data.get("name", "Villager")), " returned to free harvesting.")
+        add_event_message(str(villager_data.get("name", "Villager")) + " returned to free harvesting.")
         return
 
 
@@ -1133,7 +1152,9 @@ func harvest_resource_at_tile(
 
     did_change_tiles = true
 
-    print(villager_name + " harvested " + ", ".join(harvested_parts) + " at " + str(tile_position))
+    add_event_message(
+        villager_name + " harvested " + ", ".join(harvested_parts) + "."
+    )
 
     return true
 

@@ -30,6 +30,9 @@ func handle_mouse_button(event: InputEventMouseButton) -> void:
 
 
 func handle_left_mouse_pressed(mouse_screen_position: Vector2) -> void:
+    if region.try_handle_village_log_click(mouse_screen_position):
+        return
+
     if region.try_handle_top_info_panel_click(mouse_screen_position):
         return
 

@@ -35,6 +35,15 @@ const VILLAGER_HOVER_PANEL_WIDTH: int = 220
 const VILLAGER_HOVER_PANEL_HEIGHT: int = 190
 const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
 
+const VILLAGE_LOG_BUTTON_WIDTH: int = 110
+const VILLAGE_LOG_BUTTON_HEIGHT: int = 26
+const VILLAGE_LOG_PANEL_WIDTH: int = 360
+const VILLAGE_LOG_PANEL_HEIGHT: int = 220
+const VILLAGE_LOG_MARGIN: int = 12
+const VILLAGE_LOG_BOTTOM_OFFSET: int = 52
+const VILLAGE_LOG_ROW_HEIGHT: int = 18
+const VILLAGE_LOG_MAX_MESSAGES: int = 50
+
 @export var region_seed: int = 12345
 
 var region_tiles: Array = []
@@ -67,6 +76,8 @@ var storage_selector_anchor_tile: Vector2i = Vector2i(-1, -1)
 var storage_selector_options: Array = []
 
 var show_resource_inventory_panel: bool = false
+var show_village_log_panel: bool = false
+var village_log_messages: Array = []
 
 
 func _ready() -> void:
@@ -128,6 +139,8 @@ func generate_region() -> void:
     close_storage_selector()
 
     show_resource_inventory_panel = false
+    show_village_log_panel = false
+    village_log_messages.clear()
 
     print("Region Seed: ", region_seed)
 
@@ -166,6 +179,8 @@ func generate_from_world_selection(
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
     show_resource_inventory_panel = false
+    show_village_log_panel = false
+    village_log_messages.clear()
     close_storage_selector()
 
     reset_test_inventory()
@@ -222,6 +237,8 @@ func regenerate_region() -> void:
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
     show_resource_inventory_panel = false
+    show_village_log_panel = false
+    village_log_messages.clear()
     close_storage_selector()
 
     reset_test_inventory()
@@ -276,6 +293,11 @@ func update_villager_manager(delta: float) -> void:
         inventory,
         normal_housing_capacity
     )
+
+    var villager_event_messages: Array = villager_manager.get_event_messages()
+
+    if not villager_event_messages.is_empty():
+        add_village_log_messages(villager_event_messages)
 
     if not harvested_resources.is_empty():
         inventory.add_resources(harvested_resources)
@@ -349,6 +371,36 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
         print_research_status()
 
     queue_redraw()
+
+
+func add_village_log_message(message: String) -> void:
+    if message == "":
+        return
+
+    village_log_messages.append(message)
+
+    while village_log_messages.size() > VILLAGE_LOG_MAX_MESSAGES:
+        village_log_messages.pop_front()
+
+
+func add_village_log_messages(messages: Array) -> void:
+    for message_index in range(messages.size()):
+        add_village_log_message(str(messages[message_index]))
+
+
+func try_handle_village_log_click(mouse_screen_position: Vector2) -> bool:
+    if get_village_log_button_screen_rect().has_point(mouse_screen_position):
+        show_village_log_panel = not show_village_log_panel
+        queue_redraw()
+
+        print("Show Village Log Panel: ", show_village_log_panel)
+        return true
+
+    if show_village_log_panel:
+        if get_village_log_panel_screen_rect().has_point(mouse_screen_position):
+            return true
+
+    return false
 
 
 func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
@@ -683,6 +735,8 @@ func _draw() -> void:
     draw_storage_selector()
     draw_top_info_panel()
     draw_resource_inventory_panel()
+    draw_village_log_button()
+    draw_village_log_panel()
     draw_paused_villager_hover_panel()
 
 
@@ -723,10 +777,7 @@ func draw_storage_selector() -> void:
 
 
 func draw_top_info_panel() -> void:
-    var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
-    var inverse_transform: Transform2D = canvas_transform.affine_inverse()
-
-    var world_per_screen_y: float = inverse_transform.basis_xform(Vector2.DOWN).length()
+    var world_per_screen_y: float = get_world_per_screen_y()
 
     var panel_screen_rect: Rect2 = get_top_info_panel_screen_rect()
     var panel_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
@@ -893,6 +944,110 @@ func draw_resource_inventory_panel() -> void:
             Color(1.0, 1.0, 1.0, 1.0)
         )
 
+
+func draw_village_log_button() -> void:
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var button_screen_rect: Rect2 = get_village_log_button_screen_rect()
+    var button_world_rect: Rect2 = screen_rect_to_world_rect(button_screen_rect)
+
+    var button_fill_color := Color(0.16, 0.13, 0.08, 0.95)
+
+    if show_village_log_panel:
+        button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
+
+    draw_rect(
+        button_world_rect,
+        button_fill_color,
+        true
+    )
+
+    draw_rect(
+        button_world_rect,
+        Color(0.95, 0.82, 0.45, 1.0),
+        false,
+        max(1.0, 1.25 * world_per_screen_y)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(button_screen_rect.position + Vector2(12, 18)),
+        "Village Log",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        int(max(9.0, 12.0 * world_per_screen_y)),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+
+func draw_village_log_panel() -> void:
+    if not show_village_log_panel:
+        return
+
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var panel_screen_rect: Rect2 = get_village_log_panel_screen_rect()
+    var panel_world_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.94),
+        true
+    )
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        max(1.0, 1.5 * world_per_screen_y)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 20)),
+        "Village Log",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        int(max(10.0, 13.0 * world_per_screen_y)),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if village_log_messages.is_empty():
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 46)),
+            "No events yet.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(9.0, 12.0 * world_per_screen_y)),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    var max_visible_rows: int = int(floor(float(VILLAGE_LOG_PANEL_HEIGHT - 44) / float(VILLAGE_LOG_ROW_HEIGHT)))
+    var start_index: int = max(0, village_log_messages.size() - max_visible_rows)
+
+    var draw_row: int = 0
+
+    for message_index in range(start_index, village_log_messages.size()):
+        var message_text: String = str(village_log_messages[message_index])
+
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(
+                panel_screen_rect.position + Vector2(
+                    10,
+                    46 + draw_row * VILLAGE_LOG_ROW_HEIGHT
+                )
+            ),
+            message_text,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(8.0, 11.0 * world_per_screen_y)),
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+
+        draw_row += 1
+
+
 func draw_paused_villager_hover_panel() -> void:
     if not simulation_paused:
         return
@@ -978,7 +1133,12 @@ func draw_villager_hover_panel_text(
     var statuses_text: String = "None"
 
     if not statuses.is_empty():
-        statuses_text = ", ".join(statuses)
+        var status_parts: Array = []
+
+        for status_index in range(statuses.size()):
+            status_parts.append(str(statuses[status_index]))
+
+        statuses_text = ", ".join(status_parts)
 
     var skills: Dictionary = villager_data.get("skills", {})
 
@@ -1057,73 +1217,19 @@ func draw_villager_hover_panel_text(
 
     text_y += 15.0
 
-    draw_villager_skill_line(
-        "Gathering",
-        int(skills.get(VillagerManager.SKILL_GATHERING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line("Gathering", int(skills.get(VillagerManager.SKILL_GATHERING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        "Wood Working",
-        int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line("Wood Working", int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        "Stone Working",
-        int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line("Stone Working", int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        "Building",
-        int(skills.get(VillagerManager.SKILL_BUILDING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line("Building", int(skills.get(VillagerManager.SKILL_BUILDING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        "Hauling",
-        int(skills.get(VillagerManager.SKILL_HAULING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line("Hauling", int(skills.get(VillagerManager.SKILL_HAULING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        "Medicine",
-        int(skills.get(VillagerManager.SKILL_MEDICINE, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line("Medicine", int(skills.get(VillagerManager.SKILL_MEDICINE, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        "Thinking",
-        int(skills.get(VillagerManager.SKILL_THINKING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
+    draw_villager_skill_line("Thinking", int(skills.get(VillagerManager.SKILL_THINKING, 0)), text_x, text_y, body_font_size)
 
 
 func draw_villager_skill_line(
@@ -1142,7 +1248,8 @@ func draw_villager_skill_line(
         font_size,
         Color(1.0, 1.0, 1.0, 1.0)
     )
-    
+
+
 func get_top_info_panel_screen_rect() -> Rect2:
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 
@@ -1183,6 +1290,36 @@ func get_resource_list_panel_screen_rect() -> Rect2:
         Vector2(
             RESOURCE_LIST_PANEL_WIDTH,
             30 + row_count * RESOURCE_LIST_ROW_HEIGHT
+        )
+    )
+
+
+func get_village_log_button_screen_rect() -> Rect2:
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+
+    return Rect2(
+        Vector2(
+            VILLAGE_LOG_MARGIN,
+            viewport_size.y - VILLAGE_LOG_BUTTON_HEIGHT - VILLAGE_LOG_MARGIN - VILLAGE_LOG_BOTTOM_OFFSET
+        ),
+        Vector2(
+            VILLAGE_LOG_BUTTON_WIDTH,
+            VILLAGE_LOG_BUTTON_HEIGHT
+        )
+    )
+
+
+func get_village_log_panel_screen_rect() -> Rect2:
+    var button_rect: Rect2 = get_village_log_button_screen_rect()
+
+    return Rect2(
+        Vector2(
+            VILLAGE_LOG_MARGIN,
+            button_rect.position.y - VILLAGE_LOG_PANEL_HEIGHT - 6
+        ),
+        Vector2(
+            VILLAGE_LOG_PANEL_WIDTH,
+            VILLAGE_LOG_PANEL_HEIGHT
         )
     )
 
