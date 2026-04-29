@@ -24,12 +24,15 @@ func handle_mouse_button(event: InputEventMouseButton) -> void:
         return
 
     if event.pressed:
-        handle_left_mouse_pressed()
+        handle_left_mouse_pressed(event.position)
     else:
         handle_left_mouse_released()
 
 
-func handle_left_mouse_pressed() -> void:
+func handle_left_mouse_pressed(mouse_screen_position: Vector2) -> void:
+    if region.try_handle_top_info_panel_click(mouse_screen_position):
+        return
+
     if region.building_manager.is_in_build_mode():
         region.try_place_current_building(region.hovered_tile)
         return

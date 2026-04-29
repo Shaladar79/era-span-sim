@@ -21,8 +21,15 @@ const STORAGE_SELECTOR_BUTTON_HEIGHT: int = 22
 const STORAGE_SELECTOR_BUTTON_GAP: int = 2
 
 const TOP_INFO_PANEL_WIDTH: int = 240
-const TOP_INFO_PANEL_HEIGHT: int = 58
+const TOP_INFO_PANEL_HEIGHT: int = 84
 const TOP_INFO_PANEL_MARGIN: int = 12
+
+const TOP_INFO_RESOURCE_BUTTON_WIDTH: int = 92
+const TOP_INFO_RESOURCE_BUTTON_HEIGHT: int = 22
+
+const RESOURCE_LIST_PANEL_WIDTH: int = 240
+const RESOURCE_LIST_ROW_HEIGHT: int = 20
+const RESOURCE_LIST_PANEL_GAP: int = 4
 
 @export var region_seed: int = 12345
 
@@ -54,6 +61,8 @@ var storage_selector_open: bool = false
 var selected_storage_building_instance_id: int = 0
 var storage_selector_anchor_tile: Vector2i = Vector2i(-1, -1)
 var storage_selector_options: Array = []
+
+var show_resource_inventory_panel: bool = false
 
 
 func _ready() -> void:
@@ -114,6 +123,8 @@ func generate_region() -> void:
     setup_villager_manager()
     close_storage_selector()
 
+    show_resource_inventory_panel = false
+
     print("Region Seed: ", region_seed)
 
 
@@ -150,6 +161,7 @@ func generate_from_world_selection(
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
+    show_resource_inventory_panel = false
     close_storage_selector()
 
     reset_test_inventory()
@@ -205,6 +217,7 @@ func regenerate_region() -> void:
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
+    show_resource_inventory_panel = false
     close_storage_selector()
 
     reset_test_inventory()
@@ -332,6 +345,26 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
         print_research_status()
 
     queue_redraw()
+
+
+func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
+    var resources_button_rect: Rect2 = get_resources_button_screen_rect()
+
+    if resources_button_rect.has_point(mouse_screen_position):
+        show_resource_inventory_panel = not show_resource_inventory_panel
+        queue_redraw()
+
+        print("Resources button clicked.")
+        print("Show Resource Inventory Panel: ", show_resource_inventory_panel)
+        return true
+
+    if show_resource_inventory_panel:
+        var resource_panel_rect: Rect2 = get_resource_list_panel_screen_rect()
+
+        if resource_panel_rect.has_point(mouse_screen_position):
+            return true
+
+    return false
 
 
 func try_start_villager_drag_or_select() -> void:
@@ -645,6 +678,7 @@ func _draw() -> void:
 
     draw_storage_selector()
     draw_top_info_panel()
+    draw_resource_inventory_panel()
 
 
 func draw_storage_selector() -> void:
@@ -686,27 +720,11 @@ func draw_storage_selector() -> void:
 func draw_top_info_panel() -> void:
     var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
     var inverse_transform: Transform2D = canvas_transform.affine_inverse()
-    var viewport_size: Vector2 = get_viewport_rect().size
 
-    var world_per_screen_x: float = inverse_transform.basis_xform(Vector2.RIGHT).length()
     var world_per_screen_y: float = inverse_transform.basis_xform(Vector2.DOWN).length()
 
-    var panel_screen_position := Vector2(
-        viewport_size.x - TOP_INFO_PANEL_WIDTH - TOP_INFO_PANEL_MARGIN,
-        TOP_INFO_PANEL_MARGIN
-    )
-
-    var panel_world_position: Vector2 = inverse_transform * panel_screen_position
-
-    var panel_world_size := Vector2(
-        TOP_INFO_PANEL_WIDTH * world_per_screen_x,
-        TOP_INFO_PANEL_HEIGHT * world_per_screen_y
-    )
-
-    var panel_rect := Rect2(
-        panel_world_position,
-        panel_world_size
-    )
+    var panel_screen_rect: Rect2 = get_top_info_panel_screen_rect()
+    var panel_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
 
     draw_rect(
         panel_rect,
@@ -735,15 +753,9 @@ func draw_top_info_panel() -> void:
     var font_size: int = int(max(10.0, 14.0 * world_per_screen_y))
     var small_font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
 
-    var first_line_y: float = panel_world_position.y + (22.0 * world_per_screen_y)
-    var second_line_y: float = panel_world_position.y + (44.0 * world_per_screen_y)
-
     draw_string(
         ThemeDB.fallback_font,
-        Vector2(
-            panel_world_position.x + (10.0 * world_per_screen_x),
-            first_line_y
-        ),
+        screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 22)),
         research_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
@@ -753,10 +765,7 @@ func draw_top_info_panel() -> void:
 
     draw_string(
         ThemeDB.fallback_font,
-        Vector2(
-            panel_world_position.x + (126.0 * world_per_screen_x),
-            first_line_y
-        ),
+        screen_position_to_world_position(panel_screen_rect.position + Vector2(126, 22)),
         villager_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
@@ -766,16 +775,211 @@ func draw_top_info_panel() -> void:
 
     draw_string(
         ThemeDB.fallback_font,
-        Vector2(
-            panel_world_position.x + (126.0 * world_per_screen_x),
-            second_line_y
-        ),
+        screen_position_to_world_position(panel_screen_rect.position + Vector2(126, 44)),
         shelter_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         small_font_size,
         Color(0.90, 0.95, 1.0, 1.0)
     )
+
+    draw_resources_button()
+
+
+func draw_resources_button() -> void:
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var button_screen_rect: Rect2 = get_resources_button_screen_rect()
+    var button_world_rect: Rect2 = screen_rect_to_world_rect(button_screen_rect)
+
+    var button_fill_color := Color(0.16, 0.13, 0.08, 0.95)
+    var button_border_color := Color(0.95, 0.82, 0.45, 1.0)
+
+    if show_resource_inventory_panel:
+        button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
+
+    draw_rect(
+        button_world_rect,
+        button_fill_color,
+        true
+    )
+
+    draw_rect(
+        button_world_rect,
+        button_border_color,
+        false,
+        max(1.0, 1.25 * world_per_screen_y)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(button_screen_rect.position + Vector2(8, 16)),
+        "Resources",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        int(max(9.0, 12.0 * world_per_screen_y)),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+
+func draw_resource_inventory_panel() -> void:
+    if not show_resource_inventory_panel:
+        return
+
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var panel_screen_rect: Rect2 = get_resource_list_panel_screen_rect()
+    var panel_world_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.92),
+        true
+    )
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        max(1.0, 1.5 * world_per_screen_y)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 20)),
+        "Village Resources",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        int(max(10.0, 13.0 * world_per_screen_y)),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    var visible_resources: Array = get_visible_inventory_resource_names()
+
+    if visible_resources.is_empty():
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 44)),
+            "No stored resources",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(9.0, 12.0 * world_per_screen_y)),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    for resource_index in range(visible_resources.size()):
+        var resource_name: String = str(visible_resources[resource_index])
+        var current_amount: int = inventory.get_amount(resource_name)
+        var resource_cap: int = inventory.get_resource_cap(resource_name)
+
+        var resource_text := resource_name + ": " + str(current_amount) + "/" + str(resource_cap)
+
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(
+                panel_screen_rect.position + Vector2(
+                    10,
+                    44 + resource_index * RESOURCE_LIST_ROW_HEIGHT
+                )
+            ),
+            resource_text,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(9.0, 12.0 * world_per_screen_y)),
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+
+
+func get_top_info_panel_screen_rect() -> Rect2:
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+
+    return Rect2(
+        Vector2(
+            viewport_size.x - TOP_INFO_PANEL_WIDTH - TOP_INFO_PANEL_MARGIN,
+            TOP_INFO_PANEL_MARGIN
+        ),
+        Vector2(
+            TOP_INFO_PANEL_WIDTH,
+            TOP_INFO_PANEL_HEIGHT
+        )
+    )
+
+
+func get_resources_button_screen_rect() -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect()
+
+    return Rect2(
+        panel_rect.position + Vector2(10, 54),
+        Vector2(
+            TOP_INFO_RESOURCE_BUTTON_WIDTH,
+            TOP_INFO_RESOURCE_BUTTON_HEIGHT
+        )
+    )
+
+
+func get_resource_list_panel_screen_rect() -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect()
+    var visible_resources: Array = get_visible_inventory_resource_names()
+    var row_count: int = max(1, visible_resources.size())
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x,
+            panel_rect.position.y + panel_rect.size.y + RESOURCE_LIST_PANEL_GAP
+        ),
+        Vector2(
+            RESOURCE_LIST_PANEL_WIDTH,
+            30 + row_count * RESOURCE_LIST_ROW_HEIGHT
+        )
+    )
+
+
+func screen_rect_to_world_rect(screen_rect: Rect2) -> Rect2:
+    var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
+    var inverse_transform: Transform2D = canvas_transform.affine_inverse()
+
+    var world_per_screen_x: float = inverse_transform.basis_xform(Vector2.RIGHT).length()
+    var world_per_screen_y: float = inverse_transform.basis_xform(Vector2.DOWN).length()
+
+    return Rect2(
+        inverse_transform * screen_rect.position,
+        Vector2(
+            screen_rect.size.x * world_per_screen_x,
+            screen_rect.size.y * world_per_screen_y
+        )
+    )
+
+
+func screen_position_to_world_position(screen_position: Vector2) -> Vector2:
+    var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
+    var inverse_transform: Transform2D = canvas_transform.affine_inverse()
+
+    return inverse_transform * screen_position
+
+
+func get_world_per_screen_y() -> float:
+    var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
+    var inverse_transform: Transform2D = canvas_transform.affine_inverse()
+
+    return inverse_transform.basis_xform(Vector2.DOWN).length()
+
+
+func get_visible_inventory_resource_names() -> Array:
+    var visible_resources: Array = []
+    var all_resources: Dictionary = inventory.get_all_resources()
+    var resource_names: Array = all_resources.keys()
+    resource_names.sort()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name_variant: Variant = resource_names[resource_index]
+        var resource_name: String = str(resource_name_variant)
+        var amount: int = int(all_resources.get(resource_name, 0))
+
+        if amount <= 0:
+            continue
+
+        visible_resources.append(resource_name)
+
+    return visible_resources
 
 
 func is_tile_in_bounds(tile_position: Vector2i) -> bool:
