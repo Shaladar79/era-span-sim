@@ -30,6 +30,9 @@ const SKILL_HAULING: String = "hauling"
 const SKILL_MEDICINE: String = "medicine"
 const SKILL_THINKING: String = "thinking"
 
+const SKILL_HARVEST_SPEED_BONUS_PER_LEVEL: float = 0.02
+const MAX_SKILL_LEVEL: int = 10
+
 const SKILL_IDS: Array = [
     SKILL_GATHERING,
     SKILL_WOOD_WORKING,
@@ -666,7 +669,10 @@ func process_moving_villager(
 
     if current_tile == target_tile:
         villager_data["state"] = VILLAGER_STATE_HARVESTING
-        villager_data["harvest_timer"] = get_harvest_duration_for_tile(harvest_tile)
+        villager_data["harvest_timer"] = get_harvest_duration_for_tile(
+            harvest_tile,
+            villager_data
+        )
         return
 
     var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
@@ -835,7 +841,10 @@ func get_work_tile_for_resource(origin_tile: Vector2i, resource_tile: Vector2i) 
     return best_tile
 
 
-func get_harvest_duration_for_tile(tile_position: Vector2i) -> float:
+func get_harvest_duration_for_tile(
+    tile_position: Vector2i,
+    villager_data: Dictionary
+) -> float:
     if not is_tile_in_bounds(tile_position):
         return DEFAULT_HARVEST_DURATION
 
@@ -845,7 +854,7 @@ func get_harvest_duration_for_tile(tile_position: Vector2i) -> float:
     if resources.is_empty():
         return DEFAULT_HARVEST_DURATION
 
-    var longest_time: float = DEFAULT_HARVEST_DURATION
+    var longest_adjusted_time: float = 0.0
 
     for resource_index in range(resources.size()):
         var resource_variant: Variant = resources[resource_index]
@@ -855,13 +864,80 @@ func get_harvest_duration_for_tile(tile_position: Vector2i) -> float:
 
         var resource_dict: Dictionary = resource_variant
         var resource_id: String = str(resource_dict.get("id", "unknown"))
+
         var base_time: float = get_base_harvest_time(resource_id)
+        var skill_id: String = get_harvest_skill_for_resource(resource_id)
+        var skill_level: int = get_villager_skill_level(
+            villager_data,
+            skill_id
+        )
 
-        longest_time = max(longest_time, base_time)
+        var skill_speed_multiplier: float = get_skill_speed_multiplier(skill_level)
+        var total_speed_multiplier: float = harvest_speed_multiplier * skill_speed_multiplier
 
-    var adjusted_time: float = longest_time / max(0.1, harvest_speed_multiplier)
+        var adjusted_time: float = base_time / max(0.1, total_speed_multiplier)
 
-    return adjusted_time
+        longest_adjusted_time = max(
+            longest_adjusted_time,
+            adjusted_time
+        )
+
+    if longest_adjusted_time <= 0.0:
+        return DEFAULT_HARVEST_DURATION
+
+    return longest_adjusted_time
+
+
+func get_harvest_skill_for_resource(resource_id: String) -> String:
+    if resource_id == RESOURCE_WOOD:
+        return SKILL_WOOD_WORKING
+
+    if resource_id == RESOURCE_STONE:
+        return SKILL_STONE_WORKING
+
+    if resource_id == RESOURCE_FLINT:
+        return SKILL_STONE_WORKING
+
+    if resource_id == RESOURCE_BERRIES:
+        return SKILL_GATHERING
+
+    if resource_id == RESOURCE_MUSHROOMS:
+        return SKILL_GATHERING
+
+    if resource_id == RESOURCE_REEDS:
+        return SKILL_GATHERING
+
+    if resource_id == RESOURCE_CLAY:
+        return SKILL_GATHERING
+
+    if resource_id == RESOURCE_FIBER:
+        return SKILL_GATHERING
+
+    if resource_id == RESOURCE_FISH:
+        return SKILL_GATHERING
+
+    if resource_id == RESOURCE_HIDE:
+        return SKILL_GATHERING
+
+    return SKILL_GATHERING
+
+
+func get_villager_skill_level(
+    villager_data: Dictionary,
+    skill_id: String
+) -> int:
+    var skills: Dictionary = villager_data.get("skills", {})
+    var skill_level: int = int(skills.get(skill_id, 0))
+
+    return clampi(
+        skill_level,
+        0,
+        MAX_SKILL_LEVEL
+    )
+
+
+func get_skill_speed_multiplier(skill_level: int) -> float:
+    return 1.0 + float(skill_level) * SKILL_HARVEST_SPEED_BONUS_PER_LEVEL
 
 
 func get_base_harvest_time(resource_id: String) -> float:
