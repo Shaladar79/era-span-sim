@@ -31,6 +31,10 @@ const RESOURCE_LIST_PANEL_WIDTH: int = 240
 const RESOURCE_LIST_ROW_HEIGHT: int = 20
 const RESOURCE_LIST_PANEL_GAP: int = 4
 
+const VILLAGER_HOVER_PANEL_WIDTH: int = 220
+const VILLAGER_HOVER_PANEL_HEIGHT: int = 190
+const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
+
 @export var region_seed: int = 12345
 
 var region_tiles: Array = []
@@ -679,6 +683,7 @@ func _draw() -> void:
     draw_storage_selector()
     draw_top_info_panel()
     draw_resource_inventory_panel()
+    draw_paused_villager_hover_panel()
 
 
 func draw_storage_selector() -> void:
@@ -888,7 +893,256 @@ func draw_resource_inventory_panel() -> void:
             Color(1.0, 1.0, 1.0, 1.0)
         )
 
+func draw_paused_villager_hover_panel() -> void:
+    if not simulation_paused:
+        return
 
+    if is_dragging_villager:
+        return
+
+    var mouse_world_position: Vector2 = get_global_mouse_position()
+    var villager_data: Dictionary = villager_manager.get_villager_data_at_world_position(
+        mouse_world_position,
+        VILLAGER_DRAG_HIT_RADIUS
+    )
+
+    if villager_data.is_empty():
+        return
+
+    draw_villager_hover_panel(villager_data)
+
+
+func draw_villager_hover_panel(villager_data: Dictionary) -> void:
+    var mouse_screen_position: Vector2 = get_viewport().get_mouse_position()
+    var panel_screen_position: Vector2 = mouse_screen_position + VILLAGER_HOVER_PANEL_OFFSET
+
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+
+    if panel_screen_position.x + VILLAGER_HOVER_PANEL_WIDTH > viewport_size.x:
+        panel_screen_position.x = mouse_screen_position.x - VILLAGER_HOVER_PANEL_WIDTH - VILLAGER_HOVER_PANEL_OFFSET.x
+
+    if panel_screen_position.y + VILLAGER_HOVER_PANEL_HEIGHT > viewport_size.y:
+        panel_screen_position.y = mouse_screen_position.y - VILLAGER_HOVER_PANEL_HEIGHT - VILLAGER_HOVER_PANEL_OFFSET.y
+
+    var panel_screen_rect := Rect2(
+        panel_screen_position,
+        Vector2(
+            VILLAGER_HOVER_PANEL_WIDTH,
+            VILLAGER_HOVER_PANEL_HEIGHT
+        )
+    )
+
+    var panel_world_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
+    var world_per_screen_y: float = get_world_per_screen_y()
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.94),
+        true
+    )
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        max(1.0, 1.5 * world_per_screen_y)
+    )
+
+    draw_villager_hover_panel_text(
+        villager_data,
+        panel_screen_rect
+    )
+
+
+func draw_villager_hover_panel_text(
+    villager_data: Dictionary,
+    panel_screen_rect: Rect2
+) -> void:
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var title_font_size: int = int(max(10.0, 13.0 * world_per_screen_y))
+    var body_font_size: int = int(max(8.0, 11.0 * world_per_screen_y))
+
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var gender: String = str(villager_data.get("gender", "unknown"))
+    var health_state: String = str(villager_data.get("health_state", "healthy"))
+    var current_state: String = str(villager_data.get("state", "idle"))
+    var is_housed: bool = bool(villager_data.get("is_housed", false))
+    var housed_text: String = "Housed"
+
+    if not is_housed:
+        housed_text = "Unhoused"
+
+    var belongings: Array = villager_data.get("belongings", [])
+    var max_belongings: int = int(villager_data.get("max_belongings", 2))
+    var statuses: Array = villager_data.get("statuses", [])
+    var statuses_text: String = "None"
+
+    if not statuses.is_empty():
+        statuses_text = ", ".join(statuses)
+
+    var skills: Dictionary = villager_data.get("skills", {})
+
+    var text_x: float = panel_screen_rect.position.x + 10.0
+    var text_y: float = panel_screen_rect.position.y + 18.0
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        villager_name + " (" + gender + ")",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        title_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    text_y += 18.0
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        "Health: " + health_state + "    " + housed_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 16.0
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        "State: " + current_state,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 16.0
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        "Belongings: " + str(belongings.size()) + "/" + str(max_belongings),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    text_y += 16.0
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        "Statuses: " + statuses_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    text_y += 20.0
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        "Skills",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    text_y += 15.0
+
+    draw_villager_skill_line(
+        "Gathering",
+        int(skills.get(VillagerManager.SKILL_GATHERING, 0)),
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+    text_y += 14.0
+
+    draw_villager_skill_line(
+        "Wood Working",
+        int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)),
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+    text_y += 14.0
+
+    draw_villager_skill_line(
+        "Stone Working",
+        int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)),
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+    text_y += 14.0
+
+    draw_villager_skill_line(
+        "Building",
+        int(skills.get(VillagerManager.SKILL_BUILDING, 0)),
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+    text_y += 14.0
+
+    draw_villager_skill_line(
+        "Hauling",
+        int(skills.get(VillagerManager.SKILL_HAULING, 0)),
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+    text_y += 14.0
+
+    draw_villager_skill_line(
+        "Medicine",
+        int(skills.get(VillagerManager.SKILL_MEDICINE, 0)),
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+    text_y += 14.0
+
+    draw_villager_skill_line(
+        "Thinking",
+        int(skills.get(VillagerManager.SKILL_THINKING, 0)),
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+
+func draw_villager_skill_line(
+    skill_label: String,
+    skill_value: int,
+    text_x: float,
+    text_y: float,
+    font_size: int
+) -> void:
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        skill_label + ": " + str(skill_value),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+    
 func get_top_info_panel_screen_rect() -> Rect2:
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 

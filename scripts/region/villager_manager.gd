@@ -5,6 +5,8 @@ const STARTING_POPULATION: int = 5
 const POPULATION_GROWTH_INTERVAL: float = 300.0
 const POPULATION_GROWTH_CHANCE: float = 0.25
 
+const CURRENT_NAME_ERA: String = VillagerNameGenerator.NAME_ERA_STONE
+
 const VILLAGER_STATE_IDLE: String = "idle"
 const VILLAGER_STATE_MOVING: String = "moving"
 const VILLAGER_STATE_HARVESTING: String = "harvesting"
@@ -13,6 +15,39 @@ const VILLAGER_MOVE_INTERVAL: float = 0.18
 const DEFAULT_HARVEST_DURATION: float = 1.0
 
 const NO_ASSIGNED_AREA: Vector2i = Vector2i(-1, -1)
+
+const HEALTH_STATE_HEALTHY: String = "healthy"
+const HEALTH_STATE_SICK: String = "sick"
+const HEALTH_STATE_WEAKENED: String = "weakened"
+const HEALTH_STATE_DEAD: String = "dead"
+
+const MAX_BELONGINGS: int = 2
+
+const SKILL_GATHERING: String = "gathering"
+const SKILL_WOOD_WORKING: String = "wood_working"
+const SKILL_STONE_WORKING: String = "stone_working"
+const SKILL_BUILDING: String = "building"
+const SKILL_HAULING: String = "hauling"
+const SKILL_MEDICINE: String = "medicine"
+const SKILL_THINKING: String = "thinking"
+
+const SKILL_IDS: Array = [
+    SKILL_GATHERING,
+    SKILL_WOOD_WORKING,
+    SKILL_STONE_WORKING,
+    SKILL_BUILDING,
+    SKILL_HAULING,
+    SKILL_MEDICINE,
+    SKILL_THINKING
+]
+
+const STARTING_SPECIALIST_SKILLS: Array = [
+    SKILL_GATHERING,
+    SKILL_WOOD_WORKING,
+    SKILL_STONE_WORKING,
+    SKILL_BUILDING,
+    SKILL_HAULING
+]
 
 const RESOURCE_WOOD: String = "wood"
 const RESOURCE_BERRIES: String = "berries"
@@ -143,10 +178,20 @@ func reset_and_spawn_starting_villagers() -> void:
         if is_villager_on_tile(spawn_tile):
             continue
 
-        spawn_villager_at_tile(spawn_tile)
+        var forced_skill: String = ""
+
+        if spawned_count < STARTING_SPECIALIST_SKILLS.size():
+            forced_skill = str(STARTING_SPECIALIST_SKILLS[spawned_count])
+
+        spawn_villager_at_tile(
+            spawn_tile,
+            forced_skill
+        )
+
         spawned_count += 1
 
     print("Starting Population: ", villagers.size())
+    print_villager_roster()
 
 
 func process_population_growth(
@@ -230,13 +275,29 @@ func spawn_new_villager_near_village_center() -> bool:
 
     print("A new villager has joined the village. Population: ", villagers.size())
 
+    var newest_villager: Dictionary = villagers[villagers.size() - 1]
+    print_villager_summary(newest_villager)
+
     return true
 
 
-func spawn_villager_at_tile(spawn_tile: Vector2i) -> void:
+func spawn_villager_at_tile(
+    spawn_tile: Vector2i,
+    forced_specialist_skill: String = ""
+) -> void:
+    var used_names: Array = get_used_villager_names()
+    var gender: String = VillagerNameGenerator.generate_gender(rng)
+    var villager_name: String = VillagerNameGenerator.generate_name(
+    rng,
+    gender,
+    used_names,
+    CURRENT_NAME_ERA
+)
+
     var villager_data := {
         "id": next_villager_id,
-        "name": "Caveman " + str(next_villager_id),
+        "name": villager_name,
+        "gender": gender,
         "tile": spawn_tile,
         "world_position": tile_to_world_center(spawn_tile),
         "state": VILLAGER_STATE_IDLE,
@@ -246,11 +307,81 @@ func spawn_villager_at_tile(spawn_tile: Vector2i) -> void:
         "harvest_timer": 0.0,
         "assigned_harvest_center": NO_ASSIGNED_AREA,
         "assigned_harvest_radius": 0,
-        "is_housed": false
+        "is_housed": false,
+        "skills": generate_villager_skills(forced_specialist_skill),
+        "belongings": [],
+        "max_belongings": MAX_BELONGINGS,
+        "statuses": [],
+        "health_state": HEALTH_STATE_HEALTHY
     }
 
     villagers.append(villager_data)
     next_villager_id += 1
+
+
+func generate_villager_skills(forced_specialist_skill: String = "") -> Dictionary:
+    var generated_skills: Dictionary = {}
+
+    var valid_forced_skill: String = ""
+
+    if SKILL_IDS.has(forced_specialist_skill):
+        valid_forced_skill = forced_specialist_skill
+
+    var zero_skill: String = get_random_skill_excluding([valid_forced_skill])
+    var high_skill: String = valid_forced_skill
+
+    if high_skill == "":
+        high_skill = get_random_skill_excluding([zero_skill])
+
+    for skill_index in range(SKILL_IDS.size()):
+        var skill_id: String = str(SKILL_IDS[skill_index])
+
+        if skill_id == zero_skill:
+            generated_skills[skill_id] = 0
+            continue
+
+        if skill_id == high_skill:
+            generated_skills[skill_id] = 3
+            continue
+
+        if rng.randf() < 0.35:
+            generated_skills[skill_id] = 2
+        else:
+            generated_skills[skill_id] = 1
+
+    return generated_skills
+
+
+func get_random_skill_excluding(excluded_skills: Array) -> String:
+    var valid_skills: Array = []
+
+    for skill_index in range(SKILL_IDS.size()):
+        var skill_id: String = str(SKILL_IDS[skill_index])
+
+        if excluded_skills.has(skill_id):
+            continue
+
+        valid_skills.append(skill_id)
+
+    if valid_skills.is_empty():
+        return str(SKILL_IDS[0])
+
+    return str(valid_skills[rng.randi_range(0, valid_skills.size() - 1)])
+
+
+func get_used_villager_names() -> Array:
+    var used_names: Array = []
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        used_names.append(str(villager_data.get("name", "")))
+
+    return used_names
 
 
 func get_village_spawn_center() -> Vector2i:
@@ -358,7 +489,21 @@ func get_villager_at_world_position(world_position: Vector2, hit_radius: float =
 
     return 0
 
+func get_villager_data_at_world_position(world_position: Vector2, hit_radius: float = 8.0) -> Dictionary:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
 
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        var villager_position: Vector2 = villager_data.get("world_position", Vector2.ZERO)
+
+        if villager_position.distance_to(world_position) <= hit_radius:
+            return villager_data.duplicate(true)
+
+    return {}
+    
 func assign_harvest_area(
     villager_id: int,
     center_tile: Vector2i,
@@ -991,6 +1136,50 @@ func harvest_resource_at_tile(
     print(villager_name + " harvested " + ", ".join(harvested_parts) + " at " + str(tile_position))
 
     return true
+
+
+func print_villager_roster() -> void:
+    print("")
+    print("Villager Roster:")
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        print_villager_summary(villager_data)
+
+    print("")
+
+
+func print_villager_summary(villager_data: Dictionary) -> void:
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var gender: String = str(villager_data.get("gender", "unknown"))
+    var skills: Dictionary = villager_data.get("skills", {})
+
+    print(
+        "- ",
+        villager_name,
+        " (",
+        gender,
+        ") ",
+        "Gathering ",
+        int(skills.get(SKILL_GATHERING, 0)),
+        ", Wood ",
+        int(skills.get(SKILL_WOOD_WORKING, 0)),
+        ", Stone ",
+        int(skills.get(SKILL_STONE_WORKING, 0)),
+        ", Building ",
+        int(skills.get(SKILL_BUILDING, 0)),
+        ", Hauling ",
+        int(skills.get(SKILL_HAULING, 0)),
+        ", Medicine ",
+        int(skills.get(SKILL_MEDICINE, 0)),
+        ", Thinking ",
+        int(skills.get(SKILL_THINKING, 0))
+    )
 
 
 func is_tile_in_bounds(tile_position: Vector2i) -> bool:

@@ -119,8 +119,8 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_CAMPFIRE,
             "name": "Campfire",
             "age": AGE_STONE,
-            "width": 2,
-            "height": 2,
+            "width": 1,
+            "height": 1,
             "cost": {
                 "Stone": 2,
                 "Wood": 4
@@ -135,8 +135,8 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_SHELTER,
             "name": "Shelter",
             "age": AGE_STONE,
-            "width": 3,
-            "height": 2,
+            "width": 2,
+            "height": 1,
             "cost": {
                 "Wood": 6,
                 "Fiber": 2
@@ -152,8 +152,8 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_CHIEFTAINS_SHELTER,
             "name": "Chieftain's Shelter",
             "age": AGE_STONE,
-            "width": 4,
-            "height": 3,
+            "width": 2,
+            "height": 2,
             "cost": {
                 "Wood": 12,
                 "Fiber": 4,
@@ -172,8 +172,8 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_MAKING_SPOT,
             "name": "Making Spot",
             "age": AGE_STONE,
-            "width": 2,
-            "height": 2,
+            "width": 1,
+            "height": 1,
             "cost": {
                 "Stone": 2,
                 "Wood": 2
@@ -189,7 +189,7 @@ static func get_all_buildings() -> Dictionary:
             "name": "Stoneworking Bench",
             "age": AGE_STONE,
             "width": 2,
-            "height": 2,
+            "height": 1,
             "cost": {
                 "Stone": 6,
                 "Wood": 2
@@ -206,7 +206,7 @@ static func get_all_buildings() -> Dictionary:
             "name": "Woodworking Bench",
             "age": AGE_STONE,
             "width": 2,
-            "height": 2,
+            "height": 1,
             "cost": {
                 "Wood": 8,
                 "Stone": 1
@@ -222,8 +222,8 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_STORAGE_AREA,
             "name": "Storage Area",
             "age": AGE_STONE,
-            "width": 2,
-            "height": 2,
+            "width": 1,
+            "height": 1,
             "cost": {
                 "Wood": 5
             },
@@ -239,8 +239,8 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_THINKERS_SPOT,
             "name": "Thinker's Spot",
             "age": AGE_STONE,
-            "width": 2,
-            "height": 2,
+            "width": 1,
+            "height": 1,
             "cost": {
                 "Stone": 3,
                 "Wood": 1
