@@ -39,6 +39,11 @@ const RESEARCH_PANEL_HEIGHT: int = 260
 const RESEARCH_PANEL_GAP: int = 4
 const RESEARCH_ROW_HEIGHT: int = 30
 
+const CRAFTING_PANEL_WIDTH: int = 360
+const CRAFTING_PANEL_HEIGHT: int = 260
+const CRAFTING_PANEL_GAP: int = 4
+const CRAFTING_ROW_HEIGHT: int = 42
+
 const VILLAGER_HOVER_PANEL_WIDTH: int = 250
 const VILLAGER_HOVER_PANEL_HEIGHT: int = 225
 const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
@@ -69,6 +74,8 @@ var show_campfire_radius: bool = false
 var inventory := RegionInventory.new()
 var item_inventory := RegionItemInventory.new()
 var research := RegionResearch.new()
+var crafting := RegionCrafting.new()
+
 var building_manager := RegionBuildingManager.new()
 var villager_manager := VillagerManager.new()
 var renderer := RegionRenderer.new()
@@ -86,6 +93,10 @@ var storage_selector_options: Array = []
 
 var show_resource_inventory_panel: bool = false
 var show_research_panel: bool = false
+var show_crafting_panel: bool = false
+var selected_crafting_building_id: String = ""
+var selected_crafting_building_name: String = ""
+var selected_crafting_building_instance_id: int = 0
 var show_village_log_panel: bool = false
 var village_log_messages: Array = []
 
@@ -152,6 +163,7 @@ func generate_region() -> void:
     simulation_paused = true
     show_resource_inventory_panel = false
     show_research_panel = false
+    close_crafting_panel()
     show_village_log_panel = false
     village_log_messages.clear()
 
@@ -193,6 +205,7 @@ func generate_from_world_selection(
     simulation_paused = true
     show_resource_inventory_panel = false
     show_research_panel = false
+    close_crafting_panel()
     show_village_log_panel = false
     village_log_messages.clear()
     close_storage_selector()
@@ -252,6 +265,7 @@ func regenerate_region() -> void:
     simulation_paused = true
     show_resource_inventory_panel = false
     show_research_panel = false
+    close_crafting_panel()
     show_village_log_panel = false
     village_log_messages.clear()
     close_storage_selector()
@@ -429,6 +443,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
 
         if show_resource_inventory_panel:
             show_research_panel = false
+            close_crafting_panel()
 
         queue_redraw()
 
@@ -441,12 +456,17 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
 
         if show_research_panel:
             show_resource_inventory_panel = false
+            close_crafting_panel()
 
         queue_redraw()
 
         print("Research button clicked.")
         print("Show Research Panel: ", show_research_panel)
         return true
+
+    if show_crafting_panel:
+        if get_crafting_panel_screen_rect().has_point(mouse_screen_position):
+            return true
 
     if show_research_panel:
         if try_buy_research_from_mouse(mouse_screen_position):
@@ -550,6 +570,9 @@ func try_start_villager_drag_or_select() -> void:
         close_storage_selector()
 
     if try_open_storage_selector_at_tile(hovered_tile):
+        return
+
+    if try_open_crafting_panel_at_tile(hovered_tile):
         return
 
     var mouse_world_position := get_global_mouse_position()
@@ -703,13 +726,55 @@ func close_storage_selector() -> void:
     queue_redraw()
 
 
+func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
+    if not is_tile_in_bounds(tile_position):
+        return false
+
+    var building_data: Dictionary = building_manager.get_building_at_tile(tile_position)
+
+    if building_data.is_empty():
+        return false
+
+    var building_id: String = str(building_data.get("id", ""))
+    var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
+        building_id,
+        research,
+        inventory
+    )
+
+    if craftable_recipes.is_empty():
+        return false
+
+    show_crafting_panel = true
+    show_resource_inventory_panel = false
+    show_research_panel = false
+
+    selected_crafting_building_id = building_id
+    selected_crafting_building_name = str(building_data.get("name", building_id))
+    selected_crafting_building_instance_id = int(building_data.get("instance_id", 0))
+
+    print("Opened crafting panel for: " + selected_crafting_building_name)
+
+    queue_redraw()
+    return true
+
+
+func close_crafting_panel() -> void:
+    show_crafting_panel = false
+    selected_crafting_building_id = ""
+    selected_crafting_building_name = ""
+    selected_crafting_building_instance_id = 0
+
+
 func print_settlement_inventory() -> void:
     inventory.print_inventory(villager_manager.get_population_count())
     item_inventory.print_inventory()
 
+
 func add_crafted_items_from_recipe_outputs(outputs: Array) -> void:
     item_inventory.add_items_from_outputs(outputs)
     item_inventory.print_inventory()
+
 
 func print_research_status() -> void:
     research.print_research_status(building_manager)
@@ -859,6 +924,7 @@ func _draw() -> void:
     draw_top_info_panel()
     draw_resource_inventory_panel()
     draw_research_panel()
+    draw_crafting_panel()
     draw_village_log_button()
     draw_village_log_panel()
     draw_paused_villager_hover_panel()
@@ -1185,6 +1251,102 @@ func draw_research_panel() -> void:
             -1,
             int(max(8.0, 11.0 * world_per_screen_y)),
             Color(1.0, 1.0, 1.0, 1.0)
+        )
+
+
+func draw_crafting_panel() -> void:
+    if not show_crafting_panel:
+        return
+
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var panel_screen_rect: Rect2 = get_crafting_panel_screen_rect()
+    var panel_world_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.94),
+        true
+    )
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        max(1.0, 1.5 * world_per_screen_y)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 20)),
+        selected_crafting_building_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        int(max(10.0, 13.0 * world_per_screen_y)),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
+        selected_crafting_building_id,
+        research,
+        inventory
+    )
+
+    if craftable_recipes.is_empty():
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 48)),
+            "No affordable recipes available.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(9.0, 12.0 * world_per_screen_y)),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    var max_rows: int = int(floor(float(CRAFTING_PANEL_HEIGHT - 44) / float(CRAFTING_ROW_HEIGHT)))
+    var visible_count: int = min(craftable_recipes.size(), max_rows)
+
+    for recipe_index in range(visible_count):
+        var recipe: Dictionary = craftable_recipes[recipe_index]
+        var recipe_button_screen_rect: Rect2 = get_crafting_recipe_button_screen_rect(recipe_index)
+        var recipe_button_world_rect: Rect2 = screen_rect_to_world_rect(recipe_button_screen_rect)
+
+        draw_rect(
+            recipe_button_world_rect,
+            Color(0.12, 0.10, 0.07, 0.95),
+            true
+        )
+
+        draw_rect(
+            recipe_button_world_rect,
+            Color(0.65, 0.55, 0.32, 0.95),
+            false,
+            max(1.0, 1.0 * world_per_screen_y)
+        )
+
+        var recipe_id: String = str(recipe.get("id", ""))
+        var recipe_name: String = str(recipe.get("name", "Recipe"))
+        var cost_text: String = crafting.get_recipe_cost_text(recipe_id)
+        var output_text: String = crafting.get_recipe_output_text(recipe_id)
+
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(recipe_button_screen_rect.position + Vector2(8, 16)),
+            recipe_name,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(8.0, 11.0 * world_per_screen_y)),
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(recipe_button_screen_rect.position + Vector2(8, 32)),
+            "Cost: " + cost_text + "  ->  " + output_text,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(7.0, 10.0 * world_per_screen_y)),
+            Color(0.88, 0.88, 0.88, 1.0)
         )
 
 
@@ -1589,6 +1751,36 @@ func get_research_plan_button_screen_rect(plan_index: int) -> Rect2:
         Vector2(
             RESEARCH_PANEL_WIDTH - 20,
             RESEARCH_ROW_HEIGHT - 4
+        )
+    )
+
+
+func get_crafting_panel_screen_rect() -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect()
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x - CRAFTING_PANEL_WIDTH + TOP_INFO_PANEL_WIDTH,
+            panel_rect.position.y + panel_rect.size.y + CRAFTING_PANEL_GAP
+        ),
+        Vector2(
+            CRAFTING_PANEL_WIDTH,
+            CRAFTING_PANEL_HEIGHT
+        )
+    )
+
+
+func get_crafting_recipe_button_screen_rect(recipe_index: int) -> Rect2:
+    var panel_rect: Rect2 = get_crafting_panel_screen_rect()
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            34 + recipe_index * CRAFTING_ROW_HEIGHT
+        ),
+        Vector2(
+            CRAFTING_PANEL_WIDTH - 20,
+            CRAFTING_ROW_HEIGHT - 4
         )
     )
 
