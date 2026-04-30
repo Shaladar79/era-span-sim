@@ -21,15 +21,23 @@ const STORAGE_SELECTOR_BUTTON_HEIGHT: int = 22
 const STORAGE_SELECTOR_BUTTON_GAP: int = 2
 
 const TOP_INFO_PANEL_WIDTH: int = 240
-const TOP_INFO_PANEL_HEIGHT: int = 84
+const TOP_INFO_PANEL_HEIGHT: int = 112
 const TOP_INFO_PANEL_MARGIN: int = 12
 
 const TOP_INFO_RESOURCE_BUTTON_WIDTH: int = 92
 const TOP_INFO_RESOURCE_BUTTON_HEIGHT: int = 22
 
+const TOP_INFO_RESEARCH_BUTTON_WIDTH: int = 92
+const TOP_INFO_RESEARCH_BUTTON_HEIGHT: int = 22
+
 const RESOURCE_LIST_PANEL_WIDTH: int = 240
 const RESOURCE_LIST_ROW_HEIGHT: int = 20
 const RESOURCE_LIST_PANEL_GAP: int = 4
+
+const RESEARCH_PANEL_WIDTH: int = 360
+const RESEARCH_PANEL_HEIGHT: int = 260
+const RESEARCH_PANEL_GAP: int = 4
+const RESEARCH_ROW_HEIGHT: int = 30
 
 const VILLAGER_HOVER_PANEL_WIDTH: int = 220
 const VILLAGER_HOVER_PANEL_HEIGHT: int = 190
@@ -76,6 +84,7 @@ var storage_selector_anchor_tile: Vector2i = Vector2i(-1, -1)
 var storage_selector_options: Array = []
 
 var show_resource_inventory_panel: bool = false
+var show_research_panel: bool = false
 var show_village_log_panel: bool = false
 var village_log_messages: Array = []
 
@@ -139,6 +148,7 @@ func generate_region() -> void:
     close_storage_selector()
 
     show_resource_inventory_panel = false
+    show_research_panel = false
     show_village_log_panel = false
     village_log_messages.clear()
 
@@ -179,6 +189,7 @@ func generate_from_world_selection(
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
     show_resource_inventory_panel = false
+    show_research_panel = false
     show_village_log_panel = false
     village_log_messages.clear()
     close_storage_selector()
@@ -237,6 +248,7 @@ func regenerate_region() -> void:
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = false
     show_resource_inventory_panel = false
+    show_research_panel = false
     show_village_log_panel = false
     village_log_messages.clear()
     close_storage_selector()
@@ -404,23 +416,122 @@ func try_handle_village_log_click(mouse_screen_position: Vector2) -> bool:
 
 
 func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
-    var resources_button_rect: Rect2 = get_resources_button_screen_rect()
-
-    if resources_button_rect.has_point(mouse_screen_position):
+    if get_resources_button_screen_rect().has_point(mouse_screen_position):
         show_resource_inventory_panel = not show_resource_inventory_panel
+
+        if show_resource_inventory_panel:
+            show_research_panel = false
+
         queue_redraw()
 
         print("Resources button clicked.")
         print("Show Resource Inventory Panel: ", show_resource_inventory_panel)
         return true
 
-    if show_resource_inventory_panel:
-        var resource_panel_rect: Rect2 = get_resource_list_panel_screen_rect()
+    if get_research_button_screen_rect().has_point(mouse_screen_position):
+        show_research_panel = not show_research_panel
 
-        if resource_panel_rect.has_point(mouse_screen_position):
+        if show_research_panel:
+            show_resource_inventory_panel = false
+
+        queue_redraw()
+
+        print("Research button clicked.")
+        print("Show Research Panel: ", show_research_panel)
+        return true
+
+    if show_research_panel:
+        if try_buy_research_from_mouse(mouse_screen_position):
+            return true
+
+        if get_research_panel_screen_rect().has_point(mouse_screen_position):
+            return true
+
+    if show_resource_inventory_panel:
+        if get_resource_list_panel_screen_rect().has_point(mouse_screen_position):
             return true
 
     return false
+
+
+func try_buy_research_from_mouse(mouse_screen_position: Vector2) -> bool:
+    var buyable_plans: Array = research.get_buyable_research_plans(
+        building_manager,
+        inventory
+    )
+
+    for plan_index in range(buyable_plans.size()):
+        var plan_rect: Rect2 = get_research_plan_button_screen_rect(plan_index)
+
+        if not plan_rect.has_point(mouse_screen_position):
+            continue
+
+        var plan: Dictionary = buyable_plans[plan_index]
+        var research_id: String = str(plan.get("id", ""))
+
+        buy_research_plan(research_id)
+        return true
+
+    return false
+
+
+func buy_research_plan(research_id: String) -> void:
+    var result: Dictionary = research.buy_research_plan(
+        research_id,
+        building_manager,
+        inventory
+    )
+
+    var message: String = str(result.get("message", ""))
+
+    if message != "":
+        add_village_log_message(message)
+
+    if not bool(result.get("success", false)):
+        queue_redraw()
+        return
+
+    var unlocked_buildings: Array = result.get("unlocked_buildings", [])
+    var unlocked_recipes: Array = result.get("unlocked_recipes", [])
+    var global_bonuses: Array = result.get("global_bonuses", [])
+
+    if not unlocked_buildings.is_empty():
+        RegionBuildingData.unlock_buildings(unlocked_buildings)
+
+        for building_index in range(unlocked_buildings.size()):
+            var building_id: String = str(unlocked_buildings[building_index])
+            var building_data: Dictionary = RegionBuildingData.get_building(building_id)
+            var building_name: String = str(building_data.get("name", building_id))
+
+            add_village_log_message("Unlocked building: " + building_name + ".")
+
+    if not unlocked_recipes.is_empty():
+        for recipe_index in range(unlocked_recipes.size()):
+            var recipe_id: String = str(unlocked_recipes[recipe_index])
+            add_village_log_message("Unlocked recipe: " + recipe_id + ".")
+
+    if not global_bonuses.is_empty():
+        for bonus_index in range(global_bonuses.size()):
+            var bonus_variant: Variant = global_bonuses[bonus_index]
+
+            if typeof(bonus_variant) != TYPE_DICTIONARY:
+                continue
+
+            var bonus_data: Dictionary = bonus_variant
+            var bonus_name: String = str(bonus_data.get("name", "Global Bonus"))
+            var bonus_amount: float = float(bonus_data.get("amount", 0.0))
+            var bonus_percent: int = int(round(bonus_amount * 100.0))
+
+            add_village_log_message(
+                "Global bonus: "
+                + bonus_name
+                + " +"
+                + str(bonus_percent)
+                + "%."
+            )
+
+    print_research_status()
+    queue_redraw()
 
 
 func try_start_villager_drag_or_select() -> void:
@@ -735,6 +846,7 @@ func _draw() -> void:
     draw_storage_selector()
     draw_top_info_panel()
     draw_resource_inventory_panel()
+    draw_research_panel()
     draw_village_log_button()
     draw_village_log_panel()
     draw_paused_villager_hover_panel()
@@ -840,6 +952,7 @@ func draw_top_info_panel() -> void:
     )
 
     draw_resources_button()
+    draw_research_button()
 
 
 func draw_resources_button() -> void:
@@ -870,6 +983,40 @@ func draw_resources_button() -> void:
         ThemeDB.fallback_font,
         screen_position_to_world_position(button_screen_rect.position + Vector2(8, 16)),
         "Resources",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        int(max(9.0, 12.0 * world_per_screen_y)),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+
+func draw_research_button() -> void:
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var button_screen_rect: Rect2 = get_research_button_screen_rect()
+    var button_world_rect: Rect2 = screen_rect_to_world_rect(button_screen_rect)
+
+    var button_fill_color := Color(0.16, 0.13, 0.08, 0.95)
+
+    if show_research_panel:
+        button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
+
+    draw_rect(
+        button_world_rect,
+        button_fill_color,
+        true
+    )
+
+    draw_rect(
+        button_world_rect,
+        Color(0.95, 0.82, 0.45, 1.0),
+        false,
+        max(1.0, 1.25 * world_per_screen_y)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(button_screen_rect.position + Vector2(8, 16)),
+        "Research",
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         int(max(9.0, 12.0 * world_per_screen_y)),
@@ -941,6 +1088,90 @@ func draw_resource_inventory_panel() -> void:
             HORIZONTAL_ALIGNMENT_LEFT,
             -1,
             int(max(9.0, 12.0 * world_per_screen_y)),
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+
+
+func draw_research_panel() -> void:
+    if not show_research_panel:
+        return
+
+    var world_per_screen_y: float = get_world_per_screen_y()
+    var panel_screen_rect: Rect2 = get_research_panel_screen_rect()
+    var panel_world_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.94),
+        true
+    )
+
+    draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        max(1.0, 1.5 * world_per_screen_y)
+    )
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 20)),
+        "Available Research",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        int(max(10.0, 13.0 * world_per_screen_y)),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    var buyable_plans: Array = research.get_buyable_research_plans(
+        building_manager,
+        inventory
+    )
+
+    if buyable_plans.is_empty():
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 48)),
+            "No affordable research available.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(9.0, 12.0 * world_per_screen_y)),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    var max_rows: int = int(floor(float(RESEARCH_PANEL_HEIGHT - 44) / float(RESEARCH_ROW_HEIGHT)))
+    var visible_count: int = min(buyable_plans.size(), max_rows)
+
+    for plan_index in range(visible_count):
+        var plan: Dictionary = buyable_plans[plan_index]
+        var plan_button_screen_rect: Rect2 = get_research_plan_button_screen_rect(plan_index)
+        var plan_button_world_rect: Rect2 = screen_rect_to_world_rect(plan_button_screen_rect)
+
+        draw_rect(
+            plan_button_world_rect,
+            Color(0.12, 0.10, 0.07, 0.95),
+            true
+        )
+
+        draw_rect(
+            plan_button_world_rect,
+            Color(0.65, 0.55, 0.32, 0.95),
+            false,
+            max(1.0, 1.0 * world_per_screen_y)
+        )
+
+        var plan_name: String = str(plan.get("name", "Research"))
+        var plan_cost: int = int(plan.get("cost", 0))
+        var plan_text: String = plan_name + " — " + str(plan_cost) + " Research"
+
+        draw_string(
+            ThemeDB.fallback_font,
+            screen_position_to_world_position(plan_button_screen_rect.position + Vector2(8, 20)),
+            plan_text,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            int(max(8.0, 11.0 * world_per_screen_y)),
             Color(1.0, 1.0, 1.0, 1.0)
         )
 
@@ -1033,7 +1264,7 @@ func draw_village_log_panel() -> void:
         draw_string(
             ThemeDB.fallback_font,
             screen_position_to_world_position(
-                panel_screen_rect.position + Vector2(
+                get_village_log_panel_screen_rect().position + Vector2(
                     10,
                     46 + draw_row * VILLAGE_LOG_ROW_HEIGHT
                 )
@@ -1277,6 +1508,18 @@ func get_resources_button_screen_rect() -> Rect2:
     )
 
 
+func get_research_button_screen_rect() -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect()
+
+    return Rect2(
+        panel_rect.position + Vector2(10, 82),
+        Vector2(
+            TOP_INFO_RESEARCH_BUTTON_WIDTH,
+            TOP_INFO_RESEARCH_BUTTON_HEIGHT
+        )
+    )
+
+
 func get_resource_list_panel_screen_rect() -> Rect2:
     var panel_rect: Rect2 = get_top_info_panel_screen_rect()
     var visible_resources: Array = get_visible_inventory_resource_names()
@@ -1290,6 +1533,36 @@ func get_resource_list_panel_screen_rect() -> Rect2:
         Vector2(
             RESOURCE_LIST_PANEL_WIDTH,
             30 + row_count * RESOURCE_LIST_ROW_HEIGHT
+        )
+    )
+
+
+func get_research_panel_screen_rect() -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect()
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x - RESEARCH_PANEL_WIDTH + TOP_INFO_PANEL_WIDTH,
+            panel_rect.position.y + panel_rect.size.y + RESEARCH_PANEL_GAP
+        ),
+        Vector2(
+            RESEARCH_PANEL_WIDTH,
+            RESEARCH_PANEL_HEIGHT
+        )
+    )
+
+
+func get_research_plan_button_screen_rect(plan_index: int) -> Rect2:
+    var panel_rect: Rect2 = get_research_panel_screen_rect()
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            34 + plan_index * RESEARCH_ROW_HEIGHT
+        ),
+        Vector2(
+            RESEARCH_PANEL_WIDTH - 20,
+            RESEARCH_ROW_HEIGHT - 4
         )
     )
 

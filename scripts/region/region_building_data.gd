@@ -45,10 +45,6 @@ static func notify_building_built(building_id: String) -> void:
         runtime_unlocked_buildings[BUILDING_MAKING_SPOT] = true
         runtime_unlocked_buildings[BUILDING_THINKERS_SPOT] = true
 
-    if building_id == BUILDING_MAKING_SPOT:
-        runtime_unlocked_buildings[BUILDING_STONEWORKING_BENCH] = true
-        runtime_unlocked_buildings[BUILDING_WOODWORKING_BENCH] = true
-
 
 static func notify_shelter_count_changed(shelter_count: int) -> void:
     if runtime_unlocked_buildings.is_empty():
@@ -56,6 +52,21 @@ static func notify_shelter_count_changed(shelter_count: int) -> void:
 
     if shelter_count >= CHIEFTAINS_SHELTER_REQUIRED_SHELTERS:
         runtime_unlocked_buildings[BUILDING_CHIEFTAINS_SHELTER] = true
+
+
+static func unlock_building(building_id: String) -> void:
+    if runtime_unlocked_buildings.is_empty():
+        reset_runtime_unlocks()
+
+    if building_id == "":
+        return
+
+    runtime_unlocked_buildings[building_id] = true
+
+
+static func unlock_buildings(building_ids: Array) -> void:
+    for building_index in range(building_ids.size()):
+        unlock_building(str(building_ids[building_index]))
 
 
 static func is_building_unlocked(building_id: String) -> bool:
@@ -181,7 +192,7 @@ static func get_all_buildings() -> Dictionary:
             "movable": false,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "description": "A crude work area where simple tools and early crafted objects can be made. Building it unlocks the Stoneworking Bench and Woodworking Bench."
+            "description": "A crude work area where simple tools and early crafted objects can be made. It allows early research plans to become available when enough Research is stored."
         },
 
         BUILDING_STONEWORKING_BENCH: {
@@ -196,9 +207,10 @@ static func get_all_buildings() -> Dictionary:
             },
             "movable": false,
             "requires_campfire_range": true,
+            "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "stoneworking",
-            "description": "A crude Stone Age bench for shaping stone, flint, and early tool heads. It must be built within range of a Campfire."
+            "description": "A crude Stone Age bench for shaping stone, flint, and early tool heads. It must be unlocked through research and built within range of a Campfire."
         },
 
         BUILDING_WOODWORKING_BENCH: {
@@ -213,9 +225,10 @@ static func get_all_buildings() -> Dictionary:
             },
             "movable": false,
             "requires_campfire_range": true,
+            "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "woodworking",
-            "description": "A crude Stone Age bench for shaping branches, poles, handles, frames, and drag sled parts. It must be built within range of a Campfire."
+            "description": "A crude Stone Age bench for shaping branches, poles, handles, frames, and drag sled parts. It must be unlocked through research and built within range of a Campfire."
         },
 
         BUILDING_STORAGE_AREA: {
@@ -249,6 +262,6 @@ static func get_all_buildings() -> Dictionary:
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "research_per_minute": THINKERS_SPOT_RESEARCH_PER_MINUTE,
-            "description": "A simple place for early planning, observation, and shared ideas. It generates 1 Research per minute. Research will later be spent to learn item crafting plans, weapons, drag sleds, and more advanced Stone Age buildings."
+            "description": "A simple place for early planning, observation, and shared ideas. It generates 1 Research per minute. Research can be spent to learn item crafting plans, tools, benches, and later Stone Age systems."
         }
     }
