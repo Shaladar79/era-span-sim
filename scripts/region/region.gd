@@ -464,10 +464,6 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         print("Show Research Panel: ", show_research_panel)
         return true
 
-    if show_crafting_panel:
-        if get_crafting_panel_screen_rect().has_point(mouse_screen_position):
-            return true
-
     if show_research_panel:
         if try_buy_research_from_mouse(mouse_screen_position):
             return true
@@ -479,8 +475,61 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         if get_resource_list_panel_screen_rect().has_point(mouse_screen_position):
             return true
 
+    if show_crafting_panel:
+        if try_craft_recipe_from_mouse(mouse_screen_position):
+            return true
+
+        if get_crafting_panel_screen_rect().has_point(mouse_screen_position):
+            return true
+
     return false
 
+func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_crafting_panel:
+        return false
+
+    var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
+        selected_crafting_building_id,
+        research,
+        inventory
+    )
+
+    var max_rows: int = int(floor(float(RegionUI.CRAFTING_PANEL_HEIGHT - 44) / float(RegionUI.CRAFTING_ROW_HEIGHT)))
+    var visible_count: int = min(craftable_recipes.size(), max_rows)
+
+    for recipe_index in range(visible_count):
+        var recipe_button_rect: Rect2 = get_crafting_recipe_button_screen_rect(recipe_index)
+
+        if not recipe_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var recipe: Dictionary = craftable_recipes[recipe_index]
+        var recipe_id: String = str(recipe.get("id", ""))
+
+        craft_recipe(recipe_id)
+        return true
+
+    return false
+
+
+func craft_recipe(recipe_id: String) -> void:
+    var result: Dictionary = crafting.craft_recipe_at_building(
+        recipe_id,
+        selected_crafting_building_id,
+        research,
+        inventory,
+        item_inventory
+    )
+
+    var message: String = str(result.get("message", ""))
+
+    if message != "":
+        add_village_log_message(message)
+
+    if bool(result.get("success", false)):
+        print_settlement_inventory()
+
+    queue_redraw()
 
 func try_buy_research_from_mouse(mouse_screen_position: Vector2) -> bool:
     var buyable_plans: Array = research.get_buyable_research_plans(

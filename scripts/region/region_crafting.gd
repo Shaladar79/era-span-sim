@@ -226,6 +226,51 @@ func get_recipe_output_text(recipe_id: String) -> String:
 
     return ", ".join(output_parts)
 
+func craft_recipe_at_building(
+    recipe_id: String,
+    building_id: String,
+    research: RegionResearch,
+    inventory: RegionInventory,
+    item_inventory: RegionItemInventory
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    if not can_craft_recipe_at_building(
+        recipe_id,
+        building_id,
+        research,
+        inventory
+    ):
+        result["message"] = "Cannot craft recipe right now."
+        return result
+
+    var recipe: Dictionary = RegionRecipeData.get_recipe(recipe_id)
+
+    if recipe.is_empty():
+        result["message"] = "Recipe not found."
+        return result
+
+    var cost: Dictionary = RegionRecipeData.get_recipe_cost(recipe_id)
+
+    if not inventory.has_cost(cost):
+        result["message"] = "Not enough resources."
+        return result
+
+    inventory.spend_cost(cost)
+
+    var outputs: Array = RegionRecipeData.get_recipe_outputs(recipe_id)
+    item_inventory.add_items_from_outputs(outputs)
+
+    var recipe_name: String = str(recipe.get("name", recipe_id))
+    var output_text: String = get_recipe_output_text(recipe_id)
+
+    result["success"] = true
+    result["message"] = "Crafted " + output_text + " at " + recipe_name + " recipe."
+
+    return result
 
 func _sort_recipes_by_name(a: Dictionary, b: Dictionary) -> bool:
     var name_a: String = str(a.get("name", ""))
