@@ -931,40 +931,15 @@ func _draw() -> void:
 
 
 func draw_storage_selector() -> void:
-    if not storage_selector_open:
-        return
-
-    var selector_origin := get_storage_selector_world_position()
-
-    for option_index in range(storage_selector_options.size()):
-        var resource_name: String = str(storage_selector_options[option_index])
-
-        var option_position := selector_origin + Vector2(
-            0,
-            option_index * (STORAGE_SELECTOR_BUTTON_HEIGHT + STORAGE_SELECTOR_BUTTON_GAP)
-        )
-
-        var option_rect := Rect2(
-            option_position,
-            Vector2(
-                STORAGE_SELECTOR_BUTTON_WIDTH,
-                STORAGE_SELECTOR_BUTTON_HEIGHT
-            )
-        )
-
-        draw_rect(option_rect, Color(0.08, 0.07, 0.05, 0.92), true)
-        draw_rect(option_rect, Color(0.95, 0.82, 0.45, 1.0), false, 1.5)
-
-        draw_string(
-            ThemeDB.fallback_font,
-            option_position + Vector2(6, 15),
-            resource_name,
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            14,
-            Color(1.0, 1.0, 1.0, 1.0)
-        )
-
+    RegionDraw.draw_storage_selector(
+        self,
+        storage_selector_open,
+        get_storage_selector_world_position(),
+        storage_selector_options,
+        STORAGE_SELECTOR_BUTTON_WIDTH,
+        STORAGE_SELECTOR_BUTTON_HEIGHT,
+        STORAGE_SELECTOR_BUTTON_GAP
+    )
 
 func draw_top_info_panel() -> void:
     var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
@@ -1036,97 +1011,19 @@ func draw_crafting_panel() -> void:
     if not show_crafting_panel:
         return
 
-    var world_per_screen_y: float = get_world_per_screen_y()
-    var panel_screen_rect: Rect2 = get_crafting_panel_screen_rect()
-    var panel_world_rect: Rect2 = screen_rect_to_world_rect(panel_screen_rect)
-
-    draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.94),
-        true
-    )
-
-    draw_rect(
-        panel_world_rect,
-        Color(0.85, 0.75, 0.45, 0.95),
-        false,
-        max(1.0, 1.5 * world_per_screen_y)
-    )
-
-    draw_string(
-        ThemeDB.fallback_font,
-        screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 20)),
-        selected_crafting_building_name,
-        HORIZONTAL_ALIGNMENT_LEFT,
-        -1,
-        int(max(10.0, 13.0 * world_per_screen_y)),
-        Color(1.0, 0.95, 0.75, 1.0)
-    )
-
     var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
         selected_crafting_building_id,
         research,
         inventory
     )
 
-    if craftable_recipes.is_empty():
-        draw_string(
-            ThemeDB.fallback_font,
-            screen_position_to_world_position(panel_screen_rect.position + Vector2(10, 48)),
-            "No affordable recipes available.",
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            int(max(9.0, 12.0 * world_per_screen_y)),
-            Color(0.85, 0.85, 0.85, 1.0)
-        )
-        return
-
-    var max_rows: int = int(floor(float(CRAFTING_PANEL_HEIGHT - 44) / float(CRAFTING_ROW_HEIGHT)))
-    var visible_count: int = min(craftable_recipes.size(), max_rows)
-
-    for recipe_index in range(visible_count):
-        var recipe: Dictionary = craftable_recipes[recipe_index]
-        var recipe_button_screen_rect: Rect2 = get_crafting_recipe_button_screen_rect(recipe_index)
-        var recipe_button_world_rect: Rect2 = screen_rect_to_world_rect(recipe_button_screen_rect)
-
-        draw_rect(
-            recipe_button_world_rect,
-            Color(0.12, 0.10, 0.07, 0.95),
-            true
-        )
-
-        draw_rect(
-            recipe_button_world_rect,
-            Color(0.65, 0.55, 0.32, 0.95),
-            false,
-            max(1.0, 1.0 * world_per_screen_y)
-        )
-
-        var recipe_id: String = str(recipe.get("id", ""))
-        var recipe_name: String = str(recipe.get("name", "Recipe"))
-        var cost_text: String = crafting.get_recipe_cost_text(recipe_id)
-        var output_text: String = crafting.get_recipe_output_text(recipe_id)
-
-        draw_string(
-            ThemeDB.fallback_font,
-            screen_position_to_world_position(recipe_button_screen_rect.position + Vector2(8, 16)),
-            recipe_name,
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            int(max(8.0, 11.0 * world_per_screen_y)),
-            Color(1.0, 1.0, 1.0, 1.0)
-        )
-
-        draw_string(
-            ThemeDB.fallback_font,
-            screen_position_to_world_position(recipe_button_screen_rect.position + Vector2(8, 32)),
-            "Cost: " + cost_text + "  ->  " + output_text,
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            int(max(7.0, 10.0 * world_per_screen_y)),
-            Color(0.88, 0.88, 0.88, 1.0)
-        )
-
+    RegionDraw.draw_crafting_panel(
+        self,
+        selected_crafting_building_name,
+        selected_crafting_building_id,
+        craftable_recipes,
+        crafting
+    )
 
 func draw_village_log_button() -> void:
     RegionDraw.draw_village_log_button(

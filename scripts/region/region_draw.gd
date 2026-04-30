@@ -796,3 +796,171 @@ static func draw_villager_skill_line(
         font_size,
         Color(1.0, 1.0, 1.0, 1.0)
     )
+static func draw_crafting_panel(
+    node: CanvasItem,
+    selected_crafting_building_name: String,
+    selected_crafting_building_id: String,
+    craftable_recipes: Array,
+    crafting: RegionCrafting
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var panel_screen_rect: Rect2 = RegionUI.get_crafting_panel_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.94),
+        true
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 20)
+        ),
+        selected_crafting_building_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_title_font_size(world_per_screen_y),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if craftable_recipes.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(10, 48)
+            ),
+            "No affordable recipes available.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_body_font_size(world_per_screen_y),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    var max_rows: int = int(floor(float(RegionUI.CRAFTING_PANEL_HEIGHT - 44) / float(RegionUI.CRAFTING_ROW_HEIGHT)))
+    var visible_count: int = min(craftable_recipes.size(), max_rows)
+
+    for recipe_index in range(visible_count):
+        var recipe: Dictionary = craftable_recipes[recipe_index]
+
+        var recipe_button_screen_rect: Rect2 = RegionUI.get_crafting_recipe_button_screen_rect(
+            node.get_viewport().get_visible_rect().size,
+            recipe_index
+        )
+
+        var recipe_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+            node,
+            recipe_button_screen_rect
+        )
+
+        node.draw_rect(
+            recipe_button_world_rect,
+            Color(0.12, 0.10, 0.07, 0.95),
+            true
+        )
+
+        node.draw_rect(
+            recipe_button_world_rect,
+            Color(0.65, 0.55, 0.32, 0.95),
+            false,
+            get_small_border_width(world_per_screen_y)
+        )
+
+        var recipe_id: String = str(recipe.get("id", ""))
+        var recipe_name: String = str(recipe.get("name", "Recipe"))
+        var cost_text: String = crafting.get_recipe_cost_text(recipe_id)
+        var output_text: String = crafting.get_recipe_output_text(recipe_id)
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                recipe_button_screen_rect.position + Vector2(8, 16)
+            ),
+            recipe_name,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_small_font_size(world_per_screen_y),
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                recipe_button_screen_rect.position + Vector2(8, 32)
+            ),
+            "Cost: " + cost_text + "  ->  " + output_text,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_tiny_font_size(world_per_screen_y),
+            Color(0.88, 0.88, 0.88, 1.0)
+        )
+static func draw_storage_selector(
+    node: CanvasItem,
+    storage_selector_open: bool,
+    selector_origin: Vector2,
+    storage_selector_options: Array,
+    button_width: int,
+    button_height: int,
+    button_gap: int
+) -> void:
+    if not storage_selector_open:
+        return
+
+    for option_index in range(storage_selector_options.size()):
+        var resource_name: String = str(storage_selector_options[option_index])
+
+        var option_position := selector_origin + Vector2(
+            0,
+            option_index * (button_height + button_gap)
+        )
+
+        var option_rect := Rect2(
+            option_position,
+            Vector2(
+                button_width,
+                button_height
+            )
+        )
+
+        node.draw_rect(
+            option_rect,
+            Color(0.08, 0.07, 0.05, 0.92),
+            true
+        )
+
+        node.draw_rect(
+            option_rect,
+            Color(0.95, 0.82, 0.45, 1.0),
+            false,
+            1.5
+        )
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            option_position + Vector2(6, 15),
+            resource_name,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            14,
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
