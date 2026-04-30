@@ -48,7 +48,9 @@ static func get_all_recipes() -> Dictionary:
                     "type": OUTPUT_TYPE_ITEM,
                     "id": ITEM_POINTED_STICK,
                     "name": "Pointed Stick",
-                    "amount": 1
+                    "amount": 1,
+                    "category": RegionItemInventory.CATEGORY_WEAPON,
+                    "description": "A sharpened wooden stick. Useful as an early weapon and simple camp tool."
                 }
             ]
         },
@@ -71,7 +73,9 @@ static func get_all_recipes() -> Dictionary:
                     "type": OUTPUT_TYPE_ITEM,
                     "id": ITEM_SIMPLE_HAND_AXE,
                     "name": "Simple Hand Axe",
-                    "amount": 1
+                    "amount": 1,
+                    "category": RegionItemInventory.CATEGORY_TOOL,
+                    "description": "A crude stone chopping tool. Useful for early woodworking and camp tasks."
                 }
             ]
         },
@@ -94,7 +98,9 @@ static func get_all_recipes() -> Dictionary:
                     "type": OUTPUT_TYPE_ITEM,
                     "id": ITEM_SHARP_STONE_KNIFE,
                     "name": "Sharp Stone Knife",
-                    "amount": 1
+                    "amount": 1,
+                    "category": RegionItemInventory.CATEGORY_TOOL,
+                    "description": "A small stone blade. Useful for cutting, scraping, and preparing materials."
                 }
             ]
         },
@@ -117,7 +123,9 @@ static func get_all_recipes() -> Dictionary:
                     "type": OUTPUT_TYPE_ITEM,
                     "id": ITEM_CRUDE_CONTAINER,
                     "name": "Crude Container",
-                    "amount": 1
+                    "amount": 1,
+                    "category": RegionItemInventory.CATEGORY_KIT,
+                    "description": "A simple carrying container. Intended for future hauling and belonging systems."
                 }
             ]
         },
@@ -140,7 +148,9 @@ static func get_all_recipes() -> Dictionary:
                     "type": OUTPUT_TYPE_ITEM,
                     "id": ITEM_SLING,
                     "name": "Sling",
-                    "amount": 1
+                    "amount": 1,
+                    "category": RegionItemInventory.CATEGORY_WEAPON,
+                    "description": "A corded throwing weapon. Intended for future hunting and early defense systems."
                 }
             ]
         },
@@ -164,7 +174,9 @@ static func get_all_recipes() -> Dictionary:
                     "type": OUTPUT_TYPE_ITEM,
                     "id": ITEM_HERBAL_POULTICE,
                     "name": "Herbal Poultice",
-                    "amount": 1
+                    "amount": 1,
+                    "category": RegionItemInventory.CATEGORY_MEDICINE,
+                    "description": "A crude herbal treatment. Intended for future sickness and injury recovery systems."
                 }
             ]
         }

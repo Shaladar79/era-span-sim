@@ -408,8 +408,10 @@ static func draw_village_inventory_panel(
     for item_index in range(visible_items.size()):
         var item_data: Dictionary = visible_items[item_index]
         var item_name: String = str(item_data.get("name", "Unknown Item"))
+        var category: String = str(item_data.get("category", RegionItemInventory.CATEGORY_MISC))
         var amount: int = int(item_data.get("amount", 0))
-        var item_text := item_name + ": " + str(amount)
+
+        var item_text := "[" + category + "] " + item_name + ": " + str(amount)
 
         node.draw_string(
             ThemeDB.fallback_font,
@@ -426,7 +428,6 @@ static func draw_village_inventory_panel(
             get_body_font_size(world_per_screen_y),
             Color(1.0, 1.0, 1.0, 1.0)
         )
-
 
 static func draw_research_panel(
     node: CanvasItem,
@@ -1040,5 +1041,137 @@ static func draw_storage_selector(
             HORIZONTAL_ALIGNMENT_LEFT,
             -1,
             14,
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+static func draw_debug_button(
+    node: CanvasItem,
+    show_debug_panel: bool
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var button_screen_rect: Rect2 = RegionUI.get_debug_button_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var button_fill_color := Color(0.13, 0.08, 0.08, 0.95)
+
+    if show_debug_panel:
+        button_fill_color = Color(0.35, 0.12, 0.10, 0.98)
+
+    node.draw_rect(
+        button_world_rect,
+        button_fill_color,
+        true
+    )
+
+    node.draw_rect(
+        button_world_rect,
+        Color(1.0, 0.45, 0.35, 1.0),
+        false,
+        get_button_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(12, 18)
+        ),
+        "Debug",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_body_font_size(world_per_screen_y),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+
+static func draw_debug_panel(
+    node: CanvasItem,
+    show_debug_panel: bool
+) -> void:
+    if not show_debug_panel:
+        return
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var panel_screen_rect: Rect2 = RegionUI.get_debug_panel_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.045, 0.025, 0.025, 0.96),
+        true
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(1.0, 0.45, 0.35, 1.0),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 20)
+        ),
+        RegionDebugPanel.DEBUG_PANEL_TITLE,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_title_font_size(world_per_screen_y),
+        Color(1.0, 0.85, 0.78, 1.0)
+    )
+
+    var actions: Array = RegionDebugPanel.get_actions()
+
+    for action_index in range(actions.size()):
+        var action_data: Dictionary = actions[action_index]
+        var action_label: String = str(action_data.get("label", "Action"))
+
+        var button_screen_rect: Rect2 = RegionUI.get_debug_action_button_screen_rect(
+            node.get_viewport().get_visible_rect().size,
+            action_index
+        )
+
+        var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+            node,
+            button_screen_rect
+        )
+
+        node.draw_rect(
+            button_world_rect,
+            Color(0.14, 0.08, 0.07, 0.98),
+            true
+        )
+
+        node.draw_rect(
+            button_world_rect,
+            Color(0.85, 0.35, 0.28, 1.0),
+            false,
+            get_small_border_width(world_per_screen_y)
+        )
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                button_screen_rect.position + Vector2(8, 19)
+            ),
+            action_label,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_small_font_size(world_per_screen_y),
             Color(1.0, 1.0, 1.0, 1.0)
         )

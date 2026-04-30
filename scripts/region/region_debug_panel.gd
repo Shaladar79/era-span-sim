@@ -1,0 +1,194 @@
+extends RefCounted
+class_name RegionDebugPanel
+
+const ACTION_MAX_RESOURCES: String = "max_resources"
+const ACTION_ADD_RESEARCH_10: String = "add_research_10"
+const ACTION_ADD_RESEARCH_50: String = "add_research_50"
+const ACTION_ADD_RESEARCH_100: String = "add_research_100"
+const ACTION_ADD_TEST_ITEMS: String = "add_test_items"
+const ACTION_ADD_VILLAGER_1: String = "add_villager_1"
+const ACTION_ADD_VILLAGER_5: String = "add_villager_5"
+const ACTION_CLOSE: String = "close"
+
+const DEBUG_PANEL_TITLE: String = "Debug Tools"
+
+const TEST_RESOURCE_NAMES: Array[String] = [
+    "Wood",
+    "Stone",
+    "Fiber",
+    "Flint",
+    "Berries",
+    "Mushrooms",
+    "Reeds",
+    "Clay",
+    "Fish"
+]
+
+
+static func get_actions() -> Array:
+    return [
+        {
+            "id": ACTION_MAX_RESOURCES,
+            "label": "Max Resources"
+        },
+        {
+            "id": ACTION_ADD_RESEARCH_10,
+            "label": "+10 Research"
+        },
+        {
+            "id": ACTION_ADD_RESEARCH_50,
+            "label": "+50 Research"
+        },
+        {
+            "id": ACTION_ADD_RESEARCH_100,
+            "label": "+100 Research"
+        },
+        {
+            "id": ACTION_ADD_TEST_ITEMS,
+            "label": "Add Test Items"
+        },
+        {
+            "id": ACTION_ADD_VILLAGER_1,
+            "label": "+1 Villager"
+        },
+        {
+            "id": ACTION_ADD_VILLAGER_5,
+            "label": "+5 Villagers"
+        },
+        {
+            "id": ACTION_CLOSE,
+            "label": "Close"
+        }
+    ]
+
+
+static func get_action_id_at_index(action_index: int) -> String:
+    var actions: Array = get_actions()
+
+    if action_index < 0:
+        return ""
+
+    if action_index >= actions.size():
+        return ""
+
+    var action_data: Dictionary = actions[action_index]
+
+    return str(action_data.get("id", ""))
+
+
+static func get_action_label_at_index(action_index: int) -> String:
+    var actions: Array = get_actions()
+
+    if action_index < 0:
+        return ""
+
+    if action_index >= actions.size():
+        return ""
+
+    var action_data: Dictionary = actions[action_index]
+
+    return str(action_data.get("label", ""))
+
+
+static func get_research_amount_for_action(action_id: String) -> int:
+    match action_id:
+        ACTION_ADD_RESEARCH_10:
+            return 10
+        ACTION_ADD_RESEARCH_50:
+            return 50
+        ACTION_ADD_RESEARCH_100:
+            return 100
+        _:
+            return 0
+
+
+static func get_villager_amount_for_action(action_id: String) -> int:
+    match action_id:
+        ACTION_ADD_VILLAGER_1:
+            return 1
+        ACTION_ADD_VILLAGER_5:
+            return 5
+        _:
+            return 0
+
+
+static func is_research_action(action_id: String) -> bool:
+    return get_research_amount_for_action(action_id) > 0
+
+
+static func is_villager_action(action_id: String) -> bool:
+    return get_villager_amount_for_action(action_id) > 0
+
+
+static func get_test_item_outputs() -> Array:
+    return [
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_POINTED_STICK,
+            "name": "Pointed Stick",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_WEAPON,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_SIMPLE_HAND_AXE,
+            "name": "Simple Hand Axe",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_TOOL,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_SHARP_STONE_KNIFE,
+            "name": "Sharp Stone Knife",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_TOOL,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_CRUDE_CONTAINER,
+            "name": "Crude Container",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_KIT,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_SLING,
+            "name": "Sling",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_WEAPON,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_HERBAL_POULTICE,
+            "name": "Herbal Poultice",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_MEDICINE,
+            "description": "Debug test item."
+        }
+    ]
+
+
+static func max_resources(inventory: RegionInventory) -> int:
+    var changed_count: int = 0
+
+    for resource_index in range(TEST_RESOURCE_NAMES.size()):
+        var resource_name: String = str(TEST_RESOURCE_NAMES[resource_index])
+        var resource_cap: int = inventory.get_resource_cap(resource_name)
+
+        inventory.set_amount(resource_name, resource_cap)
+        changed_count += 1
+
+    return changed_count
+
+
+static func add_test_items(item_inventory: RegionItemInventory) -> int:
+    var outputs: Array = get_test_item_outputs()
+
+    item_inventory.add_items_from_outputs(outputs)
+
+    return outputs.size()

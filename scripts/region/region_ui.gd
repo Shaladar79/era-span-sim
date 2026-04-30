@@ -44,6 +44,14 @@ const VILLAGE_LOG_MARGIN: int = 12
 const VILLAGE_LOG_BOTTOM_OFFSET: int = 52
 const VILLAGE_LOG_ROW_HEIGHT: int = 18
 
+const DEBUG_BUTTON_WIDTH: int = 80
+const DEBUG_BUTTON_HEIGHT: int = 26
+const DEBUG_BUTTON_GAP: int = 8
+
+const DEBUG_PANEL_WIDTH: int = 260
+const DEBUG_PANEL_HEIGHT: int = 280
+const DEBUG_PANEL_ROW_HEIGHT: int = 28
+const DEBUG_PANEL_GAP: int = 6
 
 static func get_top_info_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     return Rect2(
@@ -210,6 +218,52 @@ static func get_village_log_button_screen_rect(viewport_size: Vector2) -> Rect2:
         )
     )
 
+static func get_debug_button_screen_rect(viewport_size: Vector2) -> Rect2:
+    var village_log_button_rect: Rect2 = get_village_log_button_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            village_log_button_rect.position.x + village_log_button_rect.size.x + DEBUG_BUTTON_GAP,
+            village_log_button_rect.position.y
+        ),
+        Vector2(
+            DEBUG_BUTTON_WIDTH,
+            DEBUG_BUTTON_HEIGHT
+        )
+    )
+
+
+static func get_debug_panel_screen_rect(viewport_size: Vector2) -> Rect2:
+    var debug_button_rect: Rect2 = get_debug_button_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            debug_button_rect.position.x,
+            debug_button_rect.position.y - DEBUG_PANEL_HEIGHT - DEBUG_PANEL_GAP
+        ),
+        Vector2(
+            DEBUG_PANEL_WIDTH,
+            DEBUG_PANEL_HEIGHT
+        )
+    )
+
+
+static func get_debug_action_button_screen_rect(
+    viewport_size: Vector2,
+    action_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_debug_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            34 + action_index * DEBUG_PANEL_ROW_HEIGHT
+        ),
+        Vector2(
+            DEBUG_PANEL_WIDTH - 20,
+            DEBUG_PANEL_ROW_HEIGHT - 4
+        )
+    )
 
 static func get_village_log_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     var button_rect: Rect2 = get_village_log_button_screen_rect(viewport_size)

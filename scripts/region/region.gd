@@ -63,7 +63,9 @@ var show_crafting_panel: bool = false
 var selected_crafting_building_id: String = ""
 var selected_crafting_building_name: String = ""
 var selected_crafting_building_instance_id: int = 0
+
 var show_village_log_panel: bool = false
+var show_debug_panel: bool = false
 var village_log_messages: Array = []
 
 
@@ -132,6 +134,7 @@ func generate_region() -> void:
     show_research_panel = false
     close_crafting_panel()
     show_village_log_panel = false
+    show_debug_panel = false
     village_log_messages.clear()
 
     print("Region Seed: ", region_seed)
@@ -175,6 +178,7 @@ func generate_from_world_selection(
     show_research_panel = false
     close_crafting_panel()
     show_village_log_panel = false
+    show_debug_panel = false
     village_log_messages.clear()
     close_storage_selector()
 
@@ -236,6 +240,7 @@ func regenerate_region() -> void:
     show_research_panel = false
     close_crafting_panel()
     show_village_log_panel = false
+    show_debug_panel = false
     village_log_messages.clear()
     close_storage_selector()
 
@@ -394,10 +399,32 @@ func add_village_log_messages(messages: Array) -> void:
 func try_handle_village_log_click(mouse_screen_position: Vector2) -> bool:
     if get_village_log_button_screen_rect().has_point(mouse_screen_position):
         show_village_log_panel = not show_village_log_panel
+
+        if show_village_log_panel:
+            show_debug_panel = false
+
         queue_redraw()
 
         print("Show Village Log Panel: ", show_village_log_panel)
         return true
+
+    if get_debug_button_screen_rect().has_point(mouse_screen_position):
+        show_debug_panel = not show_debug_panel
+
+        if show_debug_panel:
+            show_village_log_panel = false
+
+        queue_redraw()
+
+        print("Show Debug Panel: ", show_debug_panel)
+        return true
+
+    if show_debug_panel:
+        if try_execute_debug_action_from_mouse(mouse_screen_position):
+            return true
+
+        if get_debug_panel_screen_rect().has_point(mouse_screen_position):
+            return true
 
     if show_village_log_panel:
         if get_village_log_panel_screen_rect().has_point(mouse_screen_position):
@@ -472,6 +499,57 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             return true
 
     return false
+
+
+func try_execute_debug_action_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_debug_panel:
+        return false
+
+    var actions: Array = RegionDebugPanel.get_actions()
+
+    for action_index in range(actions.size()):
+        var button_rect: Rect2 = get_debug_action_button_screen_rect(action_index)
+
+        if not button_rect.has_point(mouse_screen_position):
+            continue
+
+        var action_id: String = RegionDebugPanel.get_action_id_at_index(action_index)
+        execute_debug_action(action_id)
+        return true
+
+    return false
+
+
+func execute_debug_action(action_id: String) -> void:
+    if action_id == RegionDebugPanel.ACTION_MAX_RESOURCES:
+        var changed_count: int = RegionDebugPanel.max_resources(inventory)
+        add_village_log_message("Debug: maxed " + str(changed_count) + " resources.")
+        print_settlement_inventory()
+
+    elif RegionDebugPanel.is_research_action(action_id):
+        var research_amount: int = RegionDebugPanel.get_research_amount_for_action(action_id)
+        research.add_research(research_amount)
+        add_village_log_message("Debug: added " + str(research_amount) + " research.")
+        print_research_status()
+
+    elif action_id == RegionDebugPanel.ACTION_ADD_TEST_ITEMS:
+        var item_count: int = RegionDebugPanel.add_test_items(item_inventory)
+        add_village_log_message("Debug: added " + str(item_count) + " test items.")
+        item_inventory.print_inventory()
+
+    elif RegionDebugPanel.is_villager_action(action_id):
+        var villager_amount: int = RegionDebugPanel.get_villager_amount_for_action(action_id)
+        add_village_log_message(
+            "Debug: +" + str(villager_amount) + " villager button not connected yet."
+        )
+
+    elif action_id == RegionDebugPanel.ACTION_CLOSE:
+        show_debug_panel = false
+
+    else:
+        add_village_log_message("Debug: unknown action.")
+
+    queue_redraw()
 
 
 func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
@@ -969,7 +1047,9 @@ func _draw() -> void:
     draw_research_panel()
     draw_crafting_panel()
     draw_village_log_button()
+    draw_debug_button()
     draw_village_log_panel()
+    draw_debug_panel()
     draw_paused_villager_hover_panel()
 
 
@@ -1097,11 +1177,25 @@ func draw_village_log_button() -> void:
     )
 
 
+func draw_debug_button() -> void:
+    RegionDraw.draw_debug_button(
+        self,
+        show_debug_panel
+    )
+
+
 func draw_village_log_panel() -> void:
     RegionDraw.draw_village_log_panel(
         self,
         show_village_log_panel,
         village_log_messages
+    )
+
+
+func draw_debug_panel() -> void:
+    RegionDraw.draw_debug_panel(
+        self,
+        show_debug_panel
     )
 
 
@@ -1234,6 +1328,25 @@ func get_village_log_button_screen_rect() -> Rect2:
 func get_village_log_panel_screen_rect() -> Rect2:
     return RegionUI.get_village_log_panel_screen_rect(
         get_viewport().get_visible_rect().size
+    )
+
+
+func get_debug_button_screen_rect() -> Rect2:
+    return RegionUI.get_debug_button_screen_rect(
+        get_viewport().get_visible_rect().size
+    )
+
+
+func get_debug_panel_screen_rect() -> Rect2:
+    return RegionUI.get_debug_panel_screen_rect(
+        get_viewport().get_visible_rect().size
+    )
+
+
+func get_debug_action_button_screen_rect(action_index: int) -> Rect2:
+    return RegionUI.get_debug_action_button_screen_rect(
+        get_viewport().get_visible_rect().size,
+        action_index
     )
 
 

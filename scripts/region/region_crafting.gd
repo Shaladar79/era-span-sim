@@ -264,11 +264,13 @@ func craft_recipe_at_building(
     var outputs: Array = RegionRecipeData.get_recipe_outputs(recipe_id)
     item_inventory.add_items_from_outputs(outputs)
 
-    var recipe_name: String = str(recipe.get("name", recipe_id))
     var output_text: String = get_recipe_output_text(recipe_id)
 
+    if output_text == "":
+        output_text = str(recipe.get("name", recipe_id))
+
     result["success"] = true
-    result["message"] = "Crafted " + output_text + " at " + recipe_name + " recipe."
+    result["message"] = "Crafted " + output_text + "."
 
     return result
 

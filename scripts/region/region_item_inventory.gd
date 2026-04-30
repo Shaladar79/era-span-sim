@@ -1,6 +1,13 @@
 extends RefCounted
 class_name RegionItemInventory
 
+const CATEGORY_TOOL: String = "Tool"
+const CATEGORY_WEAPON: String = "Weapon"
+const CATEGORY_MEDICINE: String = "Medicine"
+const CATEGORY_KIT: String = "Kit"
+const CATEGORY_MATERIAL: String = "Material"
+const CATEGORY_MISC: String = "Misc"
+
 var items: Dictionary = {}
 
 
@@ -11,7 +18,9 @@ func reset() -> void:
 func add_item(
     item_id: String,
     item_name: String,
-    amount: int = 1
+    amount: int = 1,
+    category: String = CATEGORY_MISC,
+    description: String = ""
 ) -> void:
     if item_id == "":
         return
@@ -23,11 +32,17 @@ func add_item(
         items[item_id] = {
             "id": item_id,
             "name": item_name,
-            "amount": 0
+            "amount": 0,
+            "category": category,
+            "description": description
         }
 
     var item_data: Dictionary = items[item_id]
     item_data["amount"] = int(item_data.get("amount", 0)) + amount
+    item_data["name"] = item_name
+    item_data["category"] = category
+    item_data["description"] = description
+
     items[item_id] = item_data
 
 
@@ -47,11 +62,15 @@ func add_items_from_outputs(outputs: Array) -> void:
         var item_id: String = str(output_data.get("id", ""))
         var item_name: String = str(output_data.get("name", item_id))
         var amount: int = int(output_data.get("amount", 1))
+        var category: String = str(output_data.get("category", CATEGORY_MISC))
+        var description: String = str(output_data.get("description", ""))
 
         add_item(
             item_id,
             item_name,
-            amount
+            amount,
+            category,
+            description
         )
 
 
@@ -134,7 +153,25 @@ func get_visible_items() -> Array:
 
         visible_items.append(item_data)
 
+    visible_items.sort_custom(_sort_items_by_category_then_name)
+
     return visible_items
+
+
+func get_visible_items_by_category(category: String) -> Array:
+    var matching_items: Array = []
+    var visible_items: Array = get_visible_items()
+
+    for item_index in range(visible_items.size()):
+        var item_data: Dictionary = visible_items[item_index]
+        var item_category: String = str(item_data.get("category", CATEGORY_MISC))
+
+        if item_category != category:
+            continue
+
+        matching_items.append(item_data)
+
+    return matching_items
 
 
 func print_inventory() -> void:
@@ -151,8 +188,22 @@ func print_inventory() -> void:
     for item_index in range(visible_items.size()):
         var item_data: Dictionary = visible_items[item_index]
         var item_name: String = str(item_data.get("name", "Unknown Item"))
+        var category: String = str(item_data.get("category", CATEGORY_MISC))
         var amount: int = int(item_data.get("amount", 0))
 
-        print("- " + item_name + ": " + str(amount))
+        print("- [" + category + "] " + item_name + ": " + str(amount))
 
     print("")
+
+
+func _sort_items_by_category_then_name(a: Dictionary, b: Dictionary) -> bool:
+    var category_a: String = str(a.get("category", CATEGORY_MISC))
+    var category_b: String = str(b.get("category", CATEGORY_MISC))
+
+    if category_a != category_b:
+        return category_a < category_b
+
+    var name_a: String = str(a.get("name", ""))
+    var name_b: String = str(b.get("name", ""))
+
+    return name_a < name_b
