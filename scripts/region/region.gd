@@ -375,11 +375,23 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
     )
 
     if did_place_building:
-        print_settlement_inventory()
-        print_research_status()
+      apply_stone_age_building_progression_unlocks()
+      print_settlement_inventory()
+      print_research_status()
 
     queue_redraw()
+func apply_stone_age_building_progression_unlocks() -> void:
+    var unlock_messages: Array = RegionStoneAgeProgression.update_building_trigger_unlocks(
+        building_manager
+    )
 
+    if unlock_messages.is_empty():
+        return
+
+    add_village_log_messages(unlock_messages)
+
+    for message_index in range(unlock_messages.size()):
+        print(str(unlock_messages[message_index]))
 
 func add_village_log_message(message: String) -> void:
     if message == "":
@@ -539,9 +551,19 @@ func execute_debug_action(action_id: String) -> void:
 
     elif RegionDebugPanel.is_villager_action(action_id):
         var villager_amount: int = RegionDebugPanel.get_villager_amount_for_action(action_id)
-        add_village_log_message(
-            "Debug: +" + str(villager_amount) + " villager button not connected yet."
+        var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
+
+        var result: Dictionary = villager_manager.debug_add_villagers(
+            villager_amount,
+            normal_housing_capacity
         )
+
+        var message: String = str(result.get("message", ""))
+
+        if message != "":
+            add_village_log_message(message)
+
+        print("Debug villager add result: ", result)
 
     elif action_id == RegionDebugPanel.ACTION_CLOSE:
         show_debug_panel = false

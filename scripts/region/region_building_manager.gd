@@ -168,7 +168,6 @@ func try_place_current_building(
         footprint_height
     )
 
-    RegionBuildingData.notify_building_built(current_building_id)
 
     apply_building_unlock_side_effects(
         current_building_id,
@@ -189,29 +188,12 @@ func apply_building_unlock_side_effects(
 ) -> void:
     if building_id == RegionBuildingData.BUILDING_SHELTER:
         var shelter_count: int = get_built_shelter_count()
-        RegionBuildingData.notify_shelter_count_changed(shelter_count)
 
         print("Shelters built: ", shelter_count)
         print("Normal housing capacity: ", get_normal_housing_capacity())
 
-        if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER):
-            print("Chieftain's Shelter unlocked.")
-
     if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
         grant_generic_chieftain(building_instance_id)
-
-        if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_MAKING_SPOT):
-            print("Making Spot unlocked.")
-
-        if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_THINKERS_SPOT):
-            print("Thinker's Spot unlocked.")
-
-    if building_id == RegionBuildingData.BUILDING_MAKING_SPOT:
-        if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_STONEWORKING_BENCH):
-            print("Stoneworking Bench unlocked.")
-
-        if RegionBuildingData.is_building_unlocked(RegionBuildingData.BUILDING_WOODWORKING_BENCH):
-            print("Woodworking Bench unlocked.")
 
 
 func grant_generic_chieftain(source_building_instance_id: int) -> void:

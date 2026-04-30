@@ -19,7 +19,8 @@ const HEALTH_STATE_SICK: String = "sick"
 const HEALTH_STATE_WEAKENED: String = "weakened"
 const HEALTH_STATE_DEAD: String = "dead"
 
-const MAX_BELONGINGS: int = 2
+const BASE_BELONGING_SLOTS: int = 1
+const STONE_AGE_MAX_BELONGING_SLOTS: int = 2
 const CURRENT_NAME_ERA: String = VillagerNameGenerator.NAME_ERA_STONE
 
 const BASE_SPEED: int = 100
@@ -125,6 +126,7 @@ var rng := RandomNumberGenerator.new()
 var harvest_speed_multiplier: float = 1.0
 var harvest_yield_multiplier: float = 1.0
 var global_movement_speed_bonus: float = 0.0
+var global_belonging_slot_bonus: int = 0
 var population_growth_timer: float = 0.0
 
 
@@ -154,6 +156,7 @@ func reset_and_spawn_starting_villagers() -> void:
     population_growth_timer = 0.0
     event_messages_this_frame.clear()
     global_movement_speed_bonus = 0.0
+    global_belonging_slot_bonus = 0
 
     var center := Vector2i(region_width / 2, region_height / 2)
 
@@ -227,6 +230,31 @@ func set_global_movement_speed_bonus(new_bonus: float) -> void:
     global_movement_speed_bonus = max(0.0, new_bonus)
     update_all_villager_speed_stats()
 
+func get_current_max_belongings() -> int:
+    return clampi(
+        BASE_BELONGING_SLOTS + global_belonging_slot_bonus,
+        BASE_BELONGING_SLOTS,
+        STONE_AGE_MAX_BELONGING_SLOTS
+    )
+
+
+func set_global_belonging_slot_bonus(new_bonus: int) -> void:
+    global_belonging_slot_bonus = max(0, new_bonus)
+    update_all_villager_belonging_caps()
+
+
+func update_all_villager_belonging_caps() -> void:
+    var max_slots: int = get_current_max_belongings()
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        villager_data["max_belongings"] = max_slots
+        villagers[villager_index] = villager_data
 
 func get_movement_speed_multiplier_for_villager(villager_data: Dictionary) -> float:
     var speed: int = int(villager_data.get("speed", BASE_SPEED))
@@ -364,6 +392,86 @@ func spawn_new_villager_near_village_center() -> bool:
 
     return true
 
+func debug_add_villagers(
+    requested_amount: int,
+    normal_housing_capacity: int
+) -> Dictionary:
+    var result: Dictionary = {
+        "requested": requested_amount,
+        "spawned": 0,
+        "message": ""
+    }
+
+    if requested_amount <= 0:
+        result["message"] = "Debug: no villagers requested."
+        return result
+
+    var open_shelter_slots: int = max(
+        0,
+        normal_housing_capacity - villagers.size()
+    )
+
+    if open_shelter_slots <= 0:
+        result["message"] = (
+            "Debug: no open shelter available. Population "
+            + str(villagers.size())
+            + "/"
+            + str(normal_housing_capacity)
+            + "."
+        )
+        return result
+
+    var amount_to_spawn: int = min(
+        requested_amount,
+        open_shelter_slots
+    )
+
+    var spawned_names: Array = []
+
+    for spawn_index in range(amount_to_spawn):
+        var did_spawn: bool = spawn_new_villager_near_village_center()
+
+        if not did_spawn:
+            break
+
+        var newest_villager: Dictionary = villagers[villagers.size() - 1]
+        spawned_names.append(str(newest_villager.get("name", "Villager")))
+
+    auto_assign_villager_housing(normal_housing_capacity)
+    update_all_villager_speed_stats()
+
+    var spawned_count: int = spawned_names.size()
+    result["spawned"] = spawned_count
+
+    if spawned_count <= 0:
+        result["message"] = "Debug: no valid spawn tile was found."
+        return result
+
+    if spawned_count < requested_amount:
+        result["message"] = (
+            "Debug: added "
+            + str(spawned_count)
+            + " of "
+            + str(requested_amount)
+            + " requested villagers. Shelter "
+            + str(villagers.size())
+            + "/"
+            + str(normal_housing_capacity)
+            + "."
+        )
+        return result
+
+    result["message"] = (
+        "Debug: added "
+        + str(spawned_count)
+        + " villagers. Shelter "
+        + str(villagers.size())
+        + "/"
+        + str(normal_housing_capacity)
+        + "."
+    )
+
+    return result
 
 func spawn_villager_at_tile(
     spawn_tile: Vector2i,
@@ -400,12 +508,13 @@ func spawn_villager_at_tile(
         "base_speed": BASE_SPEED,
         "speed": BASE_SPEED,
         "belongings": [],
-        "max_belongings": MAX_BELONGINGS,
+        "max_belongings": get_current_max_belongings(),
         "statuses": [],
         "health_state": HEALTH_STATE_HEALTHY
     }
 
-    update_villager_speed_stat(villager_data)
+    update_all_villager_speed_stats()
+    update_all_villager_belonging_caps()
 
     villagers.append(villager_data)
     next_villager_id += 1
