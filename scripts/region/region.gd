@@ -67,6 +67,7 @@ var show_resource_markers: bool = true
 var show_campfire_radius: bool = false
 
 var inventory := RegionInventory.new()
+var item_inventory := RegionItemInventory.new()
 var research := RegionResearch.new()
 var building_manager := RegionBuildingManager.new()
 var villager_manager := VillagerManager.new()
@@ -269,6 +270,7 @@ func regenerate_region() -> void:
 
 func reset_test_inventory() -> void:
     inventory.reset()
+    item_inventory.reset()
 
 
 func reset_research() -> void:
@@ -703,7 +705,11 @@ func close_storage_selector() -> void:
 
 func print_settlement_inventory() -> void:
     inventory.print_inventory(villager_manager.get_population_count())
+    item_inventory.print_inventory()
 
+func add_crafted_items_from_recipe_outputs(outputs: Array) -> void:
+    item_inventory.add_items_from_outputs(outputs)
+    item_inventory.print_inventory()
 
 func print_research_status() -> void:
     research.print_research_status(building_manager)
