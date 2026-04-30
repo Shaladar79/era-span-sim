@@ -12,6 +12,10 @@ const BUILDING_WOODWORKING_BENCH: String = "woodworking_bench"
 const BUILDING_STORAGE_AREA: String = "storage_area"
 const BUILDING_THINKERS_SPOT: String = "thinkers_spot"
 
+const BUILDING_HUNTERS_HUT: String = "hunters_hut"
+const BUILDING_WARLEADER_SHELTER: String = "warleader_shelter"
+const BUILDING_WARRIOR_HUT: String = "warrior_hut"
+
 const CAMPFIRE_BUILD_RADIUS: int = 6
 
 const STORAGE_BASE_RESOURCE_CAP: int = 20
@@ -24,6 +28,9 @@ const CHIEFTAINS_SHELTER_CAPACITY: int = 0
 
 const THINKERS_SPOT_RESEARCH_PER_MINUTE: int = 1
 
+const SPECIALIST_HUT_CAPACITY: int = 1
+const WARLEADER_SHELTER_CAPACITY: int = 0
+
 static var runtime_unlocked_buildings: Dictionary = {}
 
 
@@ -31,27 +38,6 @@ static func reset_runtime_unlocks() -> void:
     runtime_unlocked_buildings = {
         BUILDING_CAMPFIRE: true
     }
-
-
-static func notify_building_built(building_id: String) -> void:
-    if runtime_unlocked_buildings.is_empty():
-        reset_runtime_unlocks()
-
-    if building_id == BUILDING_CAMPFIRE:
-        runtime_unlocked_buildings[BUILDING_SHELTER] = true
-        runtime_unlocked_buildings[BUILDING_STORAGE_AREA] = true
-
-    if building_id == BUILDING_CHIEFTAINS_SHELTER:
-        runtime_unlocked_buildings[BUILDING_MAKING_SPOT] = true
-        runtime_unlocked_buildings[BUILDING_THINKERS_SPOT] = true
-
-
-static func notify_shelter_count_changed(shelter_count: int) -> void:
-    if runtime_unlocked_buildings.is_empty():
-        reset_runtime_unlocks()
-
-    if shelter_count >= CHIEFTAINS_SHELTER_REQUIRED_SHELTERS:
-        runtime_unlocked_buildings[BUILDING_CHIEFTAINS_SHELTER] = true
 
 
 static func unlock_building(building_id: String) -> void:
@@ -136,6 +122,7 @@ static func get_all_buildings() -> Dictionary:
                 "Stone": 2,
                 "Wood": 4
             },
+            "item_cost": {},
             "movable": false,
             "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
@@ -152,6 +139,7 @@ static func get_all_buildings() -> Dictionary:
                 "Wood": 6,
                 "Fiber": 2
             },
+            "item_cost": {},
             "movable": true,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
@@ -170,6 +158,7 @@ static func get_all_buildings() -> Dictionary:
                 "Fiber": 4,
                 "Stone": 2
             },
+            "item_cost": {},
             "movable": true,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
@@ -189,6 +178,7 @@ static func get_all_buildings() -> Dictionary:
                 "Stone": 2,
                 "Wood": 2
             },
+            "item_cost": {},
             "movable": false,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
@@ -197,7 +187,7 @@ static func get_all_buildings() -> Dictionary:
 
         BUILDING_STONEWORKING_BENCH: {
             "id": BUILDING_STONEWORKING_BENCH,
-            "name": "Stoneworking Bench",
+            "name": "Stoneworking Hut",
             "age": AGE_STONE,
             "width": 2,
             "height": 1,
@@ -205,17 +195,21 @@ static func get_all_buildings() -> Dictionary:
                 "Stone": 6,
                 "Wood": 2
             },
+            "item_cost": {},
             "movable": false,
             "requires_campfire_range": true,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "stoneworking",
-            "description": "A crude Stone Age bench for shaping stone, flint, and early tool heads. It must be unlocked through research and built within range of a Campfire."
+            "specialist_role": "stoneworker",
+            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "assigned_villagers": [],
+            "description": "A dedicated Stone Age work hut for shaping stone, flint, crude blades, and early tool heads. Later, an assigned villager will become a Stoneworker and use this hut as specialist shelter."
         },
 
         BUILDING_WOODWORKING_BENCH: {
             "id": BUILDING_WOODWORKING_BENCH,
-            "name": "Woodworking Bench",
+            "name": "Woodworking Hut",
             "age": AGE_STONE,
             "width": 2,
             "height": 1,
@@ -223,12 +217,82 @@ static func get_all_buildings() -> Dictionary:
                 "Wood": 8,
                 "Stone": 1
             },
+            "item_cost": {},
             "movable": false,
             "requires_campfire_range": true,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "woodworking",
-            "description": "A crude Stone Age bench for shaping branches, poles, handles, frames, and drag sled parts. It must be unlocked through research and built within range of a Campfire."
+            "specialist_role": "woodworker",
+            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "assigned_villagers": [],
+            "description": "A dedicated Stone Age work hut for shaping branches, poles, handles, frames, and later moving-camp parts. Later, an assigned villager will become a Woodworker and use this hut as specialist shelter."
+        },
+
+        BUILDING_HUNTERS_HUT: {
+            "id": BUILDING_HUNTERS_HUT,
+            "name": "Hunter's Hut",
+            "age": AGE_STONE,
+            "width": 2,
+            "height": 1,
+            "cost": {
+                "Wood": 10,
+                "Fiber": 4,
+                "Stone": 2
+            },
+            "item_cost": {},
+            "movable": false,
+            "requires_campfire_range": true,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "specialist_role": "hunter",
+            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "assigned_villagers": [],
+            "description": "A dedicated Stone Age hut for future hunters. For now, it unlocks and builds as a placeholder. Later, an assigned villager will become a Hunter and use this hut as specialist shelter."
+        },
+
+        BUILDING_WARLEADER_SHELTER: {
+            "id": BUILDING_WARLEADER_SHELTER,
+            "name": "Warleader Shelter",
+            "age": AGE_STONE,
+            "width": 2,
+            "height": 2,
+            "cost": {
+                "Wood": 14,
+                "Fiber": 4,
+                "Stone": 4
+            },
+            "item_cost": {},
+            "movable": true,
+            "requires_campfire_range": true,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "housing_capacity": WARLEADER_SHELTER_CAPACITY,
+            "houses_warleader": true,
+            "grants_generic_warleader": true,
+            "description": "A larger shelter used by a future Warleader. It introduces the hunting and combat leadership branch, but the Warleader system will be built later."
+        },
+
+        BUILDING_WARRIOR_HUT: {
+            "id": BUILDING_WARRIOR_HUT,
+            "name": "Warrior Hut",
+            "age": AGE_STONE,
+            "width": 2,
+            "height": 1,
+            "cost": {
+                "Wood": 8,
+                "Stone": 6,
+                "Fiber": 2
+            },
+            "item_cost": {},
+            "movable": false,
+            "requires_campfire_range": true,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "specialist_role": "warrior",
+            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "assigned_villagers": [],
+            "description": "A dedicated Stone Age hut for future warriors. For now, it unlocks and builds as a placeholder. Later, an assigned villager will become a Warrior and use this hut as specialist shelter."
         },
 
         BUILDING_STORAGE_AREA: {
@@ -240,6 +304,7 @@ static func get_all_buildings() -> Dictionary:
             "cost": {
                 "Wood": 5
             },
+            "item_cost": {},
             "movable": false,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
@@ -258,10 +323,11 @@ static func get_all_buildings() -> Dictionary:
                 "Stone": 3,
                 "Wood": 1
             },
+            "item_cost": {},
             "movable": false,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "research_per_minute": THINKERS_SPOT_RESEARCH_PER_MINUTE,
-            "description": "A simple place for early planning, observation, and shared ideas. It generates 1 Research per minute. Research can be spent to learn item crafting plans, tools, benches, and later Stone Age systems."
+            "description": "A simple place for early planning, observation, and shared ideas. It generates 1 Research per minute. Research can be spent to learn item crafting plans, tools, huts, and later Stone Age systems."
         }
     }

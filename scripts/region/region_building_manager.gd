@@ -90,7 +90,8 @@ func start_building_placement(building_id: String) -> void:
     current_building_id = building_id
 
     print(str(building_data.get("name", building_id)) + " placement mode: ON")
-    print("Cost: " + get_cost_text_from_dictionary(building_data.get("cost", {})))
+    print("Resource Cost: " + get_cost_text_from_dictionary(building_data.get("cost", {})))
+    print("Item Cost: " + get_item_cost_text_from_dictionary(building_data.get("item_cost", {})))
 
     if current_building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
         print("Storage Area starts unassigned. Click it after building to choose what resource it stores.")
@@ -108,7 +109,8 @@ func cancel_build_mode() -> void:
 
 func try_place_current_building(
     origin_tile: Vector2i,
-    inventory: RegionInventory
+    inventory: RegionInventory,
+    item_inventory: RegionItemInventory
 ) -> bool:
     if current_building_id == "":
         print("No building selected.")
@@ -128,11 +130,9 @@ func try_place_current_building(
     var footprint_width: int = int(building_data.get("width", 1))
     var footprint_height: int = int(building_data.get("height", 1))
     var building_name: String = str(building_data.get("name", current_building_id))
-    var cost_variant: Variant = building_data.get("cost", {})
-    var cost: Dictionary = {}
 
-    if typeof(cost_variant) == TYPE_DICTIONARY:
-        cost = cost_variant
+    var cost: Dictionary = get_dictionary_from_variant(building_data.get("cost", {}))
+    var item_cost: Dictionary = get_dictionary_from_variant(building_data.get("item_cost", {}))
 
     if not can_place_building(origin_tile, footprint_width, footprint_height):
         print("Cannot place " + building_name + " here.")
@@ -155,10 +155,16 @@ func try_place_current_building(
 
     if not inventory.has_cost(cost):
         print("Not enough resources to build " + building_name + ".")
-        print("Need: " + get_cost_text_from_dictionary(cost))
+        print("Need resources: " + get_cost_text_from_dictionary(cost))
+        return false
+
+    if not has_item_cost(item_inventory, item_cost):
+        print("Not enough items to build " + building_name + ".")
+        print("Need items: " + get_item_cost_text_from_dictionary(item_cost))
         return false
 
     inventory.spend_cost(cost)
+    spend_item_cost(item_inventory, item_cost)
 
     var placed_building_instance_id: int = place_building(
         current_building_id,
@@ -167,7 +173,6 @@ func try_place_current_building(
         footprint_width,
         footprint_height
     )
-
 
     apply_building_unlock_side_effects(
         current_building_id,
@@ -423,9 +428,30 @@ func place_building(
 
     if building_id == RegionBuildingData.BUILDING_STONEWORKING_BENCH:
         building_data["crafting_skill"] = "stoneworking"
+        building_data["specialist_role"] = "stoneworker"
+        building_data["specialist_housing_capacity"] = 1
+        building_data["assigned_villagers"] = []
 
     if building_id == RegionBuildingData.BUILDING_WOODWORKING_BENCH:
         building_data["crafting_skill"] = "woodworking"
+        building_data["specialist_role"] = "woodworker"
+        building_data["specialist_housing_capacity"] = 1
+        building_data["assigned_villagers"] = []
+
+    if building_id == RegionBuildingData.BUILDING_HUNTERS_HUT:
+        building_data["specialist_role"] = "hunter"
+        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
+        building_data["assigned_villagers"] = []
+
+    if building_id == RegionBuildingData.BUILDING_WARLEADER_SHELTER:
+        building_data["housing_capacity"] = RegionBuildingData.WARLEADER_SHELTER_CAPACITY
+        building_data["houses_warleader"] = true
+        building_data["grants_generic_warleader"] = true
+
+    if building_id == RegionBuildingData.BUILDING_WARRIOR_HUT:
+        building_data["specialist_role"] = "warrior"
+        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
+        building_data["assigned_villagers"] = []
 
     region_buildings.append(building_data)
 
@@ -668,6 +694,15 @@ func print_building_placement_failure_reason(
     print("")
 
 
+func get_dictionary_from_variant(value: Variant) -> Dictionary:
+    if typeof(value) != TYPE_DICTIONARY:
+        return {}
+
+    var dictionary_value: Dictionary = value
+
+    return dictionary_value
+
+
 func get_cost_text_from_dictionary(cost_variant: Variant) -> String:
     if typeof(cost_variant) != TYPE_DICTIONARY:
         return "Free"
@@ -689,6 +724,143 @@ func get_cost_text_from_dictionary(cost_variant: Variant) -> String:
         parts.append(resource_name + " " + str(amount))
 
     return ", ".join(parts)
+
+
+func has_item_cost(
+    item_inventory: RegionItemInventory,
+    item_cost_variant: Variant
+) -> bool:
+    if typeof(item_cost_variant) != TYPE_DICTIONARY:
+        return true
+
+    var item_cost: Dictionary = item_cost_variant
+
+    if item_cost.is_empty():
+        return true
+
+    var item_ids: Array = item_cost.keys()
+
+    for item_index in range(item_ids.size()):
+        var item_id: String = str(item_ids[item_index])
+        var required_amount: int = int(item_cost.get(item_id, 0))
+
+        if required_amount <= 0:
+            continue
+
+        if not item_inventory.has_item(item_id, required_amount):
+            return false
+
+    return true
+
+
+func spend_item_cost(
+    item_inventory: RegionItemInventory,
+    item_cost_variant: Variant
+) -> bool:
+    if typeof(item_cost_variant) != TYPE_DICTIONARY:
+        return true
+
+    var item_cost: Dictionary = item_cost_variant
+
+    if item_cost.is_empty():
+        return true
+
+    if not has_item_cost(item_inventory, item_cost):
+        return false
+
+    var item_ids: Array = item_cost.keys()
+
+    for item_index in range(item_ids.size()):
+        var item_id: String = str(item_ids[item_index])
+        var required_amount: int = int(item_cost.get(item_id, 0))
+
+        if required_amount <= 0:
+            continue
+
+        item_inventory.remove_item(item_id, required_amount)
+
+    return true
+
+
+func get_item_cost_text_from_dictionary(item_cost_variant: Variant) -> String:
+    if typeof(item_cost_variant) != TYPE_DICTIONARY:
+        return "Free"
+
+    var item_cost: Dictionary = item_cost_variant
+
+    if item_cost.is_empty():
+        return "Free"
+
+    var parts: Array = []
+    var item_ids: Array = item_cost.keys()
+    item_ids.sort()
+
+    for item_index in range(item_ids.size()):
+        var item_id: String = str(item_ids[item_index])
+        var amount: int = int(item_cost.get(item_id, 0))
+        var item_name: String = get_item_display_name(item_id)
+
+        parts.append(item_name + " " + str(amount))
+
+    return ", ".join(parts)
+
+
+func get_item_display_name(item_id: String) -> String:
+    if item_id == RegionRecipeData.ITEM_POINTED_STICK:
+        return "Pointed Stick"
+
+    if item_id == RegionRecipeData.ITEM_SIMPLE_HAND_AXE:
+        return "Simple Hand Axe"
+
+    if item_id == RegionRecipeData.ITEM_SHARP_STONE_KNIFE:
+        return "Sharp Stone Knife"
+
+    if item_id == RegionRecipeData.ITEM_CRUDE_CONTAINER:
+        return "Crude Container"
+
+    if item_id == RegionRecipeData.ITEM_SLING:
+        return "Sling"
+
+    if item_id == RegionRecipeData.ITEM_HERBAL_POULTICE:
+        return "Herbal Poultice"
+
+    if item_id == RegionRecipeData.ITEM_THROWING_SPEAR:
+        return "Throwing Spear"
+
+    if item_id == RegionRecipeData.ITEM_STONE_TIPPED_SPEAR:
+        return "Stone-Tipped Spear"
+
+    if item_id == RegionRecipeData.ITEM_STONE_CLUB:
+        return "Stone Club"
+
+    if item_id == RegionRecipeData.ITEM_STONE_SCRAPER:
+        return "Stone Scraper"
+
+    if item_id == RegionRecipeData.ITEM_WORKED_HAND_AXE:
+        return "Worked Hand Axe"
+
+    if item_id == RegionRecipeData.ITEM_DRAG_SLED:
+        return "Drag Sled"
+
+    if item_id == RegionRecipeData.ITEM_TENT_KIT:
+        return "Tent Kit"
+
+    if item_id == RegionRecipeData.ITEM_ADVANCED_SLING:
+        return "Advanced Sling"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_TIPPED_HUNTING_SPEAR:
+        return "Flint-Tipped Hunting Spear"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_EDGED_HAND_AXE:
+        return "Flint-Edged Hand Axe"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_EDGED_WOODSMAN_AXE:
+        return "Flint-Edged Woodsman Axe"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_TIPPED_MINING_PICK:
+        return "Flint-Tipped Mining Pick"
+
+    return item_id.capitalize()
 
 
 func is_tile_in_bounds(tile_position: Vector2i) -> bool:

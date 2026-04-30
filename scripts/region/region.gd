@@ -371,7 +371,8 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
 
     var did_place_building: bool = building_manager.try_place_current_building(
         origin_tile,
-        inventory
+        inventory,
+        item_inventory
     )
 
     if did_place_building:
