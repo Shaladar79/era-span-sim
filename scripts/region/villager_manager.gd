@@ -22,6 +22,9 @@ const HEALTH_STATE_DEAD: String = "dead"
 const MAX_BELONGINGS: int = 2
 const CURRENT_NAME_ERA: String = VillagerNameGenerator.NAME_ERA_STONE
 
+const BASE_SPEED: int = 100
+const MIN_SPEED: int = 10
+
 const SKILL_GATHERING: String = "gathering"
 const SKILL_WOOD_WORKING: String = "wood_working"
 const SKILL_STONE_WORKING: String = "stone_working"
@@ -121,6 +124,7 @@ var rng := RandomNumberGenerator.new()
 
 var harvest_speed_multiplier: float = 1.0
 var harvest_yield_multiplier: float = 1.0
+var global_movement_speed_bonus: float = 0.0
 var population_growth_timer: float = 0.0
 
 
@@ -149,6 +153,7 @@ func reset_and_spawn_starting_villagers() -> void:
     next_villager_id = 1
     population_growth_timer = 0.0
     event_messages_this_frame.clear()
+    global_movement_speed_bonus = 0.0
 
     var center := Vector2i(region_width / 2, region_height / 2)
 
@@ -162,7 +167,10 @@ func reset_and_spawn_starting_villagers() -> void:
         Vector2i(-1, 1),
         Vector2i(1, -1),
         Vector2i(-1, -1),
-        Vector2i(2, 0)
+        Vector2i(2, 0),
+        Vector2i(-2, 0),
+        Vector2i(0, 2),
+        Vector2i(0, -2)
     ]
 
     var spawned_count: int = 0
@@ -174,12 +182,9 @@ func reset_and_spawn_starting_villagers() -> void:
         var offset_variant: Variant = spawn_offsets[offset_index]
         var offset: Vector2i = offset_variant
         var requested_tile: Vector2i = center + offset
-        var spawn_tile: Vector2i = find_nearest_walkable_tile(requested_tile)
+        var spawn_tile: Vector2i = find_nearest_available_spawn_tile(requested_tile)
 
         if not is_tile_in_bounds(spawn_tile):
-            continue
-
-        if is_villager_on_tile(spawn_tile):
             continue
 
         var forced_skill: String = ""
@@ -194,8 +199,79 @@ func reset_and_spawn_starting_villagers() -> void:
 
         spawned_count += 1
 
+    while spawned_count < STARTING_POPULATION:
+        var fallback_tile: Vector2i = find_nearest_available_spawn_tile(center)
+
+        if not is_tile_in_bounds(fallback_tile):
+            break
+
+        var forced_fallback_skill: String = ""
+
+        if spawned_count < STARTING_SPECIALIST_SKILLS.size():
+            forced_fallback_skill = str(STARTING_SPECIALIST_SKILLS[spawned_count])
+
+        spawn_villager_at_tile(
+            fallback_tile,
+            forced_fallback_skill
+        )
+
+        spawned_count += 1
+
+    update_all_villager_speed_stats()
+
     print("Starting Population: ", villagers.size())
     print_villager_roster()
+
+
+func set_global_movement_speed_bonus(new_bonus: float) -> void:
+    global_movement_speed_bonus = max(0.0, new_bonus)
+    update_all_villager_speed_stats()
+
+
+func get_movement_speed_multiplier_for_villager(villager_data: Dictionary) -> float:
+    var speed: int = int(villager_data.get("speed", BASE_SPEED))
+
+    return max(
+        0.1,
+        float(speed) / float(BASE_SPEED)
+    )
+
+
+func get_adjusted_move_interval_for_villager(villager_data: Dictionary) -> float:
+    return VILLAGER_MOVE_INTERVAL / get_movement_speed_multiplier_for_villager(villager_data)
+
+
+func update_all_villager_speed_stats() -> void:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        update_villager_speed_stat(villager_data)
+        villagers[villager_index] = villager_data
+
+
+func update_villager_speed_stat(villager_data: Dictionary) -> void:
+    var base_speed: int = int(villager_data.get("base_speed", BASE_SPEED))
+    var bonus_speed: int = int(round(float(BASE_SPEED) * global_movement_speed_bonus))
+
+    villager_data["base_speed"] = base_speed
+    villager_data["speed"] = max(MIN_SPEED, base_speed + bonus_speed)
+
+
+func get_villager_level_from_skills(skills: Dictionary) -> float:
+    if SKILL_IDS.is_empty():
+        return 0.0
+
+    var total_skill_levels: int = 0
+
+    for skill_index in range(SKILL_IDS.size()):
+        var skill_id: String = str(SKILL_IDS[skill_index])
+        total_skill_levels += int(skills.get(skill_id, 0))
+
+    return float(total_skill_levels) / float(SKILL_IDS.size())
 
 
 func process_population_growth(
@@ -302,6 +378,9 @@ func spawn_villager_at_tile(
         CURRENT_NAME_ERA
     )
 
+    var generated_skills: Dictionary = generate_villager_skills(forced_specialist_skill)
+    var villager_level: float = get_villager_level_from_skills(generated_skills)
+
     var villager_data := {
         "id": next_villager_id,
         "name": villager_name,
@@ -316,12 +395,17 @@ func spawn_villager_at_tile(
         "assigned_harvest_center": NO_ASSIGNED_AREA,
         "assigned_harvest_radius": 0,
         "is_housed": false,
-        "skills": generate_villager_skills(forced_specialist_skill),
+        "skills": generated_skills,
+        "level": villager_level,
+        "base_speed": BASE_SPEED,
+        "speed": BASE_SPEED,
         "belongings": [],
         "max_belongings": MAX_BELONGINGS,
         "statuses": [],
         "health_state": HEALTH_STATE_HEALTHY
     }
+
+    update_villager_speed_stat(villager_data)
 
     villagers.append(villager_data)
     next_villager_id += 1
@@ -458,6 +542,7 @@ func update(
     event_messages_this_frame.clear()
     did_change_tiles = false
 
+    update_all_villager_speed_stats()
     auto_assign_villager_housing(normal_housing_capacity)
     process_population_growth(delta, normal_housing_capacity)
 
@@ -680,7 +765,7 @@ func process_moving_villager(
     if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
         villager_data["tile"] = next_tile
         villager_data["world_position"] = tile_to_world_center(next_tile)
-        villager_data["move_timer"] = VILLAGER_MOVE_INTERVAL
+        villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
     else:
         villager_data["state"] = VILLAGER_STATE_IDLE
         villager_data["target_tile"] = Vector2i(-1, -1)
@@ -1011,6 +1096,9 @@ func is_tile_walkable_for_villager(tile_position: Vector2i) -> bool:
     if is_tree_wood_tile(tile_data):
         return true
 
+    if is_stone_pathable_resource_tile(tile_data):
+        return true
+
     return false
 
 
@@ -1030,6 +1118,33 @@ func is_tree_wood_tile(tile_data: Dictionary) -> bool:
         var resource_id: String = str(resource_dict.get("id", ""))
 
         if resource_id == RESOURCE_WOOD:
+            return true
+
+    return false
+
+
+func is_stone_pathable_resource_tile(tile_data: Dictionary) -> bool:
+    var resources: Array = tile_data.get("resources", [])
+
+    if resources.is_empty():
+        return false
+
+    for resource_index in range(resources.size()):
+        var resource_variant: Variant = resources[resource_index]
+
+        if typeof(resource_variant) != TYPE_DICTIONARY:
+            continue
+
+        var resource_dict: Dictionary = resource_variant
+        var resource_id: String = str(resource_dict.get("id", ""))
+
+        if resource_id == RESOURCE_STONE:
+            return true
+
+        if resource_id == RESOURCE_FLINT:
+            return true
+
+        if resource_id == RESOURCE_CLAY:
             return true
 
     return false
@@ -1254,6 +1369,8 @@ func print_villager_roster() -> void:
 func print_villager_summary(villager_data: Dictionary) -> void:
     var villager_name: String = str(villager_data.get("name", "Villager"))
     var gender: String = str(villager_data.get("gender", "unknown"))
+    var level: float = float(villager_data.get("level", 0.0))
+    var speed: int = int(villager_data.get("speed", BASE_SPEED))
     var skills: Dictionary = villager_data.get("skills", {})
 
     print(
@@ -1262,7 +1379,11 @@ func print_villager_summary(villager_data: Dictionary) -> void:
         " (",
         gender,
         ") ",
-        "Gathering ",
+        "Level ",
+        snappedf(level, 0.1),
+        ", Speed ",
+        speed,
+        ", Gathering ",
         int(skills.get(SKILL_GATHERING, 0)),
         ", Wood ",
         int(skills.get(SKILL_WOOD_WORKING, 0)),

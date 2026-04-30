@@ -39,8 +39,8 @@ const RESEARCH_PANEL_HEIGHT: int = 260
 const RESEARCH_PANEL_GAP: int = 4
 const RESEARCH_ROW_HEIGHT: int = 30
 
-const VILLAGER_HOVER_PANEL_WIDTH: int = 220
-const VILLAGER_HOVER_PANEL_HEIGHT: int = 190
+const VILLAGER_HOVER_PANEL_WIDTH: int = 250
+const VILLAGER_HOVER_PANEL_HEIGHT: int = 225
 const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
 
 const VILLAGE_LOG_BUTTON_WIDTH: int = 110
@@ -76,7 +76,7 @@ var input_controller := RegionInputController.new()
 var is_dragging_villager: bool = false
 var dragged_villager_id: int = 0
 var drag_assignment_tile: Vector2i = Vector2i(-1, -1)
-var simulation_paused: bool = false
+var simulation_paused: bool = true
 
 var storage_selector_open: bool = false
 var selected_storage_building_instance_id: int = 0
@@ -120,6 +120,7 @@ func _process(delta: float) -> void:
     update_hovered_tile()
 
     if simulation_paused:
+        queue_redraw()
         return
 
     update_villager_manager(delta)
@@ -147,6 +148,7 @@ func generate_region() -> void:
     setup_villager_manager()
     close_storage_selector()
 
+    simulation_paused = true
     show_resource_inventory_panel = false
     show_research_panel = false
     show_village_log_panel = false
@@ -187,7 +189,7 @@ func generate_from_world_selection(
     is_dragging_villager = false
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
-    simulation_paused = false
+    simulation_paused = true
     show_resource_inventory_panel = false
     show_research_panel = false
     show_village_log_panel = false
@@ -246,7 +248,7 @@ func regenerate_region() -> void:
     is_dragging_villager = false
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
-    simulation_paused = false
+    simulation_paused = true
     show_resource_inventory_panel = false
     show_research_panel = false
     show_village_log_panel = false
@@ -299,6 +301,10 @@ func setup_villager_manager() -> void:
 
 func update_villager_manager(delta: float) -> void:
     var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
+
+    villager_manager.set_global_movement_speed_bonus(
+        research.get_villager_move_speed_bonus()
+    )
 
     var harvested_resources: Dictionary = villager_manager.update(
         delta,
@@ -1264,7 +1270,7 @@ func draw_village_log_panel() -> void:
         draw_string(
             ThemeDB.fallback_font,
             screen_position_to_world_position(
-                get_village_log_panel_screen_rect().position + Vector2(
+                panel_screen_rect.position + Vector2(
                     10,
                     46 + draw_row * VILLAGE_LOG_ROW_HEIGHT
                 )
@@ -1350,6 +1356,8 @@ func draw_villager_hover_panel_text(
 
     var villager_name: String = str(villager_data.get("name", "Villager"))
     var gender: String = str(villager_data.get("gender", "unknown"))
+    var level: float = float(villager_data.get("level", 0.0))
+    var speed: int = int(villager_data.get("speed", 100))
     var health_state: String = str(villager_data.get("health_state", "healthy"))
     var current_state: String = str(villager_data.get("state", "idle"))
     var is_housed: bool = bool(villager_data.get("is_housed", false))
@@ -1387,6 +1395,18 @@ func draw_villager_hover_panel_text(
     )
 
     text_y += 18.0
+
+    draw_string(
+        ThemeDB.fallback_font,
+        screen_position_to_world_position(Vector2(text_x, text_y)),
+        "Level: " + str(snappedf(level, 0.1)) + "    Speed: " + str(speed),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    text_y += 16.0
 
     draw_string(
         ThemeDB.fallback_font,
