@@ -8,12 +8,19 @@ const TOP_INFO_PANEL_MARGIN: int = 12
 const TOP_INFO_RESOURCE_BUTTON_WIDTH: int = 92
 const TOP_INFO_RESOURCE_BUTTON_HEIGHT: int = 22
 
+const TOP_INFO_INVENTORY_BUTTON_WIDTH: int = 92
+const TOP_INFO_INVENTORY_BUTTON_HEIGHT: int = 22
+
 const TOP_INFO_RESEARCH_BUTTON_WIDTH: int = 92
 const TOP_INFO_RESEARCH_BUTTON_HEIGHT: int = 22
 
 const RESOURCE_LIST_PANEL_WIDTH: int = 240
 const RESOURCE_LIST_ROW_HEIGHT: int = 20
 const RESOURCE_LIST_PANEL_GAP: int = 4
+
+const INVENTORY_LIST_PANEL_WIDTH: int = 240
+const INVENTORY_LIST_ROW_HEIGHT: int = 20
+const INVENTORY_LIST_PANEL_GAP: int = 4
 
 const RESEARCH_PANEL_WIDTH: int = 360
 const RESEARCH_PANEL_HEIGHT: int = 260
@@ -63,6 +70,18 @@ static func get_resources_button_screen_rect(viewport_size: Vector2) -> Rect2:
     )
 
 
+static func get_inventory_button_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(112, 54),
+        Vector2(
+            TOP_INFO_INVENTORY_BUTTON_WIDTH,
+            TOP_INFO_INVENTORY_BUTTON_HEIGHT
+        )
+    )
+
+
 static func get_research_button_screen_rect(viewport_size: Vector2) -> Rect2:
     var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
 
@@ -90,6 +109,25 @@ static func get_resource_list_panel_screen_rect(
         Vector2(
             RESOURCE_LIST_PANEL_WIDTH,
             30 + row_count * RESOURCE_LIST_ROW_HEIGHT
+        )
+    )
+
+
+static func get_village_inventory_panel_screen_rect(
+    viewport_size: Vector2,
+    visible_item_count: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
+    var row_count: int = max(1, visible_item_count)
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x,
+            panel_rect.position.y + panel_rect.size.y + INVENTORY_LIST_PANEL_GAP
+        ),
+        Vector2(
+            INVENTORY_LIST_PANEL_WIDTH,
+            30 + row_count * INVENTORY_LIST_ROW_HEIGHT
         )
     )
 

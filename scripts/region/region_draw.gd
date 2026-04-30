@@ -36,6 +36,7 @@ static func draw_top_info_panel(
     villager_count: int,
     available_shelter: int,
     show_resource_inventory_panel: bool,
+    show_village_inventory_panel: bool,
     show_research_panel: bool
 ) -> void:
     var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
@@ -113,6 +114,11 @@ static func draw_top_info_panel(
         show_resource_inventory_panel
     )
 
+    draw_inventory_button(
+        node,
+        show_village_inventory_panel
+    )
+
     draw_research_button(
         node,
         show_research_panel
@@ -135,7 +141,6 @@ static func draw_resources_button(
     )
 
     var button_fill_color := Color(0.16, 0.13, 0.08, 0.95)
-    var button_border_color := Color(0.95, 0.82, 0.45, 1.0)
 
     if show_resource_inventory_panel:
         button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
@@ -148,7 +153,7 @@ static func draw_resources_button(
 
     node.draw_rect(
         button_world_rect,
-        button_border_color,
+        Color(0.95, 0.82, 0.45, 1.0),
         false,
         get_button_border_width(world_per_screen_y)
     )
@@ -160,6 +165,53 @@ static func draw_resources_button(
             button_screen_rect.position + Vector2(8, 16)
         ),
         "Resources",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_body_font_size(world_per_screen_y),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+
+static func draw_inventory_button(
+    node: CanvasItem,
+    show_village_inventory_panel: bool
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var button_screen_rect: Rect2 = RegionUI.get_inventory_button_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var button_fill_color := Color(0.16, 0.13, 0.08, 0.95)
+
+    if show_village_inventory_panel:
+        button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
+
+    node.draw_rect(
+        button_world_rect,
+        button_fill_color,
+        true
+    )
+
+    node.draw_rect(
+        button_world_rect,
+        Color(0.95, 0.82, 0.45, 1.0),
+        false,
+        get_button_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(8, 16)
+        ),
+        "Inventory",
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         get_body_font_size(world_per_screen_y),
@@ -212,7 +264,8 @@ static func draw_research_button(
         get_body_font_size(world_per_screen_y),
         Color(1.0, 1.0, 1.0, 1.0)
     )
-    
+
+
 static func draw_resource_inventory_panel(
     node: CanvasItem,
     visible_resources: Array,
@@ -276,7 +329,6 @@ static func draw_resource_inventory_panel(
         var resource_name: String = str(visible_resources[resource_index])
         var current_amount: int = int(resource_amounts.get(resource_name, 0))
         var resource_cap: int = int(resource_caps.get(resource_name, 0))
-
         var resource_text := resource_name + ": " + str(current_amount) + "/" + str(resource_cap)
 
         node.draw_string(
@@ -294,6 +346,87 @@ static func draw_resource_inventory_panel(
             get_body_font_size(world_per_screen_y),
             Color(1.0, 1.0, 1.0, 1.0)
         )
+
+
+static func draw_village_inventory_panel(
+    node: CanvasItem,
+    visible_items: Array
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var panel_screen_rect: Rect2 = RegionUI.get_village_inventory_panel_screen_rect(
+        node.get_viewport().get_visible_rect().size,
+        visible_items.size()
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.92),
+        true
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 20)
+        ),
+        "Village Inventory",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_title_font_size(world_per_screen_y),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if visible_items.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(10, 44)
+            ),
+            "No crafted items",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_body_font_size(world_per_screen_y),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    for item_index in range(visible_items.size()):
+        var item_data: Dictionary = visible_items[item_index]
+        var item_name: String = str(item_data.get("name", "Unknown Item"))
+        var amount: int = int(item_data.get("amount", 0))
+        var item_text := item_name + ": " + str(amount)
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(
+                    10,
+                    44 + item_index * RegionUI.INVENTORY_LIST_ROW_HEIGHT
+                )
+            ),
+            item_text,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_body_font_size(world_per_screen_y),
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+
 
 static func draw_research_panel(
     node: CanvasItem,
@@ -396,6 +529,127 @@ static func draw_research_panel(
             get_small_font_size(world_per_screen_y),
             Color(1.0, 1.0, 1.0, 1.0)
         )
+
+
+static func draw_crafting_panel(
+    node: CanvasItem,
+    selected_crafting_building_name: String,
+    selected_crafting_building_id: String,
+    craftable_recipes: Array,
+    crafting: RegionCrafting
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var panel_screen_rect: Rect2 = RegionUI.get_crafting_panel_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.94),
+        true
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 20)
+        ),
+        selected_crafting_building_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_title_font_size(world_per_screen_y),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if craftable_recipes.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(10, 48)
+            ),
+            "No affordable recipes available.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_body_font_size(world_per_screen_y),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    var max_rows: int = int(floor(float(RegionUI.CRAFTING_PANEL_HEIGHT - 44) / float(RegionUI.CRAFTING_ROW_HEIGHT)))
+    var visible_count: int = min(craftable_recipes.size(), max_rows)
+
+    for recipe_index in range(visible_count):
+        var recipe: Dictionary = craftable_recipes[recipe_index]
+
+        var recipe_button_screen_rect: Rect2 = RegionUI.get_crafting_recipe_button_screen_rect(
+            node.get_viewport().get_visible_rect().size,
+            recipe_index
+        )
+
+        var recipe_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+            node,
+            recipe_button_screen_rect
+        )
+
+        node.draw_rect(
+            recipe_button_world_rect,
+            Color(0.12, 0.10, 0.07, 0.95),
+            true
+        )
+
+        node.draw_rect(
+            recipe_button_world_rect,
+            Color(0.65, 0.55, 0.32, 0.95),
+            false,
+            get_small_border_width(world_per_screen_y)
+        )
+
+        var recipe_id: String = str(recipe.get("id", ""))
+        var recipe_name: String = str(recipe.get("name", "Recipe"))
+        var cost_text: String = crafting.get_recipe_cost_text(recipe_id)
+        var output_text: String = crafting.get_recipe_output_text(recipe_id)
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                recipe_button_screen_rect.position + Vector2(8, 16)
+            ),
+            recipe_name,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_small_font_size(world_per_screen_y),
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                recipe_button_screen_rect.position + Vector2(8, 32)
+            ),
+            "Cost: " + cost_text + "  ->  " + output_text,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_tiny_font_size(world_per_screen_y),
+            Color(0.88, 0.88, 0.88, 1.0)
+        )
+
 
 static func draw_village_log_button(
     node: CanvasItem,
@@ -529,6 +783,7 @@ static func draw_village_log_panel(
         )
 
         draw_row += 1
+
 
 static func draw_villager_hover_panel(
     node: CanvasItem,
@@ -703,80 +958,19 @@ static func draw_villager_hover_panel_text(
 
     text_y += 15.0
 
-    draw_villager_skill_line(
-        node,
-        "Gathering",
-        int(skills.get(VillagerManager.SKILL_GATHERING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line(node, "Gathering", int(skills.get(VillagerManager.SKILL_GATHERING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        node,
-        "Wood Working",
-        int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line(node, "Wood Working", int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        node,
-        "Stone Working",
-        int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line(node, "Stone Working", int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        node,
-        "Building",
-        int(skills.get(VillagerManager.SKILL_BUILDING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line(node, "Building", int(skills.get(VillagerManager.SKILL_BUILDING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        node,
-        "Hauling",
-        int(skills.get(VillagerManager.SKILL_HAULING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line(node, "Hauling", int(skills.get(VillagerManager.SKILL_HAULING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        node,
-        "Medicine",
-        int(skills.get(VillagerManager.SKILL_MEDICINE, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
-
+    draw_villager_skill_line(node, "Medicine", int(skills.get(VillagerManager.SKILL_MEDICINE, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-
-    draw_villager_skill_line(
-        node,
-        "Thinking",
-        int(skills.get(VillagerManager.SKILL_THINKING, 0)),
-        text_x,
-        text_y,
-        body_font_size
-    )
+    draw_villager_skill_line(node, "Thinking", int(skills.get(VillagerManager.SKILL_THINKING, 0)), text_x, text_y, body_font_size)
 
 
 static func draw_villager_skill_line(
@@ -796,124 +990,8 @@ static func draw_villager_skill_line(
         font_size,
         Color(1.0, 1.0, 1.0, 1.0)
     )
-static func draw_crafting_panel(
-    node: CanvasItem,
-    selected_crafting_building_name: String,
-    selected_crafting_building_id: String,
-    craftable_recipes: Array,
-    crafting: RegionCrafting
-) -> void:
-    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
 
-    var panel_screen_rect: Rect2 = RegionUI.get_crafting_panel_screen_rect(
-        node.get_viewport().get_visible_rect().size
-    )
 
-    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
-        node,
-        panel_screen_rect
-    )
-
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.94),
-        true
-    )
-
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.85, 0.75, 0.45, 0.95),
-        false,
-        get_panel_border_width(world_per_screen_y)
-    )
-
-    node.draw_string(
-        ThemeDB.fallback_font,
-        RegionUI.screen_position_to_world_position(
-            node,
-            panel_screen_rect.position + Vector2(10, 20)
-        ),
-        selected_crafting_building_name,
-        HORIZONTAL_ALIGNMENT_LEFT,
-        -1,
-        get_title_font_size(world_per_screen_y),
-        Color(1.0, 0.95, 0.75, 1.0)
-    )
-
-    if craftable_recipes.is_empty():
-        node.draw_string(
-            ThemeDB.fallback_font,
-            RegionUI.screen_position_to_world_position(
-                node,
-                panel_screen_rect.position + Vector2(10, 48)
-            ),
-            "No affordable recipes available.",
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            get_body_font_size(world_per_screen_y),
-            Color(0.85, 0.85, 0.85, 1.0)
-        )
-        return
-
-    var max_rows: int = int(floor(float(RegionUI.CRAFTING_PANEL_HEIGHT - 44) / float(RegionUI.CRAFTING_ROW_HEIGHT)))
-    var visible_count: int = min(craftable_recipes.size(), max_rows)
-
-    for recipe_index in range(visible_count):
-        var recipe: Dictionary = craftable_recipes[recipe_index]
-
-        var recipe_button_screen_rect: Rect2 = RegionUI.get_crafting_recipe_button_screen_rect(
-            node.get_viewport().get_visible_rect().size,
-            recipe_index
-        )
-
-        var recipe_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
-            node,
-            recipe_button_screen_rect
-        )
-
-        node.draw_rect(
-            recipe_button_world_rect,
-            Color(0.12, 0.10, 0.07, 0.95),
-            true
-        )
-
-        node.draw_rect(
-            recipe_button_world_rect,
-            Color(0.65, 0.55, 0.32, 0.95),
-            false,
-            get_small_border_width(world_per_screen_y)
-        )
-
-        var recipe_id: String = str(recipe.get("id", ""))
-        var recipe_name: String = str(recipe.get("name", "Recipe"))
-        var cost_text: String = crafting.get_recipe_cost_text(recipe_id)
-        var output_text: String = crafting.get_recipe_output_text(recipe_id)
-
-        node.draw_string(
-            ThemeDB.fallback_font,
-            RegionUI.screen_position_to_world_position(
-                node,
-                recipe_button_screen_rect.position + Vector2(8, 16)
-            ),
-            recipe_name,
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            get_small_font_size(world_per_screen_y),
-            Color(1.0, 1.0, 1.0, 1.0)
-        )
-
-        node.draw_string(
-            ThemeDB.fallback_font,
-            RegionUI.screen_position_to_world_position(
-                node,
-                recipe_button_screen_rect.position + Vector2(8, 32)
-            ),
-            "Cost: " + cost_text + "  ->  " + output_text,
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            get_tiny_font_size(world_per_screen_y),
-            Color(0.88, 0.88, 0.88, 1.0)
-        )
 static func draw_storage_selector(
     node: CanvasItem,
     storage_selector_open: bool,

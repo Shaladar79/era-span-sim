@@ -20,41 +20,6 @@ const STORAGE_SELECTOR_BUTTON_WIDTH: int = 96
 const STORAGE_SELECTOR_BUTTON_HEIGHT: int = 22
 const STORAGE_SELECTOR_BUTTON_GAP: int = 2
 
-const TOP_INFO_PANEL_WIDTH: int = 240
-const TOP_INFO_PANEL_HEIGHT: int = 112
-const TOP_INFO_PANEL_MARGIN: int = 12
-
-const TOP_INFO_RESOURCE_BUTTON_WIDTH: int = 92
-const TOP_INFO_RESOURCE_BUTTON_HEIGHT: int = 22
-
-const TOP_INFO_RESEARCH_BUTTON_WIDTH: int = 92
-const TOP_INFO_RESEARCH_BUTTON_HEIGHT: int = 22
-
-const RESOURCE_LIST_PANEL_WIDTH: int = 240
-const RESOURCE_LIST_ROW_HEIGHT: int = 20
-const RESOURCE_LIST_PANEL_GAP: int = 4
-
-const RESEARCH_PANEL_WIDTH: int = 360
-const RESEARCH_PANEL_HEIGHT: int = 260
-const RESEARCH_PANEL_GAP: int = 4
-const RESEARCH_ROW_HEIGHT: int = 30
-
-const CRAFTING_PANEL_WIDTH: int = 360
-const CRAFTING_PANEL_HEIGHT: int = 260
-const CRAFTING_PANEL_GAP: int = 4
-const CRAFTING_ROW_HEIGHT: int = 42
-
-const VILLAGER_HOVER_PANEL_WIDTH: int = 250
-const VILLAGER_HOVER_PANEL_HEIGHT: int = 225
-const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
-
-const VILLAGE_LOG_BUTTON_WIDTH: int = 110
-const VILLAGE_LOG_BUTTON_HEIGHT: int = 26
-const VILLAGE_LOG_PANEL_WIDTH: int = 360
-const VILLAGE_LOG_PANEL_HEIGHT: int = 220
-const VILLAGE_LOG_MARGIN: int = 12
-const VILLAGE_LOG_BOTTOM_OFFSET: int = 52
-const VILLAGE_LOG_ROW_HEIGHT: int = 18
 const VILLAGE_LOG_MAX_MESSAGES: int = 50
 
 @export var region_seed: int = 12345
@@ -92,6 +57,7 @@ var storage_selector_anchor_tile: Vector2i = Vector2i(-1, -1)
 var storage_selector_options: Array = []
 
 var show_resource_inventory_panel: bool = false
+var show_village_inventory_panel: bool = false
 var show_research_panel: bool = false
 var show_crafting_panel: bool = false
 var selected_crafting_building_id: String = ""
@@ -162,6 +128,7 @@ func generate_region() -> void:
 
     simulation_paused = true
     show_resource_inventory_panel = false
+    show_village_inventory_panel = false
     show_research_panel = false
     close_crafting_panel()
     show_village_log_panel = false
@@ -204,6 +171,7 @@ func generate_from_world_selection(
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = true
     show_resource_inventory_panel = false
+    show_village_inventory_panel = false
     show_research_panel = false
     close_crafting_panel()
     show_village_log_panel = false
@@ -264,6 +232,7 @@ func regenerate_region() -> void:
     drag_assignment_tile = Vector2i(-1, -1)
     simulation_paused = true
     show_resource_inventory_panel = false
+    show_village_inventory_panel = false
     show_research_panel = false
     close_crafting_panel()
     show_village_log_panel = false
@@ -442,6 +411,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         show_resource_inventory_panel = not show_resource_inventory_panel
 
         if show_resource_inventory_panel:
+            show_village_inventory_panel = false
             show_research_panel = false
             close_crafting_panel()
 
@@ -451,11 +421,26 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         print("Show Resource Inventory Panel: ", show_resource_inventory_panel)
         return true
 
+    if get_inventory_button_screen_rect().has_point(mouse_screen_position):
+        show_village_inventory_panel = not show_village_inventory_panel
+
+        if show_village_inventory_panel:
+            show_resource_inventory_panel = false
+            show_research_panel = false
+            close_crafting_panel()
+
+        queue_redraw()
+
+        print("Inventory button clicked.")
+        print("Show Village Inventory Panel: ", show_village_inventory_panel)
+        return true
+
     if get_research_button_screen_rect().has_point(mouse_screen_position):
         show_research_panel = not show_research_panel
 
         if show_research_panel:
             show_resource_inventory_panel = false
+            show_village_inventory_panel = false
             close_crafting_panel()
 
         queue_redraw()
@@ -475,6 +460,10 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         if get_resource_list_panel_screen_rect().has_point(mouse_screen_position):
             return true
 
+    if show_village_inventory_panel:
+        if get_village_inventory_panel_screen_rect().has_point(mouse_screen_position):
+            return true
+
     if show_crafting_panel:
         if try_craft_recipe_from_mouse(mouse_screen_position):
             return true
@@ -483,6 +472,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             return true
 
     return false
+
 
 func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
     if not show_crafting_panel:
@@ -530,6 +520,7 @@ func craft_recipe(recipe_id: String) -> void:
         print_settlement_inventory()
 
     queue_redraw()
+
 
 func try_buy_research_from_mouse(mouse_screen_position: Vector2) -> bool:
     var buyable_plans: Array = research.get_buyable_research_plans(
@@ -697,6 +688,7 @@ func try_open_storage_selector_at_tile(tile_position: Vector2i) -> bool:
     storage_selector_options = selectable_resources
 
     print("Storage Area selected. Choose resource:")
+
     for option_index in range(storage_selector_options.size()):
         print(str(option_index + 1) + ". " + str(storage_selector_options[option_index]))
 
@@ -796,6 +788,7 @@ func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
 
     show_crafting_panel = true
     show_resource_inventory_panel = false
+    show_village_inventory_panel = false
     show_research_panel = false
 
     selected_crafting_building_id = building_id
@@ -972,6 +965,7 @@ func _draw() -> void:
     draw_storage_selector()
     draw_top_info_panel()
     draw_resource_inventory_panel()
+    draw_village_inventory_panel()
     draw_research_panel()
     draw_crafting_panel()
     draw_village_log_button()
@@ -990,6 +984,7 @@ func draw_storage_selector() -> void:
         STORAGE_SELECTOR_BUTTON_GAP
     )
 
+
 func draw_top_info_panel() -> void:
     var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
     var available_shelter: int = max(
@@ -1003,6 +998,7 @@ func draw_top_info_panel() -> void:
         villager_manager.get_population_count(),
         available_shelter,
         show_resource_inventory_panel,
+        show_village_inventory_panel,
         show_research_panel
     )
 
@@ -1011,6 +1007,13 @@ func draw_resources_button() -> void:
     RegionDraw.draw_resources_button(
         self,
         show_resource_inventory_panel
+    )
+
+
+func draw_inventory_button() -> void:
+    RegionDraw.draw_inventory_button(
+        self,
+        show_village_inventory_panel
     )
 
 
@@ -1042,6 +1045,17 @@ func draw_resource_inventory_panel() -> void:
         resource_caps
     )
 
+
+func draw_village_inventory_panel() -> void:
+    if not show_village_inventory_panel:
+        return
+
+    RegionDraw.draw_village_inventory_panel(
+        self,
+        item_inventory.get_visible_items()
+    )
+
+
 func draw_research_panel() -> void:
     if not show_research_panel:
         return
@@ -1055,6 +1069,7 @@ func draw_research_panel() -> void:
         self,
         buyable_plans
     )
+
 
 func draw_crafting_panel() -> void:
     if not show_crafting_panel:
@@ -1074,17 +1089,21 @@ func draw_crafting_panel() -> void:
         crafting
     )
 
+
 func draw_village_log_button() -> void:
     RegionDraw.draw_village_log_button(
         self,
         show_village_log_panel
     )
+
+
 func draw_village_log_panel() -> void:
     RegionDraw.draw_village_log_panel(
         self,
         show_village_log_panel,
         village_log_messages
     )
+
 
 func draw_paused_villager_hover_panel() -> void:
     if not simulation_paused:
@@ -1110,7 +1129,8 @@ func draw_villager_hover_panel(villager_data: Dictionary) -> void:
         self,
         villager_data
     )
-    
+
+
 func draw_villager_hover_panel_text(
     villager_data: Dictionary,
     panel_screen_rect: Rect2
@@ -1120,7 +1140,8 @@ func draw_villager_hover_panel_text(
         villager_data,
         panel_screen_rect
     )
-    
+
+
 func draw_villager_skill_line(
     skill_label: String,
     skill_value: int,
@@ -1137,6 +1158,7 @@ func draw_villager_skill_line(
         font_size
     )
 
+
 func get_top_info_panel_screen_rect() -> Rect2:
     return RegionUI.get_top_info_panel_screen_rect(
         get_viewport().get_visible_rect().size
@@ -1145,6 +1167,12 @@ func get_top_info_panel_screen_rect() -> Rect2:
 
 func get_resources_button_screen_rect() -> Rect2:
     return RegionUI.get_resources_button_screen_rect(
+        get_viewport().get_visible_rect().size
+    )
+
+
+func get_inventory_button_screen_rect() -> Rect2:
+    return RegionUI.get_inventory_button_screen_rect(
         get_viewport().get_visible_rect().size
     )
 
@@ -1161,6 +1189,13 @@ func get_resource_list_panel_screen_rect() -> Rect2:
     return RegionUI.get_resource_list_panel_screen_rect(
         get_viewport().get_visible_rect().size,
         visible_resources.size()
+    )
+
+
+func get_village_inventory_panel_screen_rect() -> Rect2:
+    return RegionUI.get_village_inventory_panel_screen_rect(
+        get_viewport().get_visible_rect().size,
+        item_inventory.get_visible_items().size()
     )
 
 
