@@ -9,6 +9,8 @@ const VILLAGER_STATE_IDLE: String = "idle"
 const VILLAGER_STATE_MOVING: String = "moving"
 const VILLAGER_STATE_HARVESTING: String = "harvesting"
 const VILLAGER_STATE_THINKING: String = "thinking"
+const VILLAGER_STATE_WAITING_AT_BUILDING: String = "waiting_at_building"
+const VILLAGER_STATE_PATROLLING: String = "patrolling"
 
 const VILLAGER_MOVE_INTERVAL: float = CoreTuning.VILLAGER_MOVE_INTERVAL
 const DEFAULT_HARVEST_DURATION: float = CoreTuning.DEFAULT_HARVEST_DURATION
@@ -46,6 +48,9 @@ const HUNTER_BASE_ATTACK: int = StoneAgeTuning.HUNTER_BASE_ATTACK
 const HUNTER_BASE_DEFENSE: int = StoneAgeTuning.HUNTER_BASE_DEFENSE
 const WARRIOR_BASE_ATTACK: int = StoneAgeTuning.WARRIOR_BASE_ATTACK
 const WARRIOR_BASE_DEFENSE: int = StoneAgeTuning.WARRIOR_BASE_DEFENSE
+
+const THINKER_BASE_RESEARCH_PER_SECOND: float = StoneAgeTuning.THINKER_BASE_RESEARCH_PER_SECOND
+const THINKER_RESEARCH_BONUS_PER_THINKING_LEVEL: float = StoneAgeTuning.THINKER_RESEARCH_BONUS_PER_THINKING_LEVEL
 
 const DEFAULT_ROLE_TOOL_SLOTS: int = StoneAgeTuning.DEFAULT_ROLE_TOOL_SLOTS
 const DEFAULT_COMBAT_TOOL_SLOTS: int = StoneAgeTuning.DEFAULT_COMBAT_TOOL_SLOTS
@@ -179,6 +184,7 @@ var feature_none: String = ""
 var harvested_resources_this_frame: Dictionary = {}
 var event_messages_this_frame: Array = []
 var did_change_tiles: bool = false
+var research_progress_this_frame: float = 0.0
 
 var rng := RandomNumberGenerator.new()
 
@@ -216,6 +222,7 @@ func reset_and_spawn_starting_villagers() -> void:
     event_messages_this_frame.clear()
     global_movement_speed_bonus = 0.0
     global_belonging_slot_bonus = 0
+    research_progress_this_frame = 0.0
 
     var center := Vector2i(region_width / 2, region_height / 2)
 
@@ -733,6 +740,7 @@ func update(
     harvested_resources_this_frame.clear()
     event_messages_this_frame.clear()
     did_change_tiles = false
+    research_progress_this_frame = 0.0
 
     update_all_villager_speed_stats()
     auto_assign_villager_housing(normal_housing_capacity)
@@ -753,6 +761,10 @@ func has_tile_changes() -> bool:
 
 func get_event_messages() -> Array:
     return event_messages_this_frame.duplicate(true)
+
+
+func get_research_progress_this_frame() -> float:
+    return research_progress_this_frame
 
 
 func add_event_message(message: String) -> void:
@@ -893,19 +905,27 @@ func assign_villager_to_building_assignment(
     villager_data["assigned_building_role"] = assignment_role
     villager_data["assignment_replaces_shelter"] = replaces_shelter
     villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
+    villager_data["current_work_task"] = ""
+    villager_data["target_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+    villager_data["move_timer"] = 0.0
+    villager_data["harvest_timer"] = 0.0
 
     if not villager_data.has("assigned_work_anchor_tile"):
         villager_data["assigned_work_anchor_tile"] = NO_ASSIGNED_AREA
 
-    if not villager_data.has("current_work_task"):
-        villager_data["current_work_task"] = ""
-
     if assignment_role == StoneAgeVillagerAssignmentData.ROLE_THINKER:
         villager_data["state"] = VILLAGER_STATE_THINKING
-        villager_data["target_tile"] = Vector2i(-1, -1)
-        villager_data["harvest_tile"] = Vector2i(-1, -1)
-        villager_data["harvest_timer"] = 0.0
-        villager_data["move_timer"] = 0.0
+        villager_data["current_work_task"] = "thinking"
+    elif assignment_role == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+        villager_data["state"] = VILLAGER_STATE_PATROLLING
+        villager_data["current_work_task"] = "hunting_placeholder"
+    elif assignment_role == StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
+        villager_data["state"] = VILLAGER_STATE_PATROLLING
+        villager_data["current_work_task"] = "patrolling"
+    else:
+        villager_data["state"] = VILLAGER_STATE_WAITING_AT_BUILDING
+        villager_data["current_work_task"] = "waiting_at_building"
 
     villagers[villager_index] = villager_data
 
@@ -945,8 +965,16 @@ func clear_villager_building_assignment(villager_id: int) -> Dictionary:
     villager_data["assigned_work_anchor_tile"] = NO_ASSIGNED_AREA
     villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
     villager_data["current_work_task"] = ""
+    villager_data["target_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+    villager_data["move_timer"] = 0.0
+    villager_data["harvest_timer"] = 0.0
 
-    if str(villager_data.get("state", VILLAGER_STATE_IDLE)) == VILLAGER_STATE_THINKING:
+    if str(villager_data.get("state", VILLAGER_STATE_IDLE)) in [
+        VILLAGER_STATE_THINKING,
+        VILLAGER_STATE_WAITING_AT_BUILDING,
+        VILLAGER_STATE_PATROLLING
+    ]:
         villager_data["state"] = VILLAGER_STATE_IDLE
 
     if not villager_data.has("role"):
@@ -1233,6 +1261,15 @@ func clear_harvest_area_assignment(villager_id: int) -> void:
         return
 
 
+func is_villager_unavailable_for_work(villager_data: Dictionary) -> bool:
+    var health_state: String = str(villager_data.get("health_state", HEALTH_STATE_HEALTHY))
+
+    if health_state == HEALTH_STATE_DEAD:
+        return true
+
+    return false
+
+
 func process_villager(villager_index: int, delta: float, inventory: RegionInventory) -> void:
     if villager_index < 0 or villager_index >= villagers.size():
         return
@@ -1245,6 +1282,15 @@ func process_villager(villager_index: int, delta: float, inventory: RegionInvent
     var villager_data: Dictionary = villager_variant
     var villager_state: String = str(villager_data.get("state", VILLAGER_STATE_IDLE))
     var villager_id: int = int(villager_data.get("id", 0))
+
+    if is_villager_unavailable_for_work(villager_data):
+        process_unavailable_villager(villager_data)
+        villagers[villager_index] = villager_data
+        return
+
+    if process_assigned_role_behavior(villager_data, villager_id, delta, inventory):
+        villagers[villager_index] = villager_data
+        return
 
     match villager_state:
         VILLAGER_STATE_IDLE:
@@ -1259,20 +1305,307 @@ func process_villager(villager_index: int, delta: float, inventory: RegionInvent
         VILLAGER_STATE_THINKING:
             process_thinking_villager(villager_data, delta)
 
+        VILLAGER_STATE_WAITING_AT_BUILDING:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "waiting_at_building",
+                VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+
+        VILLAGER_STATE_PATROLLING:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "patrolling",
+                VILLAGER_STATE_PATROLLING
+            )
+
     villagers[villager_index] = villager_data
+
+
+func process_unavailable_villager(villager_data: Dictionary) -> void:
+    villager_data["state"] = VILLAGER_STATE_IDLE
+    villager_data["current_work_task"] = "unavailable"
+    villager_data["target_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+    villager_data["move_timer"] = 0.0
+    villager_data["harvest_timer"] = 0.0
+
+
+func process_assigned_role_behavior(
+    villager_data: Dictionary,
+    villager_id: int,
+    delta: float,
+    inventory: RegionInventory
+) -> bool:
+    var assigned_harvest_center: Vector2i = villager_data.get("assigned_harvest_center", NO_ASSIGNED_AREA)
+    var assigned_harvest_radius: int = int(villager_data.get("assigned_harvest_radius", 0))
+
+    if is_tile_in_bounds(assigned_harvest_center) and assigned_harvest_radius > 0:
+        return false
+
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+    if assigned_building_instance_id <= 0:
+        return false
+
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+
+    if role == StoneAgeVillagerAssignmentData.get_default_role():
+        return false
+
+    match role:
+        StoneAgeVillagerAssignmentData.ROLE_THINKER:
+            process_thinking_villager(villager_data, delta)
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_MAKER:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "waiting_at_building",
+                VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "waiting_at_building",
+                VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_STONEWORKER:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "waiting_at_building",
+                VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "ritual_waiting",
+                VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "hunting_placeholder",
+                VILLAGER_STATE_PATROLLING
+            )
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "patrolling",
+                VILLAGER_STATE_PATROLLING
+            )
+            return true
+
+    return false
 
 
 func process_thinking_villager(
     villager_data: Dictionary,
-    _delta: float
+    delta: float
 ) -> void:
     var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
 
     if assigned_building_instance_id <= 0:
         villager_data["state"] = VILLAGER_STATE_IDLE
+        villager_data["current_work_task"] = ""
         return
 
-    villager_data["current_work_task"] = "thinking"
+    var thinking_level: int = get_villager_skill_level(
+        villager_data,
+        SKILL_THINKING
+    )
+
+    var skill_multiplier: float = 1.0 + float(thinking_level) * THINKER_RESEARCH_BONUS_PER_THINKING_LEVEL
+    var generated_research: float = THINKER_BASE_RESEARCH_PER_SECOND * skill_multiplier * delta
+
+    research_progress_this_frame += generated_research
+
+    process_assigned_building_wander(
+        villager_data,
+        delta,
+        "thinking",
+        VILLAGER_STATE_THINKING
+    )
+
+func process_assigned_building_wander(
+    villager_data: Dictionary,
+    delta: float,
+    task_name: String,
+    desired_state: String
+) -> void:
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+    if assigned_building_instance_id <= 0:
+        villager_data["state"] = VILLAGER_STATE_IDLE
+        villager_data["current_work_task"] = ""
+        return
+
+    var anchor_tile: Vector2i = villager_data.get("assigned_work_anchor_tile", NO_ASSIGNED_AREA)
+    var work_radius: int = int(villager_data.get("assigned_work_radius", DEFAULT_ASSIGNED_WORK_RADIUS))
+
+    if not is_tile_in_bounds(anchor_tile):
+        villager_data["state"] = desired_state
+        villager_data["current_work_task"] = task_name
+        villager_data["target_tile"] = Vector2i(-1, -1)
+        villager_data["harvest_tile"] = Vector2i(-1, -1)
+        villager_data["move_timer"] = 0.0
+        villager_data["harvest_timer"] = 0.0
+        return
+
+    var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
+    var target_tile: Vector2i = villager_data.get("target_tile", Vector2i(-1, -1))
+    var move_timer: float = float(villager_data.get("move_timer", 0.0))
+
+    villager_data["state"] = desired_state
+    villager_data["current_work_task"] = task_name
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_timer"] = 0.0
+
+    if is_tile_in_bounds(target_tile) and current_tile != target_tile:
+        move_timer -= delta
+        villager_data["move_timer"] = move_timer
+
+        if move_timer > 0.0:
+            return
+
+        var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
+
+        if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
+            villager_data["tile"] = next_tile
+            villager_data["world_position"] = tile_to_world_center(next_tile)
+            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+            return
+
+        villager_data["target_tile"] = Vector2i(-1, -1)
+        villager_data["move_timer"] = 0.0
+        return
+
+    if current_tile == target_tile:
+        villager_data["target_tile"] = Vector2i(-1, -1)
+        villager_data["move_timer"] = 0.0
+
+    var distance_from_anchor: int = abs(current_tile.x - anchor_tile.x) + abs(current_tile.y - anchor_tile.y)
+
+    if distance_from_anchor > work_radius:
+        var nearest_anchor_tile: Vector2i = find_nearest_walkable_tile_in_area(
+            current_tile,
+            anchor_tile,
+            work_radius
+        )
+
+        if is_tile_in_bounds(nearest_anchor_tile):
+            villager_data["target_tile"] = nearest_anchor_tile
+            villager_data["move_timer"] = 0.0
+
+        return
+
+    var should_pick_new_target: bool = false
+
+    if not is_tile_in_bounds(target_tile):
+        should_pick_new_target = rng.randf() < 0.25
+
+    if not should_pick_new_target:
+        return
+
+    var wander_tile: Vector2i = find_random_walkable_tile_in_area(
+        anchor_tile,
+        work_radius
+    )
+
+    if not is_tile_in_bounds(wander_tile):
+        return
+
+    if wander_tile == current_tile:
+        return
+
+    villager_data["target_tile"] = wander_tile
+    villager_data["move_timer"] = 0.0
+
+
+func find_nearest_walkable_tile_in_area(
+    origin_tile: Vector2i,
+    center_tile: Vector2i,
+    radius: int
+) -> Vector2i:
+    var best_tile := Vector2i(-1, -1)
+    var best_distance: int = 999999
+
+    for y in range(center_tile.y - radius, center_tile.y + radius + 1):
+        for x in range(center_tile.x - radius, center_tile.x + radius + 1):
+            var tile_position := Vector2i(x, y)
+
+            if not is_tile_in_bounds(tile_position):
+                continue
+
+            var distance_from_center: int = abs(tile_position.x - center_tile.x) + abs(tile_position.y - center_tile.y)
+
+            if distance_from_center > radius:
+                continue
+
+            if not is_tile_walkable_for_villager(tile_position):
+                continue
+
+            if is_villager_on_tile(tile_position) and tile_position != origin_tile:
+                continue
+
+            var distance_from_origin: int = abs(tile_position.x - origin_tile.x) + abs(tile_position.y - origin_tile.y)
+
+            if distance_from_origin < best_distance:
+                best_distance = distance_from_origin
+                best_tile = tile_position
+
+    return best_tile
+
+
+func find_random_walkable_tile_in_area(
+    center_tile: Vector2i,
+    radius: int
+) -> Vector2i:
+    var candidates: Array = []
+
+    for y in range(center_tile.y - radius, center_tile.y + radius + 1):
+        for x in range(center_tile.x - radius, center_tile.x + radius + 1):
+            var tile_position := Vector2i(x, y)
+
+            if not is_tile_in_bounds(tile_position):
+                continue
+
+            var distance: int = abs(tile_position.x - center_tile.x) + abs(tile_position.y - center_tile.y)
+
+            if distance > radius:
+                continue
+
+            if not is_tile_walkable_for_villager(tile_position):
+                continue
+
+            if is_villager_on_tile(tile_position):
+                continue
+
+            candidates.append(tile_position)
+
+    if candidates.is_empty():
+        return Vector2i(-1, -1)
+
+    var selected_index: int = rng.randi_range(0, candidates.size() - 1)
+    return candidates[selected_index]
 
 
 func assign_next_harvest_target(
@@ -1399,19 +1732,6 @@ func find_harvest_target_for_villager(
             origin_tile,
             assigned_center,
             assigned_radius,
-            villager_id,
-            inventory
-        )
-
-    var work_anchor_tile: Vector2i = villager_data.get("assigned_work_anchor_tile", NO_ASSIGNED_AREA)
-    var work_radius: int = int(villager_data.get("assigned_work_radius", DEFAULT_ASSIGNED_WORK_RADIUS))
-    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
-
-    if assigned_building_instance_id > 0 and is_tile_in_bounds(work_anchor_tile) and work_radius > 0:
-        return find_random_harvestable_tile_in_area(
-            origin_tile,
-            work_anchor_tile,
-            work_radius,
             villager_id,
             inventory
         )
@@ -1979,6 +2299,7 @@ func print_villager_summary(villager_data: Dictionary) -> void:
     var assigned_role: String = str(villager_data.get("assigned_building_role", ""))
     var assigned_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assigned_role)
     var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+    var current_work_task: String = str(villager_data.get("current_work_task", ""))
     var attack_text: String = "-"
 
     if villager_data.has("attack"):
@@ -2043,7 +2364,9 @@ func print_villager_summary(villager_data: Dictionary) -> void:
         ", Assigned Role ",
         assigned_role_name,
         ", Assigned Building ",
-        assigned_building_instance_id
+        assigned_building_instance_id,
+        ", Task ",
+        current_work_task
     )
 
 
