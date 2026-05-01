@@ -86,25 +86,25 @@ const RESOURCE_BERRIES_NAME: String = "Berries"
 const RESOURCE_MUSHROOMS_NAME: String = "Mushrooms"
 const RESOURCE_HIDE_NAME: String = "Hide"
 
-const CRAFTING_TIER_STONE_AGE_T1: String = "stone_age_t1"
-const CRAFTING_TIER_STONE_AGE_T2: String = "stone_age_t2"
-const CRAFTING_TIER_STONE_AGE_T3: String = "stone_age_t3"
+const CRAFTING_TIER_STONE_AGE_T1: String = StoneAgeTuning.CRAFTING_TIER_1
+const CRAFTING_TIER_STONE_AGE_T2: String = StoneAgeTuning.CRAFTING_TIER_2
+const CRAFTING_TIER_STONE_AGE_T3: String = StoneAgeTuning.CRAFTING_TIER_3
 
 const OUTPUT_TYPE_ITEM: String = "item"
 
-const ITEM_FUNCTION_BASIC_TOOL: String = "basic_tool"
-const ITEM_FUNCTION_TOOL_BONUS: String = "tool_bonus"
-const ITEM_FUNCTION_WEAPON_STATS: String = "weapon_stats"
-const ITEM_FUNCTION_ARMOR_STATS: String = "armor_stats"
-const ITEM_FUNCTION_CONSUMABLE_EFFECT: String = "consumable_effect"
-const ITEM_FUNCTION_BUILDING_COST_ITEM: String = "building_cost_item"
-const ITEM_FUNCTION_CAMP_MOVE_REQUIREMENT: String = "camp_move_requirement"
-const ITEM_FUNCTION_STORAGE_BELONGING: String = "storage_belonging"
-const ITEM_FUNCTION_PREPARATION_TOOL: String = "preparation_tool"
-const ITEM_FUNCTION_SPEED_BELONGING: String = "speed_belonging"
-const ITEM_FUNCTION_ROLE_BELONGING: String = "role_belonging"
+const ITEM_FUNCTION_BASIC_TOOL: String = StoneAgeTuning.ITEM_FUNCTION_BASIC_TOOL
+const ITEM_FUNCTION_TOOL_BONUS: String = StoneAgeTuning.ITEM_FUNCTION_TOOL_BONUS
+const ITEM_FUNCTION_WEAPON_STATS: String = StoneAgeTuning.ITEM_FUNCTION_WEAPON_STATS
+const ITEM_FUNCTION_ARMOR_STATS: String = StoneAgeTuning.ITEM_FUNCTION_ARMOR_STATS
+const ITEM_FUNCTION_CONSUMABLE_EFFECT: String = StoneAgeTuning.ITEM_FUNCTION_CONSUMABLE_EFFECT
+const ITEM_FUNCTION_BUILDING_COST_ITEM: String = StoneAgeTuning.ITEM_FUNCTION_BUILDING_COST_ITEM
+const ITEM_FUNCTION_CAMP_MOVE_REQUIREMENT: String = StoneAgeTuning.ITEM_FUNCTION_CAMP_MOVE_REQUIREMENT
+const ITEM_FUNCTION_STORAGE_BELONGING: String = StoneAgeTuning.ITEM_FUNCTION_STORAGE_BELONGING
+const ITEM_FUNCTION_PREPARATION_TOOL: String = StoneAgeTuning.ITEM_FUNCTION_PREPARATION_TOOL
+const ITEM_FUNCTION_SPEED_BELONGING: String = StoneAgeTuning.ITEM_FUNCTION_SPEED_BELONGING
+const ITEM_FUNCTION_ROLE_BELONGING: String = StoneAgeTuning.ITEM_FUNCTION_ROLE_BELONGING
 
-const DEFAULT_CRAFT_TIME: float = 10.0
+const DEFAULT_CRAFT_TIME: float = StoneAgeTuning.DEFAULT_CRAFT_TIME
 
 
 static func get_all_recipes() -> Dictionary:

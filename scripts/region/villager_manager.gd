@@ -1,38 +1,56 @@
 extends RefCounted
 class_name VillagerManager
 
-const STARTING_POPULATION: int = 5
-const POPULATION_GROWTH_INTERVAL: float = 300.0
-const POPULATION_GROWTH_CHANCE: float = 0.25
+const STARTING_POPULATION: int = CoreTuning.STARTING_POPULATION
+const POPULATION_GROWTH_INTERVAL: float = CoreTuning.POPULATION_GROWTH_INTERVAL
+const POPULATION_GROWTH_CHANCE: float = CoreTuning.POPULATION_GROWTH_CHANCE
 
 const VILLAGER_STATE_IDLE: String = "idle"
 const VILLAGER_STATE_MOVING: String = "moving"
 const VILLAGER_STATE_HARVESTING: String = "harvesting"
 const VILLAGER_STATE_THINKING: String = "thinking"
 
-const VILLAGER_MOVE_INTERVAL: float = 0.18
-const DEFAULT_HARVEST_DURATION: float = 1.0
+const VILLAGER_MOVE_INTERVAL: float = CoreTuning.VILLAGER_MOVE_INTERVAL
+const DEFAULT_HARVEST_DURATION: float = CoreTuning.DEFAULT_HARVEST_DURATION
 
 const NO_ASSIGNED_AREA: Vector2i = Vector2i(-1, -1)
-const DEFAULT_ASSIGNED_WORK_RADIUS: int = 3
+const DEFAULT_ASSIGNED_WORK_RADIUS: int = CoreTuning.DEFAULT_ASSIGNED_WORK_RADIUS
 
 const HEALTH_STATE_HEALTHY: String = "healthy"
 const HEALTH_STATE_SICK: String = "sick"
 const HEALTH_STATE_WEAKENED: String = "weakened"
 const HEALTH_STATE_DEAD: String = "dead"
 
-const BASE_HEALTH: int = 5
-const HUNGER_FULL: int = 100
-const HUNGER_EAT_THRESHOLD: int = 40
+const BASE_HEALTH: int = CoreTuning.BASE_VILLAGER_HEALTH
+const HUNGER_FULL: int = CoreTuning.HUNGER_FULL
+const HUNGER_EAT_THRESHOLD: int = CoreTuning.HUNGER_EAT_THRESHOLD
 
-const BASE_BELONGING_SLOTS: int = 1
-const STONE_AGE_MAX_BELONGING_SLOTS: int = 2
+const BASE_BELONGING_SLOTS: int = CoreTuning.BASE_BELONGING_SLOTS
+const STONE_AGE_MAX_BELONGING_SLOTS: int = StoneAgeTuning.MAX_BELONGING_SLOTS
 const CURRENT_NAME_ERA: String = VillagerNameGenerator.NAME_ERA_STONE
 
-const BASE_SPEED: int = 100
-const MIN_BASE_SPEED: int = 90
-const MAX_BASE_SPEED: int = 100
-const MIN_SPEED: int = 10
+const BASE_SPEED: int = CoreTuning.BASE_SPEED
+const MIN_BASE_SPEED: int = CoreTuning.MIN_BASE_SPEED
+const MAX_BASE_SPEED: int = CoreTuning.MAX_BASE_SPEED
+const MIN_SPEED: int = CoreTuning.MIN_SPEED
+
+const BASE_SKILL_START_MIN: int = StoneAgeTuning.BASE_SKILL_START_MIN
+const BASE_SKILL_START_MAX: int = StoneAgeTuning.BASE_SKILL_START_MAX
+const ROLE_SKILL_START_MIN: int = StoneAgeTuning.ROLE_SKILL_START_MIN
+const ROLE_SKILL_START_MAX: int = StoneAgeTuning.ROLE_SKILL_START_MAX
+
+const HUNTER_HEALTH_PER_LEVEL: int = StoneAgeTuning.HUNTER_HEALTH_PER_LEVEL
+const WARRIOR_HEALTH_PER_LEVEL: int = StoneAgeTuning.WARRIOR_HEALTH_PER_LEVEL
+
+const HUNTER_BASE_ATTACK: int = StoneAgeTuning.HUNTER_BASE_ATTACK
+const HUNTER_BASE_DEFENSE: int = StoneAgeTuning.HUNTER_BASE_DEFENSE
+const WARRIOR_BASE_ATTACK: int = StoneAgeTuning.WARRIOR_BASE_ATTACK
+const WARRIOR_BASE_DEFENSE: int = StoneAgeTuning.WARRIOR_BASE_DEFENSE
+
+const DEFAULT_ROLE_TOOL_SLOTS: int = StoneAgeTuning.DEFAULT_ROLE_TOOL_SLOTS
+const DEFAULT_COMBAT_TOOL_SLOTS: int = StoneAgeTuning.DEFAULT_COMBAT_TOOL_SLOTS
+const DEFAULT_COMBAT_WEAPON_SLOTS: int = StoneAgeTuning.DEFAULT_COMBAT_WEAPON_SLOTS
+const DEFAULT_COMBAT_ARMOR_SLOTS: int = StoneAgeTuning.DEFAULT_COMBAT_ARMOR_SLOTS
 
 const SKILL_GATHERING: String = "gathering"
 const SKILL_BUILDING: String = "building"
@@ -53,12 +71,13 @@ const SKILL_PARRY: String = "parry"
 # Compatibility aliases for older references inside the project.
 const SKILL_WOOD_WORKING: String = SKILL_WOODCUTTING
 const SKILL_STONE_WORKING: String = SKILL_STONEWORKING
+
 # Removed/legacy skill aliases kept so older Stone Age data files still parse.
 const SKILL_HAULING: String = "hauling"
 const SKILL_MEDICINE: String = "medicine"
 
-const SKILL_HARVEST_SPEED_BONUS_PER_LEVEL: float = 0.02
-const MAX_SKILL_LEVEL: int = 10
+const SKILL_HARVEST_SPEED_BONUS_PER_LEVEL: float = CoreTuning.SKILL_HARVEST_SPEED_BONUS_PER_LEVEL
+const MAX_SKILL_LEVEL: int = CoreTuning.DEFAULT_SKILL_CAP
 
 const BASE_SKILL_IDS: Array = [
     SKILL_GATHERING,
@@ -609,7 +628,10 @@ func generate_villager_skills(_forced_specialist_skill: String = "") -> Dictiona
 
     for skill_index in range(BASE_SKILL_IDS.size()):
         var skill_id: String = str(BASE_SKILL_IDS[skill_index])
-        generated_skills[skill_id] = rng.randi_range(0, 3)
+        generated_skills[skill_id] = rng.randi_range(
+            BASE_SKILL_START_MIN,
+            BASE_SKILL_START_MAX
+        )
 
     return generated_skills
 
@@ -962,17 +984,17 @@ func refresh_role_stats_for_villager(villager_data: Dictionary) -> void:
     var level: int = int(villager_data.get("level", 0))
 
     if role == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
-        villager_data["max_health"] = BASE_HEALTH + level * 2
+        villager_data["max_health"] = BASE_HEALTH + level * HUNTER_HEALTH_PER_LEVEL
         villager_data["health"] = int(villager_data.get("max_health", BASE_HEALTH))
-        villager_data["attack"] = 2 + level
-        villager_data["defense"] = 1 + level
+        villager_data["attack"] = HUNTER_BASE_ATTACK + level
+        villager_data["defense"] = HUNTER_BASE_DEFENSE + level
         return
 
     if role == StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
-        villager_data["max_health"] = BASE_HEALTH + level * 3
+        villager_data["max_health"] = BASE_HEALTH + level * WARRIOR_HEALTH_PER_LEVEL
         villager_data["health"] = int(villager_data.get("max_health", BASE_HEALTH))
-        villager_data["attack"] = 3 + level
-        villager_data["defense"] = 2 + level
+        villager_data["attack"] = WARRIOR_BASE_ATTACK + level
+        villager_data["defense"] = WARRIOR_BASE_DEFENSE + level
         return
 
     villager_data["max_health"] = BASE_HEALTH
@@ -1005,7 +1027,10 @@ func add_role_skills_if_missing(
             )
             continue
 
-        skills[skill_id] = rng.randi_range(2, 4)
+        skills[skill_id] = rng.randi_range(
+            ROLE_SKILL_START_MIN,
+            ROLE_SKILL_START_MAX
+        )
 
     villager_data["skills"] = skills
 
@@ -1054,29 +1079,29 @@ func apply_slot_counts_for_role(villager_data: Dictionary) -> void:
 
     match role:
         StoneAgeVillagerAssignmentData.ROLE_MAKER:
-            villager_data["tool_slots"] = 1
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_THINKER:
-            villager_data["tool_slots"] = 1
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_STONEWORKER:
-            villager_data["tool_slots"] = 1
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
-            villager_data["tool_slots"] = 1
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
-            villager_data["tool_slots"] = 1
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_HUNTER:
-            villager_data["tool_slots"] = 1
-            villager_data["weapon_slots"] = 1
-            villager_data["armor_slots"] = 1
+            villager_data["tool_slots"] = DEFAULT_COMBAT_TOOL_SLOTS
+            villager_data["weapon_slots"] = DEFAULT_COMBAT_WEAPON_SLOTS
+            villager_data["armor_slots"] = DEFAULT_COMBAT_ARMOR_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
-            villager_data["tool_slots"] = 1
-            villager_data["weapon_slots"] = 1
-            villager_data["armor_slots"] = 1
+            villager_data["tool_slots"] = DEFAULT_COMBAT_TOOL_SLOTS
+            villager_data["weapon_slots"] = DEFAULT_COMBAT_WEAPON_SLOTS
+            villager_data["armor_slots"] = DEFAULT_COMBAT_ARMOR_SLOTS
 
 
 func set_villager_assigned_work_anchor(
