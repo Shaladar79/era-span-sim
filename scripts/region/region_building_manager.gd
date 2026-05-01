@@ -16,6 +16,14 @@ var next_building_instance_id: int = 1
 var has_chieftain: bool = false
 var chieftain_data: Dictionary = {}
 
+var has_warleader: bool = false
+var warleader_data: Dictionary = {}
+
+var has_spiritual_leader: bool = false
+var spiritual_leader_data: Dictionary = {}
+
+var hero_placeholders: Dictionary = {}
+
 
 func setup(
     new_region_tiles: Array,
@@ -32,6 +40,11 @@ func clear_buildings() -> void:
     next_building_instance_id = 1
     has_chieftain = false
     chieftain_data = {}
+    has_warleader = false
+    warleader_data = {}
+    has_spiritual_leader = false
+    spiritual_leader_data = {}
+    hero_placeholders = {}
 
     if region_tiles.is_empty():
         return
@@ -75,6 +88,26 @@ func get_chieftain_tile() -> Vector2i:
     return chieftain_data.get("tile", Vector2i(-1, -1))
 
 
+func get_has_warleader() -> bool:
+    return has_warleader
+
+
+func get_warleader_data() -> Dictionary:
+    return warleader_data.duplicate(true)
+
+
+func get_has_spiritual_leader() -> bool:
+    return has_spiritual_leader
+
+
+func get_spiritual_leader_data() -> Dictionary:
+    return spiritual_leader_data.duplicate(true)
+
+
+func get_hero_placeholders() -> Dictionary:
+    return hero_placeholders.duplicate(true)
+
+
 func start_building_placement(building_id: String) -> void:
     var building_data: Dictionary = RegionBuildingData.get_building(building_id)
 
@@ -98,6 +131,10 @@ func start_building_placement(building_id: String) -> void:
 
     if bool(building_data.get("requires_campfire_range", false)):
         print("Placement Requirement: Must be within active fire range.")
+
+    if bool(building_data.get("assignment_enabled", false)):
+        print("Assignment Slots: ", int(building_data.get("assignment_slots", 0)))
+        print("Assignment Role: ", str(building_data.get("assignment_role", "")))
 
 
 func cancel_build_mode() -> void:
@@ -200,17 +237,10 @@ func apply_building_unlock_side_effects(
     if building_id == RegionBuildingData.BUILDING_TENT:
         print("Normal housing capacity: ", get_normal_housing_capacity())
 
-    if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
-        grant_generic_chieftain(
-            building_instance_id,
-            RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER
-        )
+    var placed_building: Dictionary = get_building_by_instance_id(building_instance_id)
 
-    if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_TENT:
-        grant_generic_chieftain(
-            building_instance_id,
-            RegionBuildingData.BUILDING_CHIEFTAINS_TENT
-        )
+    if bool(placed_building.get("hero_placeholder_enabled", false)):
+        grant_generic_hero_placeholder(building_instance_id)
 
     if building_id == RegionBuildingData.BUILDING_BONFIRE:
         print("Bonfire built. Active fire range expanded from this building.")
@@ -233,6 +263,9 @@ func grant_generic_chieftain(
     has_chieftain = true
     chieftain_data = {
         "name": "Generic Chieftain",
+        "role": "chieftain",
+        "shape": "crown",
+        "color": Color(1.0, 0.85, 0.25, 1.0),
         "skills": {},
         "traits": {},
         "source": source_building_id,
@@ -240,7 +273,75 @@ func grant_generic_chieftain(
         "tile": chieftain_tile
     }
 
+    hero_placeholders["chieftain"] = chieftain_data.duplicate(true)
+
     print("A generic Chieftain now leads the village.")
+
+
+func grant_generic_hero_placeholder(source_building_instance_id: int) -> void:
+    var source_building: Dictionary = get_building_by_instance_id(source_building_instance_id)
+
+    if source_building.is_empty():
+        return
+
+    var hero_role: String = str(source_building.get("hero_placeholder_role", ""))
+
+    if hero_role == "":
+        return
+
+    if hero_placeholders.has(hero_role):
+        print("The village already has placeholder hero: " + hero_role)
+        return
+
+    var source_building_id: String = str(source_building.get("id", ""))
+    var source_building_name: String = str(source_building.get("name", source_building_id))
+    var hero_tile: Vector2i = get_building_center_tile(source_building)
+    var hero_shape: String = str(source_building.get("hero_placeholder_shape", "marker"))
+    var hero_color: Color = source_building.get("hero_placeholder_color", Color(1.0, 1.0, 1.0, 1.0))
+
+    var hero_name: String = get_placeholder_hero_display_name(hero_role)
+
+    var hero_data: Dictionary = {
+        "name": hero_name,
+        "role": hero_role,
+        "shape": hero_shape,
+        "color": hero_color,
+        "skills": {},
+        "traits": {},
+        "source": source_building_id,
+        "source_name": source_building_name,
+        "shelter_instance_id": source_building_instance_id,
+        "tile": hero_tile
+    }
+
+    hero_placeholders[hero_role] = hero_data.duplicate(true)
+
+    if hero_role == "chieftain":
+        has_chieftain = true
+        chieftain_data = hero_data.duplicate(true)
+
+    elif hero_role == "warleader":
+        has_warleader = true
+        warleader_data = hero_data.duplicate(true)
+
+    elif hero_role == "spiritual_leader":
+        has_spiritual_leader = true
+        spiritual_leader_data = hero_data.duplicate(true)
+
+    print(hero_name + " placeholder created from " + source_building_name + ".")
+
+
+func get_placeholder_hero_display_name(hero_role: String) -> String:
+    if hero_role == "chieftain":
+        return "Generic Chieftain"
+
+    if hero_role == "warleader":
+        return "Generic Warleader"
+
+    if hero_role == "spiritual_leader":
+        return "Generic Spiritual Leader"
+
+    return hero_role.capitalize()
 
 
 func can_place_current_building(origin_tile: Vector2i) -> bool:
@@ -423,6 +524,8 @@ func place_building(
     var building_instance_id: int = next_building_instance_id
     next_building_instance_id += 1
 
+    var source_building_data: Dictionary = RegionBuildingData.get_building(building_id)
+
     var building_data := {
         "instance_id": building_instance_id,
         "id": building_id,
@@ -434,73 +537,10 @@ func place_building(
         "active": true
     }
 
-    if building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
-        building_data["storage_resource"] = ""
-        building_data["storage_capacity"] = RegionBuildingData.STORAGE_AREA_CAPACITY
-
-    if building_id == RegionBuildingData.BUILDING_SHELTER:
-        building_data["housing_capacity"] = RegionBuildingData.SHELTER_CAPACITY
-        building_data["assigned_villagers"] = []
-
-    if building_id == RegionBuildingData.BUILDING_TENT:
-        building_data["housing_capacity"] = RegionBuildingData.TENT_CAPACITY
-        building_data["assigned_villagers"] = []
-        building_data["portable_shelter"] = true
-
-    if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
-        building_data["housing_capacity"] = RegionBuildingData.CHIEFTAINS_SHELTER_CAPACITY
-        building_data["houses_chieftain"] = true
-        building_data["grants_generic_chieftain"] = true
-
-    if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_TENT:
-        building_data["housing_capacity"] = RegionBuildingData.CHIEFTAINS_TENT_CAPACITY
-        building_data["houses_chieftain"] = true
-        building_data["portable_shelter"] = true
-
-    if building_id == RegionBuildingData.BUILDING_CAMPFIRE:
-        building_data["campfire_radius"] = RegionBuildingData.CAMPFIRE_BUILD_RADIUS
-
-    if building_id == RegionBuildingData.BUILDING_BONFIRE:
-        building_data["campfire_radius"] = RegionBuildingData.BONFIRE_BUILD_RADIUS
-        building_data["provides_bonfire_radius"] = true
-
-    if building_id == RegionBuildingData.BUILDING_THINKERS_SPOT:
-        building_data["research_per_minute"] = RegionBuildingData.THINKERS_SPOT_RESEARCH_PER_MINUTE
-
-    if building_id == RegionBuildingData.BUILDING_STONEWORKING_BENCH:
-        building_data["crafting_skill"] = "stoneworking"
-        building_data["specialist_role"] = "stoneworker"
-        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
-        building_data["assigned_villagers"] = []
-
-    if building_id == RegionBuildingData.BUILDING_WOODWORKING_BENCH:
-        building_data["crafting_skill"] = "woodworking"
-        building_data["specialist_role"] = "woodworker"
-        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
-        building_data["assigned_villagers"] = []
-
-    if building_id == RegionBuildingData.BUILDING_HUNTERS_HUT:
-        building_data["specialist_role"] = "hunter"
-        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
-        building_data["assigned_villagers"] = []
-
-    if building_id == RegionBuildingData.BUILDING_WARLEADER_SHELTER:
-        building_data["housing_capacity"] = RegionBuildingData.WARLEADER_SHELTER_CAPACITY
-        building_data["houses_warleader"] = true
-        building_data["grants_generic_warleader"] = true
-
-    if building_id == RegionBuildingData.BUILDING_WARRIOR_HUT:
-        building_data["specialist_role"] = "warrior"
-        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
-        building_data["assigned_villagers"] = []
-
-    if building_id == RegionBuildingData.BUILDING_SPIRITUAL_LEADER_TENT:
-        building_data["housing_capacity"] = RegionBuildingData.SPIRITUAL_LEADER_TENT_CAPACITY
-        building_data["houses_spiritual_leader"] = true
-        building_data["portable_shelter"] = true
-
-    if building_id == RegionBuildingData.BUILDING_RITUAL_SITE:
-        building_data["ritual_site"] = true
+    copy_runtime_building_metadata(
+        building_data,
+        source_building_data
+    )
 
     region_buildings.append(building_data)
 
@@ -517,6 +557,60 @@ func place_building(
             tile_data["building_instance_id"] = building_instance_id
 
     return building_instance_id
+
+
+func copy_runtime_building_metadata(
+    target_building_data: Dictionary,
+    source_building_data: Dictionary
+) -> void:
+    if source_building_data.is_empty():
+        return
+
+    var metadata_keys: Array = [
+        "storage_resource",
+        "storage_capacity",
+        "housing_capacity",
+        "portable_shelter",
+        "houses_chieftain",
+        "grants_generic_chieftain",
+        "houses_warleader",
+        "grants_generic_warleader",
+        "houses_spiritual_leader",
+        "grants_generic_spiritual_leader",
+        "campfire_radius",
+        "provides_bonfire_radius",
+        "research_per_minute",
+        "crafting_skill",
+        "specialist_role",
+        "specialist_housing_capacity",
+        "ritual_site",
+        "assignment_enabled",
+        "assignment_slots",
+        "assignment_role",
+        "assignment_replaces_shelter",
+        "hero_placeholder_enabled",
+        "hero_placeholder_role",
+        "hero_placeholder_shape",
+        "hero_placeholder_color"
+    ]
+
+    for key_index in range(metadata_keys.size()):
+        var key: String = str(metadata_keys[key_index])
+
+        if not source_building_data.has(key):
+            continue
+
+        target_building_data[key] = source_building_data[key]
+
+    if bool(target_building_data.get("assignment_enabled", false)):
+        target_building_data["assigned_villagers"] = []
+
+    if str(target_building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA:
+        if not target_building_data.has("storage_resource"):
+            target_building_data["storage_resource"] = ""
+
+        if not target_building_data.has("storage_capacity"):
+            target_building_data["storage_capacity"] = RegionBuildingData.STORAGE_AREA_CAPACITY
 
 
 func get_normal_housing_capacity() -> int:
@@ -551,6 +645,27 @@ func is_normal_housing_building(building_id: String) -> bool:
 
 func has_available_normal_housing(current_villager_count: int) -> bool:
     return get_normal_housing_capacity() > current_villager_count
+
+
+func get_shelter_replacing_assignment_count() -> int:
+    var assignment_count: int = 0
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+
+        if not bool(building_data.get("assignment_replaces_shelter", false)):
+            continue
+
+        var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+        assignment_count += assigned_villagers.size()
+
+    return assignment_count
 
 
 func get_built_shelter_count() -> int:
@@ -633,8 +748,217 @@ func get_building_by_instance_id(building_instance_id: int) -> Dictionary:
     return {}
 
 
+func get_building_index_by_instance_id(building_instance_id: int) -> int:
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+
+        if int(building_data.get("instance_id", 0)) == building_instance_id:
+            return building_index
+
+    return -1
+
+
 func is_storage_area_building(building_data: Dictionary) -> bool:
     return str(building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA
+
+
+func is_assignment_enabled_building(building_data: Dictionary) -> bool:
+    return bool(building_data.get("assignment_enabled", false))
+
+
+func get_building_assignment_slots(building_instance_id: int) -> int:
+    var building_data: Dictionary = get_building_by_instance_id(building_instance_id)
+
+    if building_data.is_empty():
+        return 0
+
+    return int(building_data.get("assignment_slots", 0))
+
+
+func get_building_assignment_count(building_instance_id: int) -> int:
+    var building_data: Dictionary = get_building_by_instance_id(building_instance_id)
+
+    if building_data.is_empty():
+        return 0
+
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+    return assigned_villagers.size()
+
+
+func get_building_assignment_role(building_instance_id: int) -> String:
+    var building_data: Dictionary = get_building_by_instance_id(building_instance_id)
+
+    if building_data.is_empty():
+        return ""
+
+    return str(building_data.get("assignment_role", ""))
+
+
+func building_assignment_replaces_shelter(building_instance_id: int) -> bool:
+    var building_data: Dictionary = get_building_by_instance_id(building_instance_id)
+
+    if building_data.is_empty():
+        return false
+
+    return bool(building_data.get("assignment_replaces_shelter", false))
+
+
+func can_assign_villager_to_building(
+    villager_id: int,
+    building_instance_id: int
+) -> bool:
+    if villager_id <= 0:
+        return false
+
+    var building_data: Dictionary = get_building_by_instance_id(building_instance_id)
+
+    if building_data.is_empty():
+        return false
+
+    if not is_assignment_enabled_building(building_data):
+        return false
+
+    if not bool(building_data.get("active", true)):
+        return false
+
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+    if assigned_villagers.has(villager_id):
+        return true
+
+    var assignment_slots: int = int(building_data.get("assignment_slots", 0))
+
+    return assigned_villagers.size() < assignment_slots
+
+
+func assign_villager_to_building(
+    villager_id: int,
+    building_instance_id: int
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": "",
+        "role": "",
+        "replaces_shelter": false,
+        "building_instance_id": building_instance_id
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    var building_index: int = get_building_index_by_instance_id(building_instance_id)
+
+    if building_index < 0:
+        result["message"] = "Building not found."
+        return result
+
+    var building_data: Dictionary = region_buildings[building_index]
+
+    if not is_assignment_enabled_building(building_data):
+        result["message"] = str(building_data.get("name", "Building")) + " does not accept assignments."
+        return result
+
+    if not bool(building_data.get("active", true)):
+        result["message"] = str(building_data.get("name", "Building")) + " is not active."
+        return result
+
+    unassign_villager_from_any_building(villager_id)
+
+    building_index = get_building_index_by_instance_id(building_instance_id)
+
+    if building_index < 0:
+        result["message"] = "Building not found after unassignment."
+        return result
+
+    building_data = region_buildings[building_index]
+
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+    var assignment_slots: int = int(building_data.get("assignment_slots", 0))
+
+    if assigned_villagers.has(villager_id):
+        result["success"] = true
+        result["role"] = str(building_data.get("assignment_role", ""))
+        result["replaces_shelter"] = bool(building_data.get("assignment_replaces_shelter", false))
+        result["message"] = "Villager is already assigned to " + str(building_data.get("name", "building")) + "."
+        return result
+
+    if assigned_villagers.size() >= assignment_slots:
+        result["message"] = str(building_data.get("name", "Building")) + " has no open assignment slots."
+        return result
+
+    assigned_villagers.append(villager_id)
+    building_data["assigned_villagers"] = assigned_villagers
+    region_buildings[building_index] = building_data
+
+    var building_name: String = str(building_data.get("name", "Building"))
+    var role: String = str(building_data.get("assignment_role", ""))
+    var replaces_shelter: bool = bool(building_data.get("assignment_replaces_shelter", false))
+
+    result["success"] = true
+    result["role"] = role
+    result["replaces_shelter"] = replaces_shelter
+    result["message"] = "Villager assigned to " + building_name + " as " + role + "."
+
+    return result
+
+
+func unassign_villager_from_any_building(villager_id: int) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+        if not assigned_villagers.has(villager_id):
+            continue
+
+        assigned_villagers.erase(villager_id)
+        building_data["assigned_villagers"] = assigned_villagers
+        region_buildings[building_index] = building_data
+
+        result["success"] = true
+        result["message"] = "Villager unassigned from " + str(building_data.get("name", "building")) + "."
+        return result
+
+    result["message"] = "Villager was not assigned to a building."
+    return result
+
+
+func get_assignment_summary_for_building(building_instance_id: int) -> Dictionary:
+    var building_data: Dictionary = get_building_by_instance_id(building_instance_id)
+
+    if building_data.is_empty():
+        return {}
+
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+    return {
+        "assignment_enabled": bool(building_data.get("assignment_enabled", false)),
+        "assignment_slots": int(building_data.get("assignment_slots", 0)),
+        "assignment_count": assigned_villagers.size(),
+        "assignment_role": str(building_data.get("assignment_role", "")),
+        "assignment_replaces_shelter": bool(building_data.get("assignment_replaces_shelter", false)),
+        "assigned_villagers": assigned_villagers.duplicate()
+    }
 
 
 func assign_storage_area_resource(

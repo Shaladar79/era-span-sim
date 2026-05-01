@@ -39,7 +39,24 @@ const SPIRITUAL_LEADER_TENT_CAPACITY: int = 0
 const THINKERS_SPOT_RESEARCH_PER_MINUTE: int = 1
 
 const SPECIALIST_HUT_CAPACITY: int = 1
+const LARGE_SPECIALIST_HUT_CAPACITY: int = 3
 const WARLEADER_SHELTER_CAPACITY: int = 0
+
+const ASSIGNMENT_ROLE_MAKER: String = "maker"
+const ASSIGNMENT_ROLE_THINKER: String = "thinker"
+const ASSIGNMENT_ROLE_STONEWORKER: String = "stoneworker"
+const ASSIGNMENT_ROLE_WOODWORKER: String = "woodworker"
+const ASSIGNMENT_ROLE_HUNTER: String = "hunter"
+const ASSIGNMENT_ROLE_WARRIOR: String = "warrior"
+const ASSIGNMENT_ROLE_RITUALIST: String = "ritualist"
+
+const HERO_PLACEHOLDER_CHIEFTAIN: String = "chieftain"
+const HERO_PLACEHOLDER_WARLEADER: String = "warleader"
+const HERO_PLACEHOLDER_SPIRITUAL_LEADER: String = "spiritual_leader"
+
+const HERO_PLACEHOLDER_SHAPE_CROWN: String = "crown"
+const HERO_PLACEHOLDER_SHAPE_ROOK: String = "rook"
+const HERO_PLACEHOLDER_SHAPE_BISHOP: String = "bishop"
 
 
 static func get_all_buildings() -> Dictionary:
@@ -96,7 +113,12 @@ static func get_all_buildings() -> Dictionary:
             "movable": false,
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "description": "A crude work area where simple tools and early crafted objects can be made. It allows early research plans to become available when enough Research is stored."
+            "assignment_enabled": true,
+            "assignment_slots": 1,
+            "assignment_role": ASSIGNMENT_ROLE_MAKER,
+            "assignment_replaces_shelter": false,
+            "assigned_villagers": [],
+            "description": "A crude work area where simple tools and early crafted objects can be made. One villager can be assigned here as a Maker. This assignment does not replace normal shelter."
         },
 
         BUILDING_THINKERS_SPOT: {
@@ -115,7 +137,12 @@ static func get_all_buildings() -> Dictionary:
             "requires_campfire_range": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "research_per_minute": THINKERS_SPOT_RESEARCH_PER_MINUTE,
-            "description": "A simple place for early planning, observation, and shared ideas. It generates 1 Research per minute."
+            "assignment_enabled": true,
+            "assignment_slots": 1,
+            "assignment_role": ASSIGNMENT_ROLE_THINKER,
+            "assignment_replaces_shelter": false,
+            "assigned_villagers": [],
+            "description": "A simple place for early planning, observation, and shared ideas. One villager can be assigned here as a Thinker. This assignment does not replace normal shelter."
         },
 
         BUILDING_BONFIRE: {
@@ -176,6 +203,10 @@ static func get_all_buildings() -> Dictionary:
             "housing_capacity": CHIEFTAINS_SHELTER_CAPACITY,
             "houses_chieftain": true,
             "grants_generic_chieftain": true,
+            "hero_placeholder_enabled": true,
+            "hero_placeholder_role": HERO_PLACEHOLDER_CHIEFTAIN,
+            "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_CROWN,
+            "hero_placeholder_color": Color(1.0, 0.85, 0.25, 1.0),
             "description": "A larger, more respected shelter used by the village leader. Building it grants a generic Chieftain for now and unlocks the Making Spot and Thinker's Spot."
         },
 
@@ -220,6 +251,10 @@ static func get_all_buildings() -> Dictionary:
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": CHIEFTAINS_TENT_CAPACITY,
             "houses_chieftain": true,
+            "hero_placeholder_enabled": true,
+            "hero_placeholder_role": HERO_PLACEHOLDER_CHIEFTAIN,
+            "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_CROWN,
+            "hero_placeholder_color": Color(1.0, 0.85, 0.25, 1.0),
             "description": "A portable leadership tent built from multiple Tent Kits. It represents the Chieftain's authority becoming mobile for future camp movement systems."
         },
 
@@ -243,7 +278,11 @@ static func get_all_buildings() -> Dictionary:
             "housing_capacity": WARLEADER_SHELTER_CAPACITY,
             "houses_warleader": true,
             "grants_generic_warleader": true,
-            "description": "A larger shelter used by a future Warleader. It introduces the hunting and combat leadership branch, but the Warleader system will be built later."
+            "hero_placeholder_enabled": true,
+            "hero_placeholder_role": HERO_PLACEHOLDER_WARLEADER,
+            "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_ROOK,
+            "hero_placeholder_color": Color(0.25, 0.45, 1.0, 1.0),
+            "description": "A larger shelter used by a future Warleader. Building it grants a placeholder Warleader for now, shown as a blue rook-style marker."
         },
 
         BUILDING_SPIRITUAL_LEADER_TENT: {
@@ -266,7 +305,12 @@ static func get_all_buildings() -> Dictionary:
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": SPIRITUAL_LEADER_TENT_CAPACITY,
             "houses_spiritual_leader": true,
-            "description": "A special tent for a future Spiritual Leader. It supports the later cultural and ritual systems."
+            "grants_generic_spiritual_leader": true,
+            "hero_placeholder_enabled": true,
+            "hero_placeholder_role": HERO_PLACEHOLDER_SPIRITUAL_LEADER,
+            "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_BISHOP,
+            "hero_placeholder_color": Color(1.0, 0.35, 0.80, 1.0),
+            "description": "A special tent for a future Spiritual Leader. Building it grants a placeholder Spiritual Leader for now, shown as a pink bishop-style marker."
         },
 
         BUILDING_STONEWORKING_BENCH: {
@@ -286,10 +330,14 @@ static func get_all_buildings() -> Dictionary:
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "stoneworking",
-            "specialist_role": "stoneworker",
+            "specialist_role": ASSIGNMENT_ROLE_STONEWORKER,
             "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "assignment_enabled": true,
+            "assignment_slots": 1,
+            "assignment_role": ASSIGNMENT_ROLE_STONEWORKER,
+            "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age work hut for shaping stone, flint, crude blades, and early tool heads."
+            "description": "A dedicated Stone Age work hut for shaping stone, flint, crude blades, and early tool heads. One villager can be assigned here as a Stoneworker, and the hut replaces normal shelter for that villager."
         },
 
         BUILDING_WOODWORKING_BENCH: {
@@ -309,10 +357,14 @@ static func get_all_buildings() -> Dictionary:
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "woodworking",
-            "specialist_role": "woodworker",
+            "specialist_role": ASSIGNMENT_ROLE_WOODWORKER,
             "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "assignment_enabled": true,
+            "assignment_slots": 1,
+            "assignment_role": ASSIGNMENT_ROLE_WOODWORKER,
+            "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age work hut for shaping branches, poles, handles, frames, and later moving-camp parts."
+            "description": "A dedicated Stone Age work hut for shaping branches, poles, handles, frames, and later moving-camp parts. One villager can be assigned here as a Woodworker, and the hut replaces normal shelter for that villager."
         },
 
         BUILDING_HUNTERS_HUT: {
@@ -332,10 +384,14 @@ static func get_all_buildings() -> Dictionary:
             "requires_campfire_range": true,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "specialist_role": "hunter",
-            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "specialist_role": ASSIGNMENT_ROLE_HUNTER,
+            "specialist_housing_capacity": LARGE_SPECIALIST_HUT_CAPACITY,
+            "assignment_enabled": true,
+            "assignment_slots": 3,
+            "assignment_role": ASSIGNMENT_ROLE_HUNTER,
+            "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age hut for future hunters. For now, it unlocks and builds as a placeholder."
+            "description": "A dedicated Stone Age hut for future hunters. Up to 3 villagers can be assigned here as Hunters, and the hut replaces normal shelter for those villagers."
         },
 
         BUILDING_WARRIOR_HUT: {
@@ -355,10 +411,14 @@ static func get_all_buildings() -> Dictionary:
             "requires_campfire_range": true,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "specialist_role": "warrior",
-            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "specialist_role": ASSIGNMENT_ROLE_WARRIOR,
+            "specialist_housing_capacity": LARGE_SPECIALIST_HUT_CAPACITY,
+            "assignment_enabled": true,
+            "assignment_slots": 3,
+            "assignment_role": ASSIGNMENT_ROLE_WARRIOR,
+            "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age hut for future warriors. For now, it unlocks and builds as a placeholder."
+            "description": "A dedicated Stone Age hut for future warriors. Up to 3 villagers can be assigned here as Warriors, and the hut replaces normal shelter for those villagers."
         },
 
         BUILDING_RITUAL_SITE: {
@@ -378,6 +438,11 @@ static func get_all_buildings() -> Dictionary:
             "requires_campfire_range": true,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "description": "A marked gathering place for future rituals. It unlocks the foundation for later cultural and spiritual mechanics."
+            "assignment_enabled": true,
+            "assignment_slots": 1,
+            "assignment_role": ASSIGNMENT_ROLE_RITUALIST,
+            "assignment_replaces_shelter": false,
+            "assigned_villagers": [],
+            "description": "A marked gathering place for future rituals. One villager can be assigned here as a Ritualist. This assignment does not replace normal shelter."
         }
     }
