@@ -1035,13 +1035,8 @@ func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
         return false
 
     var building_id: String = str(building_data.get("id", ""))
-    var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
-        building_id,
-        research,
-        inventory
-    )
 
-    if craftable_recipes.is_empty():
+    if not crafting.building_has_any_recipes(building_id):
         return false
 
     show_crafting_panel = true
@@ -1054,7 +1049,31 @@ func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
     selected_crafting_building_name = str(building_data.get("name", building_id))
     selected_crafting_building_instance_id = int(building_data.get("instance_id", 0))
 
+    var known_recipes: Array = crafting.get_all_known_recipes_for_building(
+        building_id,
+        research
+    )
+
+    var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
+        building_id,
+        research,
+        inventory
+    )
+
     print("Opened crafting panel for: " + selected_crafting_building_name)
+    print("Known recipes: ", known_recipes.size())
+    print("Craftable recipes: ", craftable_recipes.size())
+
+    if known_recipes.is_empty():
+        add_village_log_message(
+            selected_crafting_building_name
+            + ": no known recipes yet. Research more plans."
+        )
+    elif craftable_recipes.is_empty():
+        add_village_log_message(
+            selected_crafting_building_name
+            + ": known recipes exist, but none are affordable right now."
+        )
 
     queue_redraw()
     return true

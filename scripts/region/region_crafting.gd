@@ -8,22 +8,16 @@ func get_craftable_recipes_for_building(
     inventory: RegionInventory
 ) -> Array:
     var craftable_recipes: Array = []
-    var recipe_ids: Array = RegionRecipeData.get_all_recipe_ids()
+    var known_recipes: Array = get_all_known_recipes_for_building(
+        building_id,
+        research
+    )
 
-    for recipe_index in range(recipe_ids.size()):
-        var recipe_id: String = str(recipe_ids[recipe_index])
+    for recipe_index in range(known_recipes.size()):
+        var recipe: Dictionary = known_recipes[recipe_index]
+        var recipe_id: String = str(recipe.get("id", ""))
 
-        if not can_craft_recipe_at_building(
-            recipe_id,
-            building_id,
-            research,
-            inventory
-        ):
-            continue
-
-        var recipe: Dictionary = RegionRecipeData.get_recipe(recipe_id)
-
-        if recipe.is_empty():
+        if not has_required_resources(recipe, inventory):
             continue
 
         craftable_recipes.append(recipe)
@@ -31,6 +25,78 @@ func get_craftable_recipes_for_building(
     craftable_recipes.sort_custom(_sort_recipes_by_name)
 
     return craftable_recipes
+
+
+func get_all_recipes_for_building(building_id: String) -> Array:
+    var building_recipes: Array = []
+    var recipe_ids: Array = RegionRecipeData.get_all_recipe_ids()
+
+    if building_id == "":
+        return building_recipes
+
+    for recipe_index in range(recipe_ids.size()):
+        var recipe_id: String = str(recipe_ids[recipe_index])
+        var recipe: Dictionary = RegionRecipeData.get_recipe(recipe_id)
+
+        if recipe.is_empty():
+            continue
+
+        if not is_recipe_for_building(recipe, building_id):
+            continue
+
+        building_recipes.append(recipe)
+
+    building_recipes.sort_custom(_sort_recipes_by_name)
+
+    return building_recipes
+
+
+func building_has_any_recipes(building_id: String) -> bool:
+    return not get_all_recipes_for_building(building_id).is_empty()
+
+
+func get_all_known_recipes_for_building(
+    building_id: String,
+    research: RegionResearch
+) -> Array:
+    var known_recipes: Array = []
+    var building_recipes: Array = get_all_recipes_for_building(building_id)
+
+    for recipe_index in range(building_recipes.size()):
+        var recipe: Dictionary = building_recipes[recipe_index]
+
+        if not has_recipe_unlocked(recipe, research):
+            continue
+
+        known_recipes.append(recipe)
+
+    known_recipes.sort_custom(_sort_recipes_by_name)
+
+    return known_recipes
+
+
+func get_unaffordable_known_recipes_for_building(
+    building_id: String,
+    research: RegionResearch,
+    inventory: RegionInventory
+) -> Array:
+    var unaffordable_recipes: Array = []
+    var known_recipes: Array = get_all_known_recipes_for_building(
+        building_id,
+        research
+    )
+
+    for recipe_index in range(known_recipes.size()):
+        var recipe: Dictionary = known_recipes[recipe_index]
+
+        if has_required_resources(recipe, inventory):
+            continue
+
+        unaffordable_recipes.append(recipe)
+
+    unaffordable_recipes.sort_custom(_sort_recipes_by_name)
+
+    return unaffordable_recipes
 
 
 func can_craft_recipe_at_building(
@@ -111,33 +177,6 @@ func has_required_resources(
     return true
 
 
-func get_all_known_recipes_for_building(
-    building_id: String,
-    research: RegionResearch
-) -> Array:
-    var known_recipes: Array = []
-    var recipe_ids: Array = RegionRecipeData.get_all_recipe_ids()
-
-    for recipe_index in range(recipe_ids.size()):
-        var recipe_id: String = str(recipe_ids[recipe_index])
-        var recipe: Dictionary = RegionRecipeData.get_recipe(recipe_id)
-
-        if recipe.is_empty():
-            continue
-
-        if not is_recipe_for_building(recipe, building_id):
-            continue
-
-        if not has_recipe_unlocked(recipe, research):
-            continue
-
-        known_recipes.append(recipe)
-
-    known_recipes.sort_custom(_sort_recipes_by_name)
-
-    return known_recipes
-
-
 func get_missing_resources_for_recipe(
     recipe_id: String,
     inventory: RegionInventory
@@ -167,6 +206,35 @@ func get_missing_resources_for_recipe(
         missing_resources[resource_name] = required_amount - current_amount
 
     return missing_resources
+
+
+func get_missing_resources_text(
+    recipe_id: String,
+    inventory: RegionInventory
+) -> String:
+    var missing_resources: Dictionary = get_missing_resources_for_recipe(
+        recipe_id,
+        inventory
+    )
+
+    if missing_resources.is_empty():
+        return ""
+
+    var resource_names: Array = missing_resources.keys()
+    resource_names.sort()
+
+    var missing_parts: Array = []
+
+    for resource_index in range(resource_names.size()):
+        var resource_name: String = str(resource_names[resource_index])
+        var missing_amount: int = int(missing_resources.get(resource_name, 0))
+
+        if missing_amount <= 0:
+            continue
+
+        missing_parts.append(resource_name + " " + str(missing_amount))
+
+    return ", ".join(missing_parts)
 
 
 func get_recipe_cost_text(recipe_id: String) -> String:
@@ -226,6 +294,7 @@ func get_recipe_output_text(recipe_id: String) -> String:
 
     return ", ".join(output_parts)
 
+
 func craft_recipe_at_building(
     recipe_id: String,
     building_id: String,
@@ -273,6 +342,7 @@ func craft_recipe_at_building(
     result["message"] = "Crafted " + output_text + "."
 
     return result
+
 
 func _sort_recipes_by_name(a: Dictionary, b: Dictionary) -> bool:
     var name_a: String = str(a.get("name", ""))
