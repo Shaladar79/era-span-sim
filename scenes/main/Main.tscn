@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://cti1m8t1rggb2" path="res://scenes/world/World.tscn" id="1_u1xfj"]
 [ext_resource type="Script" uid="uid://bpy1cjdhu4hfv" path="res://scripts/world/world.gd" id="2_q24mn"]
 [ext_resource type="Script" uid="uid://clrx8b2pq80ao" path="res://scripts/core/main_camera.gd" id="3_q24mn"]
-[ext_resource type="Script" path="res://scripts/main/main_ui.gd" id="6_1rhdn"]
+[ext_resource type="Script" uid="uid://cf6mn25b7ls8e" path="res://scripts/main/main_ui.gd" id="6_1rhdn"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_q24mn"]
 

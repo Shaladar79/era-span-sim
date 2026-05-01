@@ -74,11 +74,15 @@ func handle_key(event: InputEventKey) -> void:
 
 func handle_escape_key() -> void:
     if region.show_assignment_panel:
-       region.close_assignment_panel()
-       return
-    
+        region.close_assignment_panel()
+        return
+
     if region.storage_selector_open:
         region.close_storage_selector()
+        return
+
+    if region.show_crafting_panel:
+        region.close_crafting_panel()
         return
 
     if region.building_manager.is_in_build_mode():
@@ -89,4 +93,6 @@ func handle_escape_key() -> void:
         region.cancel_villager_drag()
         return
 
-    region.emit_signal("return_to_world_requested")
+    # Escape no longer returns to the world map.
+    # If no local region panel/tool is open, let main.gd handle ui_cancel
+    # and open the pause menu.
