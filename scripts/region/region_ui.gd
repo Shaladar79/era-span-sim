@@ -56,8 +56,8 @@ const ASSIGNMENT_ROW_HEIGHT: int = 34
 const ASSIGNMENT_LIST_START_Y: int = 94
 const ASSIGNMENT_HEADER_HEIGHT: int = 84
 
-const VILLAGER_HOVER_PANEL_WIDTH: int = 250
-const VILLAGER_HOVER_PANEL_HEIGHT: int = 225
+const VILLAGER_HOVER_PANEL_WIDTH: int = 270
+const VILLAGER_HOVER_PANEL_HEIGHT: int = 310
 const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
 
 const VILLAGE_LOG_BUTTON_WIDTH: int = 110
@@ -337,6 +337,7 @@ static func get_crafting_recipe_button_screen_rect(
         )
     )
 
+
 static func get_assignment_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
 
@@ -377,6 +378,7 @@ static func get_assignment_visible_row_count() -> int:
             / float(ASSIGNMENT_ROW_HEIGHT)
         )
     )
+
 
 static func get_village_log_button_screen_rect(viewport_size: Vector2) -> Rect2:
     return Rect2(

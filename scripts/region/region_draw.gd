@@ -897,7 +897,8 @@ static func draw_crafting_panel(
 static func draw_assignment_panel(
     node: CanvasItem,
     selected_assignment_building: Dictionary,
-    unassigned_villagers: Array
+    assigned_villager_data: Array,
+    assignable_villagers: Array
 ) -> void:
     var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
 
@@ -946,6 +947,8 @@ static func draw_assignment_panel(
 
     if replaces_shelter:
         shelter_text = "Shelter: Replaces normal shelter"
+
+    var assigned_names_text: String = get_assigned_villager_names_text(assigned_villager_data)
 
     node.draw_string(
         ThemeDB.fallback_font,
@@ -999,29 +1002,58 @@ static func draw_assignment_panel(
         Color(0.88, 0.88, 0.88, 1.0)
     )
 
-    if assignment_count >= assignment_slots:
+    if assignment_count > 0 and assigned_names_text != "":
         node.draw_string(
             ThemeDB.fallback_font,
             RegionUI.screen_position_to_world_position(
                 node,
-                panel_screen_rect.position + Vector2(10, RegionUI.ASSIGNMENT_LIST_START_Y + 20)
+                panel_screen_rect.position + Vector2(10, 94)
             ),
-            "No open assignment slots.",
+            "Assigned: " + assigned_names_text,
             HORIZONTAL_ALIGNMENT_LEFT,
             -1,
-            get_body_font_size(world_per_screen_y),
-            Color(0.85, 0.85, 0.85, 1.0)
+            get_small_font_size(world_per_screen_y),
+            Color(0.90, 0.95, 1.0, 1.0)
         )
+
+    if assignment_count >= assignment_slots:
+        if assigned_villager_data.is_empty():
+            node.draw_string(
+                ThemeDB.fallback_font,
+                RegionUI.screen_position_to_world_position(
+                    node,
+                    panel_screen_rect.position + Vector2(10, RegionUI.ASSIGNMENT_LIST_START_Y + 38)
+                ),
+                "No open assignment slots.",
+                HORIZONTAL_ALIGNMENT_LEFT,
+                -1,
+                get_body_font_size(world_per_screen_y),
+                Color(0.85, 0.85, 0.85, 1.0)
+            )
+            return
+
+        var assigned_visible_count: int = min(
+            assigned_villager_data.size(),
+            RegionUI.get_assignment_visible_row_count()
+        )
+
+        for assigned_index in range(assigned_visible_count):
+            draw_assignment_villager_row(
+                node,
+                assigned_villager_data[assigned_index],
+                assigned_index
+            )
+
         return
 
-    if unassigned_villagers.is_empty():
+    if assignable_villagers.is_empty():
         node.draw_string(
             ThemeDB.fallback_font,
             RegionUI.screen_position_to_world_position(
                 node,
                 panel_screen_rect.position + Vector2(10, RegionUI.ASSIGNMENT_LIST_START_Y + 20)
             ),
-            "No unassigned villagers available.",
+            "No compatible unassigned villagers available.",
             HORIZONTAL_ALIGNMENT_LEFT,
             -1,
             get_body_font_size(world_per_screen_y),
@@ -1030,16 +1062,39 @@ static func draw_assignment_panel(
         return
 
     var visible_count: int = min(
-        unassigned_villagers.size(),
+        assignable_villagers.size(),
         RegionUI.get_assignment_visible_row_count()
     )
 
     for villager_index in range(visible_count):
         draw_assignment_villager_row(
             node,
-            unassigned_villagers[villager_index],
+            assignable_villagers[villager_index],
             villager_index
         )
+
+
+static func get_assigned_villager_names_text(assigned_villager_data: Array) -> String:
+    if assigned_villager_data.is_empty():
+        return ""
+
+    var name_parts: Array = []
+
+    for villager_index in range(assigned_villager_data.size()):
+        var villager_variant: Variant = assigned_villager_data[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        var villager_name: String = str(villager_data.get("name", "Villager"))
+
+        if villager_name == "":
+            continue
+
+        name_parts.append(villager_name)
+
+    return ", ".join(name_parts)
 
 
 static func draw_assignment_villager_row(
@@ -1069,30 +1124,37 @@ static func draw_assignment_villager_row(
     )
 
     var villager_name: String = str(villager_data.get("name", "Villager"))
-    var level: float = float(villager_data.get("level", 0.0))
+    var level: int = int(villager_data.get("level", 0))
     var speed: int = int(villager_data.get("speed", 100))
-    var health_state: String = str(villager_data.get("health_state", "healthy"))
+    var health: int = int(villager_data.get("health", 5))
+    var max_health: int = int(villager_data.get("max_health", 5))
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(role)
     var skills: Dictionary = villager_data.get("skills", {})
 
     var top_line: String = (
         villager_name
-        + " — Lv "
-        + str(snappedf(level, 0.1))
         + " — "
-        + health_state
+        + role_name
+        + " — Lv "
+        + str(level)
     )
 
-    var skill_line: String = (
-        "Gather "
-        + str(int(skills.get(VillagerManager.SKILL_GATHERING, 0)))
-        + " | Wood "
-        + str(int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)))
-        + " | Stone "
-        + str(int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)))
-        + " | Think "
-        + str(int(skills.get(VillagerManager.SKILL_THINKING, 0)))
+    var stat_line: String = (
+        "Health "
+        + str(health)
+        + "/"
+        + str(max_health)
         + " | Speed "
         + str(speed)
+        + " | Gather "
+        + str(int(skills.get(VillagerManager.SKILL_GATHERING, 0)))
+        + " | Build "
+        + str(int(skills.get(VillagerManager.SKILL_BUILDING, 0)))
+        + " | Mine "
+        + str(int(skills.get(VillagerManager.SKILL_MINING, 0)))
+        + " | WoodCut "
+        + str(int(skills.get(VillagerManager.SKILL_WOODCUTTING, 0)))
     )
 
     node.draw_string(
@@ -1114,7 +1176,7 @@ static func draw_assignment_villager_row(
             node,
             villager_button_screen_rect.position + Vector2(8, 29)
         ),
-        skill_line,
+        stat_line,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         get_tiny_font_size(world_per_screen_y),
@@ -1305,14 +1367,18 @@ static func draw_villager_hover_panel_text(
 
     var villager_name: String = str(villager_data.get("name", "Villager"))
     var gender: String = str(villager_data.get("gender", "unknown"))
-    var level: float = float(villager_data.get("level", 0.0))
+    var level: int = int(villager_data.get("level", 0))
     var speed: int = int(villager_data.get("speed", 100))
+    var health: int = int(villager_data.get("health", 5))
+    var max_health: int = int(villager_data.get("max_health", 5))
+    var hunger: int = int(villager_data.get("hunger", 100))
     var health_state: String = str(villager_data.get("health_state", "healthy"))
     var current_state: String = str(villager_data.get("state", "idle"))
     var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
     var role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(role)
     var assigned_role: String = str(villager_data.get("assigned_building_role", ""))
     var assigned_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assigned_role)
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
     var is_housed: bool = bool(villager_data.get("is_housed", false))
     var housed_text: String = "Housed"
 
@@ -1320,7 +1386,11 @@ static func draw_villager_hover_panel_text(
         housed_text = "Unhoused"
 
     var belongings: Array = villager_data.get("belongings", [])
-    var max_belongings: int = int(villager_data.get("max_belongings", 2))
+    var belonging_slots: int = int(villager_data.get("belonging_slots", villager_data.get("max_belongings", 1)))
+    var tool_slots: int = int(villager_data.get("tool_slots", 0))
+    var weapon_slots: int = int(villager_data.get("weapon_slots", 0))
+    var armor_slots: int = int(villager_data.get("armor_slots", 0))
+
     var statuses: Array = villager_data.get("statuses", [])
     var statuses_text: String = "None"
 
@@ -1352,7 +1422,7 @@ static func draw_villager_hover_panel_text(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Level: " + str(snappedf(level, 0.1)) + "    Speed: " + str(speed),
+        "Role: " + role_name + "    Level: " + str(level),
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
@@ -1364,7 +1434,7 @@ static func draw_villager_hover_panel_text(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Health: " + health_state + "    " + housed_text,
+        "Speed: " + str(speed) + "    Health: " + str(health) + "/" + str(max_health),
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
@@ -1376,7 +1446,7 @@ static func draw_villager_hover_panel_text(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "State: " + current_state,
+        "Hunger: " + str(hunger) + "/100    Condition: " + health_state,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
@@ -1385,15 +1455,32 @@ static func draw_villager_hover_panel_text(
 
     text_y += 16.0
 
-    var role_line: String = "Role: " + role_name
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "State: " + current_state + "    " + housed_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 16.0
+
+    var assigned_line: String = "Assigned: None"
 
     if assigned_role != "":
-        role_line += " / Assigned: " + assigned_role_name
+        assigned_line = (
+            "Assigned: "
+            + assigned_role_name
+            + " / Building #"
+            + str(assigned_building_instance_id)
+        )
 
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        role_line,
+        assigned_line,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
@@ -1405,7 +1492,7 @@ static func draw_villager_hover_panel_text(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Belongings: " + str(belongings.size()) + "/" + str(max_belongings),
+        "Slots: Belong " + str(belongings.size()) + "/" + str(belonging_slots) + " | Tool " + str(tool_slots) + " | Weapon " + str(weapon_slots) + " | Armor " + str(armor_slots),
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
@@ -1429,7 +1516,7 @@ static func draw_villager_hover_panel_text(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Skills",
+        "Core Skills",
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
@@ -1440,17 +1527,163 @@ static func draw_villager_hover_panel_text(
 
     draw_villager_skill_line(node, "Gathering", int(skills.get(VillagerManager.SKILL_GATHERING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-    draw_villager_skill_line(node, "Wood Working", int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)), text_x, text_y, body_font_size)
-    text_y += 14.0
-    draw_villager_skill_line(node, "Stone Working", int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)), text_x, text_y, body_font_size)
-    text_y += 14.0
     draw_villager_skill_line(node, "Building", int(skills.get(VillagerManager.SKILL_BUILDING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-    draw_villager_skill_line(node, "Hauling", int(skills.get(VillagerManager.SKILL_HAULING, 0)), text_x, text_y, body_font_size)
+    draw_villager_skill_line(node, "Mining", int(skills.get(VillagerManager.SKILL_MINING, 0)), text_x, text_y, body_font_size)
     text_y += 14.0
-    draw_villager_skill_line(node, "Medicine", int(skills.get(VillagerManager.SKILL_MEDICINE, 0)), text_x, text_y, body_font_size)
-    text_y += 14.0
-    draw_villager_skill_line(node, "Thinking", int(skills.get(VillagerManager.SKILL_THINKING, 0)), text_x, text_y, body_font_size)
+    draw_villager_skill_line(node, "WoodCutting", int(skills.get(VillagerManager.SKILL_WOODCUTTING, 0)), text_x, text_y, body_font_size)
+
+    text_y += 18.0
+
+    text_y = draw_villager_existing_skill_group(
+        node,
+        "Role Skills",
+        [
+            {
+                "label": "Crafting",
+                "key": VillagerManager.SKILL_CRAFTING
+            },
+            {
+                "label": "Thinking",
+                "key": VillagerManager.SKILL_THINKING
+            },
+            {
+                "label": "Stoneworking",
+                "key": VillagerManager.SKILL_STONEWORKING
+            },
+            {
+                "label": "Woodworking",
+                "key": VillagerManager.SKILL_WOODWORKING
+            },
+            {
+                "label": "Rituals",
+                "key": VillagerManager.SKILL_RITUALS
+            }
+        ],
+        skills,
+        text_x,
+        text_y,
+        body_font_size
+    )
+
+    var has_combat_stats: bool = villager_data.has("attack") or villager_data.has("defense")
+    var has_combat_skills: bool = (
+        skills.has(VillagerManager.SKILL_RANGED_WEAPONS)
+        or skills.has(VillagerManager.SKILL_MELEE_WEAPONS)
+        or skills.has(VillagerManager.SKILL_EVADE)
+        or skills.has(VillagerManager.SKILL_PARRY)
+    )
+
+    if has_combat_stats or has_combat_skills:
+        text_y += 18.0
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+            "Combat",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            body_font_size,
+            Color(1.0, 0.95, 0.75, 1.0)
+        )
+
+        text_y += 15.0
+
+        if has_combat_stats:
+            var attack_text: String = "-"
+
+            if villager_data.has("attack"):
+                attack_text = str(int(villager_data.get("attack", 0)))
+
+            var defense_text: String = "-"
+
+            if villager_data.has("defense"):
+                defense_text = str(int(villager_data.get("defense", 0)))
+
+            node.draw_string(
+                ThemeDB.fallback_font,
+                RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+                "Attack: " + attack_text + "    Defense: " + defense_text,
+                HORIZONTAL_ALIGNMENT_LEFT,
+                -1,
+                body_font_size,
+                Color(1.0, 1.0, 1.0, 1.0)
+            )
+
+            text_y += 14.0
+
+        if skills.has(VillagerManager.SKILL_RANGED_WEAPONS):
+            draw_villager_skill_line(node, "Ranged Weapons", int(skills.get(VillagerManager.SKILL_RANGED_WEAPONS, 0)), text_x, text_y, body_font_size)
+            text_y += 14.0
+
+        if skills.has(VillagerManager.SKILL_MELEE_WEAPONS):
+            draw_villager_skill_line(node, "Melee Weapons", int(skills.get(VillagerManager.SKILL_MELEE_WEAPONS, 0)), text_x, text_y, body_font_size)
+            text_y += 14.0
+
+        if skills.has(VillagerManager.SKILL_EVADE):
+            draw_villager_skill_line(node, "Evade", int(skills.get(VillagerManager.SKILL_EVADE, 0)), text_x, text_y, body_font_size)
+            text_y += 14.0
+
+        if skills.has(VillagerManager.SKILL_PARRY):
+            draw_villager_skill_line(node, "Parry", int(skills.get(VillagerManager.SKILL_PARRY, 0)), text_x, text_y, body_font_size)
+            text_y += 14.0
+
+
+static func draw_villager_existing_skill_group(
+    node: CanvasItem,
+    group_label: String,
+    skill_entries: Array,
+    skills: Dictionary,
+    text_x: float,
+    text_y: float,
+    font_size: int
+) -> float:
+    var existing_entries: Array = []
+
+    for entry_index in range(skill_entries.size()):
+        var entry: Dictionary = skill_entries[entry_index]
+        var skill_key: String = str(entry.get("key", ""))
+
+        if skill_key == "":
+            continue
+
+        if not skills.has(skill_key):
+            continue
+
+        existing_entries.append(entry)
+
+    if existing_entries.is_empty():
+        return text_y
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        group_label,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    text_y += 15.0
+
+    for entry_index in range(existing_entries.size()):
+        var entry: Dictionary = existing_entries[entry_index]
+        var skill_label: String = str(entry.get("label", "Skill"))
+        var skill_key: String = str(entry.get("key", ""))
+
+        draw_villager_skill_line(
+            node,
+            skill_label,
+            int(skills.get(skill_key, 0)),
+            text_x,
+            text_y,
+            font_size
+        )
+
+        text_y += 14.0
+
+    return text_y
 
 
 static func draw_villager_skill_line(

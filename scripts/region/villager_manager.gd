@@ -14,7 +14,7 @@ const VILLAGER_MOVE_INTERVAL: float = 0.18
 const DEFAULT_HARVEST_DURATION: float = 1.0
 
 const NO_ASSIGNED_AREA: Vector2i = Vector2i(-1, -1)
-const DEFAULT_ASSIGNED_WORK_RADIUS: int = 10
+const DEFAULT_ASSIGNED_WORK_RADIUS: int = 3
 
 const HEALTH_STATE_HEALTHY: String = "healthy"
 const HEALTH_STATE_SICK: String = "sick"

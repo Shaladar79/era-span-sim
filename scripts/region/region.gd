@@ -815,9 +815,9 @@ func try_assign_villager_from_assignment_panel(mouse_screen_position: Vector2) -
     if assigned_villagers.size() >= assignment_slots:
         return false
 
-    var unassigned_villagers: Array = villager_manager.get_unassigned_villagers()
+    var assignable_villagers: Array = get_assignment_role_filtered_unassigned_villagers(selected_building)
     var visible_count: int = min(
-        unassigned_villagers.size(),
+        assignable_villagers.size(),
         RegionUI.get_assignment_visible_row_count()
     )
 
@@ -827,7 +827,7 @@ func try_assign_villager_from_assignment_panel(mouse_screen_position: Vector2) -
         if not villager_button_rect.has_point(mouse_screen_position):
             continue
 
-        var villager_data: Dictionary = unassigned_villagers[villager_index]
+        var villager_data: Dictionary = assignable_villagers[villager_index]
         var villager_id: int = int(villager_data.get("id", 0))
 
         assign_villager_to_selected_assignment_building(villager_id)
@@ -849,6 +849,31 @@ func assign_villager_to_selected_assignment_building(villager_id: int) -> void:
         return
 
     var building_instance_id: int = int(selected_building.get("instance_id", 0))
+    var assignment_role: String = str(selected_building.get("assignment_role", ""))
+    var villager_data: Dictionary = villager_manager.get_villager_data_by_id(villager_id)
+
+    if villager_data.is_empty():
+        add_village_log_message("Villager not found.")
+        queue_redraw()
+        return
+
+    if not is_villager_compatible_with_assignment_role(villager_data, assignment_role):
+        var villager_name: String = str(villager_data.get("name", "Villager"))
+        var current_role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+        var current_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(current_role)
+        var assignment_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assignment_role)
+
+        add_village_log_message(
+            villager_name
+            + " is a "
+            + current_role_name
+            + " and cannot be assigned as "
+            + assignment_role_name
+            + "."
+        )
+
+        queue_redraw()
+        return
 
     var building_result: Dictionary = building_manager.assign_villager_to_building(
         villager_id,
@@ -864,13 +889,13 @@ func assign_villager_to_selected_assignment_building(villager_id: int) -> void:
         queue_redraw()
         return
 
-    var assignment_role: String = str(building_result.get("role", ""))
+    var building_role: String = str(building_result.get("role", ""))
     var replaces_shelter: bool = bool(building_result.get("replaces_shelter", false))
 
     var villager_result: Dictionary = villager_manager.assign_villager_to_building_assignment(
         villager_id,
         building_instance_id,
-        assignment_role,
+        building_role,
         replaces_shelter
     )
 
@@ -878,6 +903,15 @@ func assign_villager_to_selected_assignment_building(villager_id: int) -> void:
 
     if villager_message != "":
         add_village_log_message(villager_message)
+
+    if bool(villager_result.get("success", false)):
+        var building_center_tile: Vector2i = building_manager.get_building_center_tile(selected_building)
+
+        villager_manager.set_villager_assigned_work_anchor(
+            villager_id,
+            building_center_tile,
+            VillagerManager.DEFAULT_ASSIGNED_WORK_RADIUS
+        )
 
     var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
     villager_manager.auto_assign_villager_housing(normal_housing_capacity)
@@ -892,7 +926,60 @@ func get_selected_assignment_building() -> Dictionary:
     return building_manager.get_building_by_instance_id(
         selected_assignment_building_instance_id
     )
+func get_assigned_villager_data_for_building(selected_building: Dictionary) -> Array:
+    var assigned_villager_data: Array = []
 
+    if selected_building.is_empty():
+        return assigned_villager_data
+
+    var assigned_villager_ids: Array = selected_building.get("assigned_villagers", [])
+
+    for assigned_index in range(assigned_villager_ids.size()):
+        var villager_id: int = int(assigned_villager_ids[assigned_index])
+        var villager_data: Dictionary = villager_manager.get_villager_data_by_id(villager_id)
+
+        if villager_data.is_empty():
+            continue
+
+        assigned_villager_data.append(villager_data)
+
+    return assigned_villager_data
+
+
+func get_assignment_role_filtered_unassigned_villagers(selected_building: Dictionary) -> Array:
+    var filtered_villagers: Array = []
+
+    if selected_building.is_empty():
+        return filtered_villagers
+
+    var assignment_role: String = str(selected_building.get("assignment_role", ""))
+    var unassigned_villagers: Array = villager_manager.get_unassigned_villagers()
+
+    for villager_index in range(unassigned_villagers.size()):
+        var villager_data: Dictionary = unassigned_villagers[villager_index]
+
+        if not is_villager_compatible_with_assignment_role(villager_data, assignment_role):
+            continue
+
+        filtered_villagers.append(villager_data)
+
+    return filtered_villagers
+
+
+func is_villager_compatible_with_assignment_role(
+    villager_data: Dictionary,
+    assignment_role: String
+) -> bool:
+    if assignment_role == "":
+        return false
+
+    var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
+    var current_role: String = str(villager_data.get("role", default_role))
+
+    if current_role == default_role:
+        return true
+
+    return current_role == assignment_role
 
 func get_assignment_hovered_villager(mouse_screen_position: Vector2) -> Dictionary:
     if not show_assignment_panel:
@@ -907,11 +994,25 @@ func get_assignment_hovered_villager(mouse_screen_position: Vector2) -> Dictiona
     var assignment_slots: int = int(selected_building.get("assignment_slots", 0))
 
     if assigned_villagers.size() >= assignment_slots:
+        var assigned_villager_data: Array = get_assigned_villager_data_for_building(selected_building)
+        var assigned_visible_count: int = min(
+            assigned_villager_data.size(),
+            RegionUI.get_assignment_visible_row_count()
+        )
+
+        for villager_index in range(assigned_visible_count):
+            var villager_button_rect: Rect2 = get_assignment_villager_button_screen_rect(villager_index)
+
+            if not villager_button_rect.has_point(mouse_screen_position):
+                continue
+
+            return assigned_villager_data[villager_index]
+
         return {}
 
-    var unassigned_villagers: Array = villager_manager.get_unassigned_villagers()
+    var assignable_villagers: Array = get_assignment_role_filtered_unassigned_villagers(selected_building)
     var visible_count: int = min(
-        unassigned_villagers.size(),
+        assignable_villagers.size(),
         RegionUI.get_assignment_visible_row_count()
     )
 
@@ -921,7 +1022,7 @@ func get_assignment_hovered_villager(mouse_screen_position: Vector2) -> Dictiona
         if not villager_button_rect.has_point(mouse_screen_position):
             continue
 
-        return unassigned_villagers[villager_index]
+        return assignable_villagers[villager_index]
 
     return {}
 
@@ -1591,12 +1692,14 @@ func draw_assignment_panel() -> void:
         return
 
     var selected_building: Dictionary = get_selected_assignment_building()
-    var unassigned_villagers: Array = villager_manager.get_unassigned_villagers()
+    var assigned_villager_data: Array = get_assigned_villager_data_for_building(selected_building)
+    var assignable_villagers: Array = get_assignment_role_filtered_unassigned_villagers(selected_building)
 
     RegionDraw.draw_assignment_panel(
         self,
         selected_building,
-        unassigned_villagers
+        assigned_villager_data,
+        assignable_villagers
     )
 
 
