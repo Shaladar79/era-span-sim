@@ -8,6 +8,8 @@ const REGION_TERRAIN_ROCK: String = "rocky_ground"
 const REGION_TERRAIN_WATER: String = "shallow_water"
 const REGION_TERRAIN_MUD: String = "mud"
 const REGION_TERRAIN_SHORE: String = "shoreline"
+const REGION_TERRAIN_DESERT: String = "desert_floor"
+const REGION_TERRAIN_TUNDRA: String = "tundra_floor"
 
 const FEATURE_NONE: String = "none"
 const FEATURE_TREE: String = "tree"
@@ -22,6 +24,8 @@ const WORLD_TERRAIN_MOUNTAIN: String = "mountain"
 const WORLD_TERRAIN_WATER: String = "water"
 const WORLD_TERRAIN_OCEAN: String = "ocean"
 const WORLD_TERRAIN_SWAMP: String = "swamp"
+const WORLD_TERRAIN_DESERT: String = "desert"
+const WORLD_TERRAIN_TUNDRA: String = "tundra"
 
 const RESOURCE_WOOD: String = "wood"
 const RESOURCE_BERRIES: String = "berries"
@@ -308,6 +312,8 @@ static func get_regional_terrain_from_influences(
     var hills_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_HILLS)
     var mountain_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_MOUNTAIN)
     var grass_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_GRASS)
+    var desert_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_DESERT)
+    var tundra_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_TUNDRA)
 
     var water_influence: float = ocean_influence + lake_influence
     var rocky_influence: float = hills_influence + mountain_influence
@@ -315,6 +321,10 @@ static func get_regional_terrain_from_influences(
     var coastline_shift: float = (contour_value - 0.5) * 0.24
     var water_threshold: float = 0.58 + coastline_shift
     var shore_threshold: float = 0.34 + coastline_shift
+
+    var dryland_breakup: float = abs(terrain_value - 0.5) + abs(contour_value - 0.5)
+    var jagged_desert_threshold: float = 0.34 + ((contour_value - 0.5) * 0.26)
+    var jagged_tundra_threshold: float = 0.34 + ((terrain_value - 0.5) * 0.22)
 
     if ocean_influence > 0.82:
         if contour_value > 0.94 and water_influence < 0.98:
@@ -329,6 +339,12 @@ static func get_regional_terrain_from_influences(
         if swamp_influence > 0.22:
             return REGION_TERRAIN_MUD
 
+        if desert_influence > 0.24 and contour_value > 0.42:
+            return REGION_TERRAIN_DESERT
+
+        if tundra_influence > 0.24 and terrain_value > 0.36:
+            return REGION_TERRAIN_TUNDRA
+
         if rocky_influence > 0.42 and terrain_value > 0.62:
             return REGION_TERRAIN_ROCK
 
@@ -338,10 +354,37 @@ static func get_regional_terrain_from_influences(
         return REGION_TERRAIN_SHORE
 
     if mountain_influence > 0.50:
+        if tundra_influence > 0.14 and terrain_value < 0.54:
+            return REGION_TERRAIN_TUNDRA
+
         if terrain_value > 0.28:
             return REGION_TERRAIN_ROCK
 
         return REGION_TERRAIN_DIRT
+
+    if tundra_influence > jagged_tundra_threshold:
+        if terrain_value > 0.76:
+            return REGION_TERRAIN_ROCK
+
+        if terrain_value < 0.16 and contour_value < 0.42:
+            return REGION_TERRAIN_DIRT
+
+        if dryland_breakup > 0.48 and rocky_influence > 0.10:
+            return REGION_TERRAIN_ROCK
+
+        return REGION_TERRAIN_TUNDRA
+
+    if desert_influence > jagged_desert_threshold:
+        if terrain_value > 0.86:
+            return REGION_TERRAIN_ROCK
+
+        if terrain_value < 0.14 and contour_value < 0.50:
+            return REGION_TERRAIN_DIRT
+
+        if dryland_breakup > 0.52 and rocky_influence > 0.08:
+            return REGION_TERRAIN_ROCK
+
+        return REGION_TERRAIN_DESERT
 
     if hills_influence > 0.42:
         if terrain_value > 0.64:
@@ -393,6 +436,8 @@ static func get_feature_from_influences(
 
     var swamp_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_SWAMP)
     var forest_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_FOREST)
+    var desert_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_DESERT)
+    var tundra_influence: float = get_terrain_influence(terrain_influences, WORLD_TERRAIN_TUNDRA)
     var rocky_influence: float = (
         get_terrain_influence(terrain_influences, WORLD_TERRAIN_HILLS)
         + get_terrain_influence(terrain_influences, WORLD_TERRAIN_MOUNTAIN)
@@ -420,9 +465,33 @@ static func get_feature_from_influences(
 
         return FEATURE_NONE
 
+    if terrain == REGION_TERRAIN_DESERT:
+        if rng.randf() < 0.08:
+            return FEATURE_BUSH
+
+        if desert_influence > 0.35 and rng.randf() < 0.10:
+            return FEATURE_STONE
+
+        return FEATURE_NONE
+
+    if terrain == REGION_TERRAIN_TUNDRA:
+        if rng.randf() < 0.10:
+            return FEATURE_STONE
+
+        if tundra_influence > 0.35 and rng.randf() < 0.06:
+            return FEATURE_BUSH
+
+        return FEATURE_NONE
+
     if terrain == REGION_TERRAIN_DIRT:
         if swamp_influence > 0.25 and rng.randf() < 0.16:
             return FEATURE_REEDS
+
+        if desert_influence > 0.30 and rng.randf() < 0.05:
+            return FEATURE_BUSH
+
+        if tundra_influence > 0.30 and rng.randf() < 0.05:
+            return FEATURE_STONE
 
         return FEATURE_NONE
 
@@ -460,8 +529,14 @@ static func get_resources_for_region_tile(
         try_add_region_resource(resources, rng, RESOURCE_WOOD, "Wood", 1.0, 3, 8)
 
     if feature == FEATURE_BUSH:
-        try_add_region_resource(resources, rng, RESOURCE_BERRIES, "Berries", 0.65, 2, 6)
-        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.35, 1, 4)
+        if terrain == REGION_TERRAIN_DESERT:
+            try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.45, 1, 3)
+        elif terrain == REGION_TERRAIN_TUNDRA:
+            try_add_region_resource(resources, rng, RESOURCE_BERRIES, "Berries", 0.20, 1, 3)
+            try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.20, 1, 2)
+        else:
+            try_add_region_resource(resources, rng, RESOURCE_BERRIES, "Berries", 0.65, 2, 6)
+            try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.35, 1, 4)
 
     if feature == FEATURE_STONE:
         try_add_region_resource(resources, rng, RESOURCE_STONE, "Stone", 0.90, 3, 8)
@@ -491,6 +566,15 @@ static func get_resources_for_region_tile(
     if terrain == REGION_TERRAIN_GRASS:
         if dominant_world_terrain == WORLD_TERRAIN_GRASS:
             try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.10, 1, 3)
+
+    if terrain == REGION_TERRAIN_DESERT:
+        try_add_region_resource(resources, rng, RESOURCE_STONE, "Stone", 0.04, 1, 4)
+        try_add_region_resource(resources, rng, RESOURCE_FLINT, "Flint", 0.05, 1, 2)
+
+    if terrain == REGION_TERRAIN_TUNDRA:
+        try_add_region_resource(resources, rng, RESOURCE_STONE, "Stone", 0.08, 1, 5)
+        try_add_region_resource(resources, rng, RESOURCE_FLINT, "Flint", 0.04, 1, 2)
+        try_add_region_resource(resources, rng, RESOURCE_FIBER, "Fiber", 0.04, 1, 2)
 
     if terrain == REGION_TERRAIN_ROCK:
         var rocky_influence: float = (

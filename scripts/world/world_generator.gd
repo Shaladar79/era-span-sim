@@ -8,6 +8,8 @@ const TERRAIN_MOUNTAIN: String = "mountain"
 const TERRAIN_WATER: String = "water"
 const TERRAIN_OCEAN: String = "ocean"
 const TERRAIN_SWAMP: String = "swamp"
+const TERRAIN_DESERT: String = "desert"
+const TERRAIN_TUNDRA: String = "tundra"
 
 const SUB_BIOME_NONE: String = "none"
 const SUB_BIOME_BASE_MOUNTAIN: String = "base_mountain"
@@ -16,6 +18,9 @@ const SUB_BIOME_SNOWY_PEAK: String = "snowy_peak"
 const OCEAN_EDGE_WIDTH: int = 8
 const ADDITIONAL_OCEAN_TARGET_RATIO: float = 0.20
 const OCEAN_MIN_BODY_SIZE: int = 120
+
+const DESERT_MIN_BODY_SIZE: int = 36
+const TUNDRA_MIN_BODY_SIZE: int = 28
 
 
 static func generate_noise_world(
@@ -60,11 +65,22 @@ static func generate_noise_world(
                 "buildable": terrain != TERRAIN_WATER and terrain != TERRAIN_OCEAN and terrain != TERRAIN_MOUNTAIN
             }
 
-            tile_data = ResourceSpawner.add_resources_to_tile(tile_data, rng)
-
             row.append(tile_data)
 
         generated_tiles.append(row)
+
+    enforce_minimum_terrain_body_sizes(
+        generated_tiles,
+        grid_width,
+        grid_height
+    )
+
+    add_resources_to_world_tiles(
+        generated_tiles,
+        grid_width,
+        grid_height,
+        rng
+    )
 
     return generated_tiles
 
@@ -285,6 +301,227 @@ static func mark_body_as_ocean(body_tiles: Array, ocean_map: Array) -> void:
         ocean_map[tile_position.y][tile_position.x] = true
 
 
+static func enforce_minimum_terrain_body_sizes(
+    generated_tiles: Array,
+    grid_width: int,
+    grid_height: int
+) -> void:
+    enforce_minimum_terrain_body_size(
+        generated_tiles,
+        grid_width,
+        grid_height,
+        TERRAIN_DESERT,
+        DESERT_MIN_BODY_SIZE
+    )
+
+    enforce_minimum_terrain_body_size(
+        generated_tiles,
+        grid_width,
+        grid_height,
+        TERRAIN_TUNDRA,
+        TUNDRA_MIN_BODY_SIZE
+    )
+
+
+static func enforce_minimum_terrain_body_size(
+    generated_tiles: Array,
+    grid_width: int,
+    grid_height: int,
+    terrain_to_check: String,
+    minimum_body_size: int
+) -> void:
+    var visited_map := create_bool_map(grid_width, grid_height, false)
+
+    for y in range(grid_height):
+        for x in range(grid_width):
+            if visited_map[y][x]:
+                continue
+
+            var tile_data: Dictionary = generated_tiles[y][x]
+            var terrain: String = str(tile_data.get("terrain", TERRAIN_GRASS))
+
+            if terrain != terrain_to_check:
+                visited_map[y][x] = true
+                continue
+
+            var body_tiles: Array = flood_fill_terrain_body(
+                generated_tiles,
+                visited_map,
+                Vector2i(x, y),
+                terrain_to_check,
+                grid_width,
+                grid_height
+            )
+
+            if body_tiles.size() >= minimum_body_size:
+                continue
+
+            var replacement_terrain: String = get_best_replacement_terrain_for_body(
+                generated_tiles,
+                body_tiles,
+                terrain_to_check,
+                grid_width,
+                grid_height
+            )
+
+            replace_body_terrain(
+                generated_tiles,
+                body_tiles,
+                replacement_terrain
+            )
+
+
+static func flood_fill_terrain_body(
+    generated_tiles: Array,
+    visited_map: Array,
+    start_tile: Vector2i,
+    terrain_to_check: String,
+    grid_width: int,
+    grid_height: int
+) -> Array:
+    var body_tiles: Array = []
+    var open_tiles: Array = [start_tile]
+
+    visited_map[start_tile.y][start_tile.x] = true
+
+    while not open_tiles.is_empty():
+        var current: Vector2i = open_tiles.pop_back()
+        body_tiles.append(current)
+
+        var neighbors := [
+            Vector2i(current.x + 1, current.y),
+            Vector2i(current.x - 1, current.y),
+            Vector2i(current.x, current.y + 1),
+            Vector2i(current.x, current.y - 1)
+        ]
+
+        for neighbor in neighbors:
+            if not is_position_in_bounds(neighbor, grid_width, grid_height):
+                continue
+
+            if visited_map[neighbor.y][neighbor.x]:
+                continue
+
+            var neighbor_tile: Dictionary = generated_tiles[neighbor.y][neighbor.x]
+            var neighbor_terrain: String = str(neighbor_tile.get("terrain", TERRAIN_GRASS))
+
+            if neighbor_terrain != terrain_to_check:
+                continue
+
+            visited_map[neighbor.y][neighbor.x] = true
+            open_tiles.append(neighbor)
+
+    return body_tiles
+
+
+static func get_best_replacement_terrain_for_body(
+    generated_tiles: Array,
+    body_tiles: Array,
+    terrain_to_replace: String,
+    grid_width: int,
+    grid_height: int
+) -> String:
+    var body_lookup: Dictionary = {}
+
+    for body_index in range(body_tiles.size()):
+        var body_tile: Vector2i = body_tiles[body_index]
+        body_lookup[get_tile_lookup_key(body_tile)] = true
+
+    var neighbor_counts: Dictionary = {}
+
+    for body_index in range(body_tiles.size()):
+        var body_tile: Vector2i = body_tiles[body_index]
+
+        var neighbors := [
+            Vector2i(body_tile.x + 1, body_tile.y),
+            Vector2i(body_tile.x - 1, body_tile.y),
+            Vector2i(body_tile.x, body_tile.y + 1),
+            Vector2i(body_tile.x, body_tile.y - 1)
+        ]
+
+        for neighbor in neighbors:
+            if not is_position_in_bounds(neighbor, grid_width, grid_height):
+                continue
+
+            if body_lookup.has(get_tile_lookup_key(neighbor)):
+                continue
+
+            var neighbor_tile: Dictionary = generated_tiles[neighbor.y][neighbor.x]
+            var neighbor_terrain: String = str(neighbor_tile.get("terrain", TERRAIN_GRASS))
+
+            if neighbor_terrain == terrain_to_replace:
+                continue
+
+            if neighbor_terrain == TERRAIN_OCEAN or neighbor_terrain == TERRAIN_WATER:
+                continue
+
+            if not neighbor_counts.has(neighbor_terrain):
+                neighbor_counts[neighbor_terrain] = 0
+
+            neighbor_counts[neighbor_terrain] = int(neighbor_counts[neighbor_terrain]) + 1
+
+    if neighbor_counts.is_empty():
+        return TERRAIN_GRASS
+
+    var best_terrain: String = TERRAIN_GRASS
+    var best_count: int = -1
+    var keys: Array = neighbor_counts.keys()
+
+    for key_index in range(keys.size()):
+        var terrain_key: String = str(keys[key_index])
+        var count: int = int(neighbor_counts.get(terrain_key, 0))
+
+        if count > best_count:
+            best_count = count
+            best_terrain = terrain_key
+
+    return best_terrain
+
+
+static func replace_body_terrain(
+    generated_tiles: Array,
+    body_tiles: Array,
+    replacement_terrain: String
+) -> void:
+    for body_index in range(body_tiles.size()):
+        var tile_position: Vector2i = body_tiles[body_index]
+        var tile_data: Dictionary = generated_tiles[tile_position.y][tile_position.x]
+
+        var elevation: float = float(tile_data.get("elevation", 0.0))
+        var moisture: float = float(tile_data.get("moisture", 0.0))
+
+        tile_data["terrain"] = replacement_terrain
+        tile_data["biome"] = get_biome_from_terrain(replacement_terrain)
+        tile_data["sub_biome"] = get_sub_biome_from_noise(
+            replacement_terrain,
+            elevation,
+            moisture
+        )
+        tile_data["walkable"] = replacement_terrain != TERRAIN_WATER and replacement_terrain != TERRAIN_OCEAN
+        tile_data["buildable"] = replacement_terrain != TERRAIN_WATER and replacement_terrain != TERRAIN_OCEAN and replacement_terrain != TERRAIN_MOUNTAIN
+        tile_data["resources"] = []
+
+        generated_tiles[tile_position.y][tile_position.x] = tile_data
+
+
+static func get_tile_lookup_key(tile_position: Vector2i) -> String:
+    return str(tile_position.x) + "," + str(tile_position.y)
+
+
+static func add_resources_to_world_tiles(
+    generated_tiles: Array,
+    grid_width: int,
+    grid_height: int,
+    rng: RandomNumberGenerator
+) -> void:
+    for y in range(grid_height):
+        for x in range(grid_width):
+            var tile_data: Dictionary = generated_tiles[y][x]
+            tile_data["resources"] = []
+            tile_data = ResourceSpawner.add_resources_to_tile(tile_data, rng)
+            generated_tiles[y][x] = tile_data
+
+
 static func get_normalized_noise(noise: FastNoiseLite, x: int, y: int) -> float:
     var raw_value := noise.get_noise_2d(float(x), float(y))
 
@@ -300,6 +537,12 @@ static func get_terrain_from_noise(elevation: float, moisture: float, is_ocean: 
 
     if elevation > 0.82:
         return TERRAIN_MOUNTAIN
+
+    if elevation > 0.70 and moisture < 0.34:
+        return TERRAIN_TUNDRA
+
+    if moisture < 0.24 and elevation < 0.66:
+        return TERRAIN_DESERT
 
     if elevation > 0.66:
         return TERRAIN_HILLS
@@ -327,6 +570,10 @@ static func get_biome_from_terrain(terrain: String) -> String:
             return "swamp"
         TERRAIN_FOREST:
             return "forest"
+        TERRAIN_DESERT:
+            return "desert"
+        TERRAIN_TUNDRA:
+            return "tundra"
         TERRAIN_GRASS:
             return "plains"
         _:

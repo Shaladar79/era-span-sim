@@ -8,6 +8,8 @@ const REGION_TERRAIN_ROCK: String = RegionGenerator.REGION_TERRAIN_ROCK
 const REGION_TERRAIN_WATER: String = RegionGenerator.REGION_TERRAIN_WATER
 const REGION_TERRAIN_MUD: String = RegionGenerator.REGION_TERRAIN_MUD
 const REGION_TERRAIN_SHORE: String = RegionGenerator.REGION_TERRAIN_SHORE
+const REGION_TERRAIN_DESERT: String = RegionGenerator.REGION_TERRAIN_DESERT
+const REGION_TERRAIN_TUNDRA: String = RegionGenerator.REGION_TERRAIN_TUNDRA
 
 const FEATURE_NONE: String = RegionGenerator.FEATURE_NONE
 const FEATURE_TREE: String = RegionGenerator.FEATURE_TREE
@@ -1022,6 +1024,10 @@ func get_region_tile_color(tile_data: Dictionary) -> Color:
             return Color(0.20, 0.24, 0.12)
         REGION_TERRAIN_SHORE:
             return Color(0.80, 0.74, 0.50)
+        REGION_TERRAIN_DESERT:
+            return Color(0.72, 0.58, 0.27)
+        REGION_TERRAIN_TUNDRA:
+            return Color(0.50, 0.62, 0.58)
         _:
             return Color(1, 0, 1)
 

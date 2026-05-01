@@ -4,6 +4,10 @@ signal main_menu_new_game_requested
 signal main_menu_load_game_requested
 signal main_menu_options_requested
 
+signal world_preview_reroll_requested
+signal world_preview_confirm_requested
+signal world_preview_back_requested
+
 signal pause_resume_requested
 signal pause_save_requested
 signal pause_load_requested
@@ -15,11 +19,13 @@ signal pause_return_to_main_requested
 @onready var region: Node2D = get_node_or_null("../Region")
 
 var main_menu_panel: Panel = null
+var world_preview_panel: Panel = null
 var pause_menu_panel: Panel = null
 
 var generated_build_buttons: Array = []
 var generated_age_buttons: Array = []
 var generated_main_menu_buttons: Array = []
+var generated_world_preview_buttons: Array = []
 var generated_pause_menu_buttons: Array = []
 
 var selected_build_age: String = ""
@@ -32,6 +38,7 @@ func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
 
     setup_main_menu()
+    setup_world_preview_panel()
     setup_pause_menu()
 
     if build_button == null:
@@ -57,6 +64,7 @@ func _ready() -> void:
 func _notification(what: int) -> void:
     if what == NOTIFICATION_WM_SIZE_CHANGED:
         setup_main_menu_layout()
+        setup_world_preview_panel_layout()
         setup_pause_menu_layout()
         setup_build_ui_layout()
 
@@ -87,6 +95,7 @@ func show_main_menu() -> void:
     if main_menu_panel != null:
         main_menu_panel.visible = true
 
+    hide_world_preview_panel()
     hide_pause_menu()
     set_build_ui_enabled(false)
 
@@ -94,6 +103,23 @@ func show_main_menu() -> void:
 func hide_main_menu() -> void:
     if main_menu_panel != null:
         main_menu_panel.visible = false
+
+
+func show_world_preview_panel() -> void:
+    if world_preview_panel == null:
+        setup_world_preview_panel()
+
+    if world_preview_panel != null:
+        world_preview_panel.visible = true
+
+    hide_main_menu()
+    hide_pause_menu()
+    set_build_ui_enabled(false)
+
+
+func hide_world_preview_panel() -> void:
+    if world_preview_panel != null:
+        world_preview_panel.visible = false
 
 
 func show_pause_menu() -> void:
@@ -141,22 +167,79 @@ func setup_main_menu() -> void:
     title_label.size = Vector2(325, 60)
     main_menu_panel.add_child(title_label)
 
-    var new_game_button := create_menu_button("New Game", Vector2(80, 74))
+    var new_game_button := create_menu_button("New Game", Vector2(80, 88))
     new_game_button.pressed.connect(_on_main_menu_new_game_pressed)
     main_menu_panel.add_child(new_game_button)
     generated_main_menu_buttons.append(new_game_button)
 
-    var load_game_button := create_menu_button("Load Game", Vector2(80, 112))
+    var load_game_button := create_menu_button("Load Game", Vector2(80, 126))
     load_game_button.pressed.connect(_on_main_menu_load_game_pressed)
     main_menu_panel.add_child(load_game_button)
     generated_main_menu_buttons.append(load_game_button)
 
-    var options_button := create_menu_button("Options", Vector2(80, 150))
+    var options_button := create_menu_button("Options", Vector2(80, 164))
     options_button.pressed.connect(_on_main_menu_options_pressed)
     main_menu_panel.add_child(options_button)
     generated_main_menu_buttons.append(options_button)
 
     setup_main_menu_layout()
+
+
+func setup_world_preview_panel() -> void:
+    if world_preview_panel != null:
+        return
+
+    world_preview_panel = Panel.new()
+    world_preview_panel.name = "GeneratedWorldPreviewPanel"
+    world_preview_panel.visible = false
+    world_preview_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(world_preview_panel)
+
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.04, 0.04, 0.04, 0.90)
+    panel_style.border_color = Color(0.78, 0.70, 0.48, 1.0)
+    panel_style.set_border_width_all(2)
+    panel_style.set_corner_radius_all(6)
+    panel_style.content_margin_left = 10
+    panel_style.content_margin_right = 10
+    panel_style.content_margin_top = 10
+    panel_style.content_margin_bottom = 10
+    world_preview_panel.add_theme_stylebox_override("panel", panel_style)
+
+    var title_label := Label.new()
+    title_label.name = "TitleLabel"
+    title_label.text = "World Generation"
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title_label.add_theme_font_size_override("font_size", 18)
+    title_label.position = Vector2(0, 10)
+    title_label.size = Vector2(260, 28)
+    world_preview_panel.add_child(title_label)
+
+    var hint_label := Label.new()
+    hint_label.name = "HintLabel"
+    hint_label.text = "Reroll until you like the world,\nthen confirm it to choose a region."
+    hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    hint_label.add_theme_font_size_override("font_size", 11)
+    hint_label.position = Vector2(10, 40)
+    hint_label.size = Vector2(240, 42)
+    world_preview_panel.add_child(hint_label)
+
+    var reroll_button := create_menu_button("Reroll World", Vector2(50, 88))
+    reroll_button.pressed.connect(_on_world_preview_reroll_pressed)
+    world_preview_panel.add_child(reroll_button)
+    generated_world_preview_buttons.append(reroll_button)
+
+    var confirm_button := create_menu_button("Confirm World", Vector2(50, 126))
+    confirm_button.pressed.connect(_on_world_preview_confirm_pressed)
+    world_preview_panel.add_child(confirm_button)
+    generated_world_preview_buttons.append(confirm_button)
+
+    var back_button := create_menu_button("Back to Main Menu", Vector2(50, 164))
+    back_button.pressed.connect(_on_world_preview_back_pressed)
+    world_preview_panel.add_child(back_button)
+    generated_world_preview_buttons.append(back_button)
+
+    setup_world_preview_panel_layout()
 
 
 func setup_pause_menu() -> void:
@@ -254,10 +337,22 @@ func setup_main_menu_layout() -> void:
         return
 
     var viewport_size := get_viewport().get_visible_rect().size
-    main_menu_panel.size = Vector2(320, 210)
+    main_menu_panel.size = Vector2(320, 224)
     main_menu_panel.position = Vector2(
         viewport_size.x * 0.5 - main_menu_panel.size.x * 0.5,
         viewport_size.y * 0.5 - main_menu_panel.size.y * 0.5
+    )
+
+
+func setup_world_preview_panel_layout() -> void:
+    if world_preview_panel == null:
+        return
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    world_preview_panel.size = Vector2(260, 210)
+    world_preview_panel.position = Vector2(
+        viewport_size.x - world_preview_panel.size.x - 16.0,
+        16.0
     )
 
 
@@ -532,6 +627,17 @@ func clear_generated_main_menu_buttons() -> void:
     generated_main_menu_buttons.clear()
 
 
+func clear_generated_world_preview_buttons() -> void:
+    for button_index in range(generated_world_preview_buttons.size()):
+        var button_variant: Variant = generated_world_preview_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_world_preview_buttons.clear()
+
+
 func clear_generated_pause_menu_buttons() -> void:
     for button_index in range(generated_pause_menu_buttons.size()):
         var button_variant: Variant = generated_pause_menu_buttons[button_index]
@@ -662,6 +768,18 @@ func _on_main_menu_load_game_pressed() -> void:
 
 func _on_main_menu_options_pressed() -> void:
     main_menu_options_requested.emit()
+
+
+func _on_world_preview_reroll_pressed() -> void:
+    world_preview_reroll_requested.emit()
+
+
+func _on_world_preview_confirm_pressed() -> void:
+    world_preview_confirm_requested.emit()
+
+
+func _on_world_preview_back_pressed() -> void:
+    world_preview_back_requested.emit()
 
 
 func _on_pause_resume_pressed() -> void:

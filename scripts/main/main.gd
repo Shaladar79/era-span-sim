@@ -1,6 +1,7 @@
 extends Node2D
 
 const GAME_MODE_MAIN_MENU: String = "main_menu"
+const GAME_MODE_WORLD_PREVIEW: String = "world_preview"
 const GAME_MODE_WORLD: String = "world"
 const GAME_MODE_REGION: String = "region"
 const GAME_MODE_PAUSED: String = "paused"
@@ -54,6 +55,15 @@ func connect_ui_signals() -> void:
     if ui.has_signal("main_menu_options_requested"):
         ui.connect("main_menu_options_requested", Callable(self, "_on_main_menu_options_requested"))
 
+    if ui.has_signal("world_preview_reroll_requested"):
+        ui.connect("world_preview_reroll_requested", Callable(self, "_on_world_preview_reroll_requested"))
+
+    if ui.has_signal("world_preview_confirm_requested"):
+        ui.connect("world_preview_confirm_requested", Callable(self, "_on_world_preview_confirm_requested"))
+
+    if ui.has_signal("world_preview_back_requested"):
+        ui.connect("world_preview_back_requested", Callable(self, "_on_world_preview_back_requested"))
+
     if ui.has_signal("pause_resume_requested"):
         ui.connect("pause_resume_requested", Callable(self, "_on_pause_resume_requested"))
 
@@ -85,11 +95,48 @@ func enter_main_menu_mode() -> void:
         if ui.has_method("show_main_menu"):
             ui.call("show_main_menu")
 
+        if ui.has_method("hide_world_preview_panel"):
+            ui.call("hide_world_preview_panel")
+
         if ui.has_method("hide_pause_menu"):
             ui.call("hide_pause_menu")
 
         if ui.has_method("set_build_ui_enabled"):
             ui.call("set_build_ui_enabled", false)
+
+
+func enter_world_preview_mode() -> void:
+    get_tree().paused = false
+    game_mode = GAME_MODE_WORLD_PREVIEW
+    previous_game_mode = GAME_MODE_WORLD_PREVIEW
+
+    world.visible = true
+    region.visible = false
+
+    if ui != null:
+        if ui.has_method("hide_main_menu"):
+            ui.call("hide_main_menu")
+
+        if ui.has_method("show_world_preview_panel"):
+            ui.call("show_world_preview_panel")
+
+        if ui.has_method("hide_pause_menu"):
+            ui.call("hide_pause_menu")
+
+        if ui.has_method("set_build_ui_enabled"):
+            ui.call("set_build_ui_enabled", false)
+
+    if world.has_method("activate"):
+        world.call("activate")
+
+    if world.has_method("start_world_preview"):
+        world.call("start_world_preview")
+
+    if region.has_method("deactivate"):
+        region.call("deactivate")
+
+    if world.has_method("get_map_center"):
+        main_camera.position = world.call("get_map_center")
 
 
 func enter_world_mode() -> void:
@@ -104,6 +151,9 @@ func enter_world_mode() -> void:
         if ui.has_method("hide_main_menu"):
             ui.call("hide_main_menu")
 
+        if ui.has_method("hide_world_preview_panel"):
+            ui.call("hide_world_preview_panel")
+
         if ui.has_method("hide_pause_menu"):
             ui.call("hide_pause_menu")
 
@@ -112,6 +162,9 @@ func enter_world_mode() -> void:
 
     if world.has_method("activate"):
         world.call("activate")
+
+    if world.has_method("enter_region_selection_mode"):
+        world.call("enter_region_selection_mode")
 
     if region.has_method("deactivate"):
         region.call("deactivate")
@@ -136,6 +189,9 @@ func enter_region_mode(
     if ui != null:
         if ui.has_method("hide_main_menu"):
             ui.call("hide_main_menu")
+
+        if ui.has_method("hide_world_preview_panel"):
+            ui.call("hide_world_preview_panel")
 
         if ui.has_method("hide_pause_menu"):
             ui.call("hide_pause_menu")
@@ -212,7 +268,7 @@ func _on_region_return_to_world_requested() -> void:
 
 
 func _on_main_menu_new_game_requested() -> void:
-    enter_world_mode()
+    enter_world_preview_mode()
 
 
 func _on_main_menu_load_game_requested() -> void:
@@ -221,6 +277,22 @@ func _on_main_menu_load_game_requested() -> void:
 
 func _on_main_menu_options_requested() -> void:
     print("Options requested. Options menu is not implemented yet.")
+
+
+func _on_world_preview_reroll_requested() -> void:
+    if world.has_method("reroll_preview_world"):
+        world.call("reroll_preview_world")
+
+
+func _on_world_preview_confirm_requested() -> void:
+    if world.has_method("confirm_world_generation"):
+        world.call("confirm_world_generation")
+
+    enter_world_mode()
+
+
+func _on_world_preview_back_requested() -> void:
+    enter_main_menu_mode()
 
 
 func _on_pause_resume_requested() -> void:

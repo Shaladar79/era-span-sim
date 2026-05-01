@@ -19,6 +19,8 @@ const TERRAIN_MOUNTAIN: String = WorldGenerator.TERRAIN_MOUNTAIN
 const TERRAIN_WATER: String = WorldGenerator.TERRAIN_WATER
 const TERRAIN_OCEAN: String = WorldGenerator.TERRAIN_OCEAN
 const TERRAIN_SWAMP: String = WorldGenerator.TERRAIN_SWAMP
+const TERRAIN_DESERT: String = WorldGenerator.TERRAIN_DESERT
+const TERRAIN_TUNDRA: String = WorldGenerator.TERRAIN_TUNDRA
 
 const SUB_BIOME_BASE_MOUNTAIN: String = WorldGenerator.SUB_BIOME_BASE_MOUNTAIN
 const SUB_BIOME_SNOWY_PEAK: String = WorldGenerator.SUB_BIOME_SNOWY_PEAK
@@ -34,6 +36,9 @@ var selected_tile: Vector2i = Vector2i(-1, -1)
 var selected_region_origin: Vector2i = Vector2i(-1, -1)
 var tile_info_label: Label = null
 var show_resource_markers: bool = true
+
+var allow_world_regeneration: bool = false
+var region_selection_enabled: bool = false
 
 
 func _ready() -> void:
@@ -76,17 +81,20 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_R:
-            regenerate_world()
+            if allow_world_regeneration:
+                regenerate_world()
 
         if event.keycode == KEY_T:
             toggle_resource_markers()
 
         if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
-            request_region_from_selection()
+            if region_selection_enabled:
+                request_region_from_selection()
 
     if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_LEFT:
-            select_hovered_region()
+            if region_selection_enabled:
+                select_hovered_region()
 
 
 func setup_seed() -> void:
@@ -107,16 +115,57 @@ func generate_world() -> void:
     )
 
 
+func start_world_preview() -> void:
+    allow_world_regeneration = true
+    region_selection_enabled = false
+    regenerate_world()
+
+
+func reroll_preview_world() -> void:
+    if not allow_world_regeneration:
+        return
+
+    regenerate_world()
+
+
+func confirm_world_generation() -> void:
+    allow_world_regeneration = false
+    region_selection_enabled = true
+    clear_region_selection()
+    update_tile_info_label()
+    queue_redraw()
+
+    print("World confirmed. Region selection enabled.")
+
+
+func enter_region_selection_mode() -> void:
+    allow_world_regeneration = false
+    region_selection_enabled = true
+    clear_region_selection()
+    update_tile_info_label()
+    queue_redraw()
+
+
+func enter_world_preview_mode() -> void:
+    allow_world_regeneration = true
+    region_selection_enabled = false
+    clear_region_selection()
+    update_tile_info_label()
+    queue_redraw()
+
+
+func clear_region_selection() -> void:
+    selected_tile = Vector2i(-1, -1)
+    selected_region_origin = Vector2i(-1, -1)
+
+
 func regenerate_world() -> void:
     rng.randomize()
     world_seed = rng.randi()
     setup_seed()
     generate_world()
 
-    if not is_region_origin_in_bounds(selected_region_origin):
-        selected_tile = Vector2i(-1, -1)
-        selected_region_origin = Vector2i(-1, -1)
-
+    clear_region_selection()
     update_tile_info_label()
     print_resource_totals()
     queue_redraw()
@@ -132,6 +181,9 @@ func toggle_resource_markers() -> void:
 
 
 func select_hovered_region() -> void:
+    if not region_selection_enabled:
+        return
+
     if not is_tile_in_bounds(hovered_tile):
         selected_tile = Vector2i(-1, -1)
         selected_region_origin = Vector2i(-1, -1)
@@ -165,6 +217,10 @@ func is_region_origin_in_bounds(origin: Vector2i) -> bool:
 
 
 func request_region_from_selection() -> void:
+    if not region_selection_enabled:
+        print("Region selection is not enabled yet. Confirm the world first.")
+        return
+
     if not is_region_origin_in_bounds(selected_region_origin):
         print("No valid 6x6 world region selected.")
         return
@@ -317,8 +373,9 @@ func update_tile_info_label() -> void:
 
     if not is_tile_in_bounds(hovered_tile):
         tile_info_label.text = (
-			"Hover Tile: outside map\n"
-            + "Selected Region: " + get_selected_region_text()
+            "Hover Tile: outside map\n"
+            + "Selected Region: " + get_selected_region_text() + "\n"
+            + get_world_mode_help_text()
         )
         return
 
@@ -331,7 +388,7 @@ func update_tile_info_label() -> void:
     tile_info_label.text = (
         "Hover Tile: " + str(hovered_tile.x) + ", " + str(hovered_tile.y) + "\n"
         + "Selected Region: " + get_selected_region_text() + "\n"
-        + "Enter: Open Region\n"
+        + get_world_mode_help_text() + "\n"
         + "Terrain: " + str(tile_data.get("terrain", "unknown")) + "\n"
         + "Biome: " + str(tile_data.get("biome", "unknown")) + "\n"
         + "Sub-Biome: " + str(tile_data.get("sub_biome", "none")) + "\n"
@@ -341,6 +398,16 @@ func update_tile_info_label() -> void:
         + "Buildable: " + str(tile_data.get("buildable", false)) + "\n"
         + "Resources:\n" + resources_text
     )
+
+
+func get_world_mode_help_text() -> String:
+    if allow_world_regeneration and not region_selection_enabled:
+        return "World Preview Mode\nR: Reroll World\nUse Confirm World to continue"
+
+    if region_selection_enabled:
+        return "Region Selection Mode\nLeft Click: Select 6x6 Region\nEnter: Open Region"
+
+    return "World inactive"
 
 
 func get_selected_region_text() -> String:
@@ -389,7 +456,10 @@ func _draw() -> void:
         draw_resource_markers()
 
     draw_grid_lines()
-    draw_selected_region()
+
+    if region_selection_enabled:
+        draw_selected_region()
+
     draw_hovered_tile()
 
 
@@ -537,5 +607,9 @@ func get_tile_color(tile_data: Dictionary) -> Color:
             return Color(0.02, 0.12, 0.45)
         TERRAIN_SWAMP:
             return Color(0.2, 0.38, 0.18)
+        TERRAIN_DESERT:
+            return Color(0.78, 0.62, 0.28)
+        TERRAIN_TUNDRA:
+            return Color(0.62, 0.72, 0.68)
         _:
             return Color(1, 0, 1)
