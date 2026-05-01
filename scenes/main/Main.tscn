@@ -13,7 +13,6 @@
 script = ExtResource("1_dc040")
 
 [node name="Region" parent="." unique_id=453203254 instance=ExtResource("1_gyg6b")]
-region_seed = null
 
 [node name="World" parent="." unique_id=754916054 instance=ExtResource("1_u1xfj")]
 script = ExtResource("2_q24mn")
@@ -32,23 +31,3 @@ offset_right = 40.0
 offset_bottom = 23.0
 text = "Tile Info"
 label_settings = SubResource("LabelSettings_q24mn")
-
-[node name="BuildButton" type="Button" parent="UI" unique_id=1165520889]
-custom_minimum_size = Vector2(10, 180)
-offset_left = -95.0
-offset_top = 610.0
-offset_right = -47.0
-offset_bottom = 641.0
-text = "Build"
-
-[node name="BuildMenu" type="Panel" parent="UI" unique_id=1177642545]
-offset_left = -94.0
-offset_top = 570.0
-offset_right = 1056.0
-offset_bottom = 610.0
-
-[node name="CampfireButton" type="Button" parent="UI/BuildMenu" unique_id=1731287903]
-layout_mode = 0
-offset_right = 80.0
-offset_bottom = 31.0
-text = "Campfire"

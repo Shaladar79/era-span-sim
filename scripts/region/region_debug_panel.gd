@@ -169,6 +169,106 @@ static func get_test_item_outputs() -> Array:
             "amount": 1,
             "category": RegionItemInventory.CATEGORY_MEDICINE,
             "description": "Debug test item."
+        },
+
+        # Stone Age T2 test items.
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_THROWING_SPEAR,
+            "name": "Throwing Spear",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_WEAPON,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_STONE_TIPPED_SPEAR,
+            "name": "Stone-Tipped Spear",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_WEAPON,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_STONE_CLUB,
+            "name": "Stone Club",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_WEAPON,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_STONE_SCRAPER,
+            "name": "Stone Scraper",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_TOOL,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_WORKED_HAND_AXE,
+            "name": "Worked Hand Axe",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_TOOL,
+            "description": "Debug test item."
+        },
+
+        # Stone Age T3 test items.
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_DRAG_SLED,
+            "name": "Drag Sled",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_KIT,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_TENT_KIT,
+            "name": "Tent Kit",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_KIT,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_ADVANCED_SLING,
+            "name": "Advanced Sling",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_WEAPON,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_FLINT_TIPPED_HUNTING_SPEAR,
+            "name": "Flint-Tipped Hunting Spear",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_WEAPON,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_FLINT_EDGED_HAND_AXE,
+            "name": "Flint-Edged Hand Axe",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_TOOL,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_FLINT_EDGED_WOODSMAN_AXE,
+            "name": "Flint-Edged Woodsman Axe",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_TOOL,
+            "description": "Debug test item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": RegionRecipeData.ITEM_FLINT_TIPPED_MINING_PICK,
+            "name": "Flint-Tipped Mining Pick",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_TOOL,
+            "description": "Debug test item."
         }
     ]
 

@@ -14,6 +14,9 @@ const TOP_INFO_INVENTORY_BUTTON_HEIGHT: int = 22
 const TOP_INFO_RESEARCH_BUTTON_WIDTH: int = 92
 const TOP_INFO_RESEARCH_BUTTON_HEIGHT: int = 22
 
+const TOP_INFO_BUILD_BUTTON_WIDTH: int = 92
+const TOP_INFO_BUILD_BUTTON_HEIGHT: int = 22
+
 const RESOURCE_LIST_PANEL_WIDTH: int = 240
 const RESOURCE_LIST_ROW_HEIGHT: int = 20
 const RESOURCE_LIST_PANEL_GAP: int = 4
@@ -26,6 +29,19 @@ const RESEARCH_PANEL_WIDTH: int = 360
 const RESEARCH_PANEL_HEIGHT: int = 260
 const RESEARCH_PANEL_GAP: int = 4
 const RESEARCH_ROW_HEIGHT: int = 30
+
+const BUILD_PANEL_WIDTH: int = 420
+const BUILD_PANEL_HEIGHT: int = 320
+const BUILD_PANEL_GAP: int = 4
+const BUILD_ROW_HEIGHT: int = 34
+
+const BUILD_AGE_BUTTON_HEIGHT: int = 24
+const BUILD_CATEGORY_BUTTON_HEIGHT: int = 24
+const BUILD_FILTER_BUTTON_GAP: int = 4
+
+const BUILD_AGE_ROW_Y: int = 34
+const BUILD_CATEGORY_ROW_Y: int = 64
+const BUILD_LIST_START_Y: int = 98
 
 const CRAFTING_PANEL_WIDTH: int = 360
 const CRAFTING_PANEL_HEIGHT: int = 260
@@ -52,6 +68,7 @@ const DEBUG_PANEL_WIDTH: int = 260
 const DEBUG_PANEL_HEIGHT: int = 280
 const DEBUG_PANEL_ROW_HEIGHT: int = 28
 const DEBUG_PANEL_GAP: int = 6
+
 
 static func get_top_info_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     return Rect2(
@@ -98,6 +115,18 @@ static func get_research_button_screen_rect(viewport_size: Vector2) -> Rect2:
         Vector2(
             TOP_INFO_RESEARCH_BUTTON_WIDTH,
             TOP_INFO_RESEARCH_BUTTON_HEIGHT
+        )
+    )
+
+
+static func get_build_button_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(112, 82),
+        Vector2(
+            TOP_INFO_BUILD_BUTTON_WIDTH,
+            TOP_INFO_BUILD_BUTTON_HEIGHT
         )
     )
 
@@ -173,6 +202,101 @@ static func get_research_plan_button_screen_rect(
     )
 
 
+static func get_build_panel_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x - BUILD_PANEL_WIDTH + TOP_INFO_PANEL_WIDTH,
+            panel_rect.position.y + panel_rect.size.y + BUILD_PANEL_GAP
+        ),
+        Vector2(
+            BUILD_PANEL_WIDTH,
+            BUILD_PANEL_HEIGHT
+        )
+    )
+
+
+static func get_build_age_button_screen_rect(
+    viewport_size: Vector2,
+    age_index: int,
+    age_count: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_build_panel_screen_rect(viewport_size)
+    var button_width: int = get_build_filter_button_width(
+        BUILD_PANEL_WIDTH - 20,
+        age_count
+    )
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10 + age_index * (button_width + BUILD_FILTER_BUTTON_GAP),
+            BUILD_AGE_ROW_Y
+        ),
+        Vector2(
+            button_width,
+            BUILD_AGE_BUTTON_HEIGHT
+        )
+    )
+
+
+static func get_build_category_button_screen_rect(
+    viewport_size: Vector2,
+    category_index: int,
+    category_count: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_build_panel_screen_rect(viewport_size)
+    var button_width: int = get_build_filter_button_width(
+        BUILD_PANEL_WIDTH - 20,
+        category_count
+    )
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10 + category_index * (button_width + BUILD_FILTER_BUTTON_GAP),
+            BUILD_CATEGORY_ROW_Y
+        ),
+        Vector2(
+            button_width,
+            BUILD_CATEGORY_BUTTON_HEIGHT
+        )
+    )
+
+
+static func get_build_filter_button_width(
+    available_width: int,
+    button_count: int
+) -> int:
+    if button_count <= 0:
+        return available_width
+
+    var total_gap_width: int = max(0, button_count - 1) * BUILD_FILTER_BUTTON_GAP
+
+    return int(floor(float(available_width - total_gap_width) / float(button_count)))
+
+
+static func get_building_button_screen_rect(
+    viewport_size: Vector2,
+    building_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_build_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            BUILD_LIST_START_Y + building_index * BUILD_ROW_HEIGHT
+        ),
+        Vector2(
+            BUILD_PANEL_WIDTH - 20,
+            BUILD_ROW_HEIGHT - 4
+        )
+    )
+
+
+static func get_build_visible_row_count() -> int:
+    return int(floor(float(BUILD_PANEL_HEIGHT - BUILD_LIST_START_Y - 10) / float(BUILD_ROW_HEIGHT)))
+
+
 static func get_crafting_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
 
@@ -217,6 +341,7 @@ static func get_village_log_button_screen_rect(viewport_size: Vector2) -> Rect2:
             VILLAGE_LOG_BUTTON_HEIGHT
         )
     )
+
 
 static func get_debug_button_screen_rect(viewport_size: Vector2) -> Rect2:
     var village_log_button_rect: Rect2 = get_village_log_button_screen_rect(viewport_size)
@@ -264,6 +389,7 @@ static func get_debug_action_button_screen_rect(
             DEBUG_PANEL_ROW_HEIGHT - 4
         )
     )
+
 
 static func get_village_log_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     var button_rect: Rect2 = get_village_log_button_screen_rect(viewport_size)

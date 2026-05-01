@@ -16,11 +16,20 @@ const RESEARCH_WORKED_HAND_AXE_PLAN: String = "worked_hand_axe_plan"
 
 const RESEARCH_DRAG_SLED_PLAN: String = "drag_sled_plan"
 const RESEARCH_TENT_KIT_PLAN: String = "tent_kit_plan"
+const RESEARCH_TENT_PLAN: String = "tent_plan"
+const RESEARCH_CHIEFTAINS_TENT_PLAN: String = "chieftains_tent_plan"
+const RESEARCH_PERSONAL_CARRYING: String = "personal_carrying"
+
 const RESEARCH_ADVANCED_SLING_PLAN: String = "advanced_sling_plan"
 const RESEARCH_FLINT_TIPPED_HUNTING_SPEAR_PLAN: String = "flint_tipped_hunting_spear_plan"
 const RESEARCH_FLINT_EDGED_HAND_AXE_PLAN: String = "flint_edged_hand_axe_plan"
 const RESEARCH_FLINT_EDGED_WOODSMAN_AXE_PLAN: String = "flint_edged_woodsman_axe_plan"
 const RESEARCH_FLINT_TIPPED_MINING_PICK_PLAN: String = "flint_tipped_mining_pick_plan"
+
+const RESEARCH_FEAR_OF_THE_DARK: String = "fear_of_the_dark"
+const RESEARCH_BONFIRE_PLAN: String = "bonfire_plan"
+const RESEARCH_SPIRITUAL_LEADER_TENT_PLAN: String = "spiritual_leader_tent_plan"
+const RESEARCH_RITUAL_SITE_PLAN: String = "ritual_site_plan"
 
 const RESEARCH_STONEWORKING_HUT_PLAN: String = "stoneworking_hut_plan"
 const RESEARCH_WOODWORKING_HUT_PLAN: String = "woodworking_hut_plan"
@@ -78,6 +87,7 @@ const RESOURCE_MUSHROOMS_NAME: String = "Mushrooms"
 const RESOURCE_FLINT_NAME: String = "Flint"
 
 const GLOBAL_BONUS_SMALL_AMOUNT: float = 0.02
+const BELONGING_SLOT_BONUS_AMOUNT: int = 1
 
 
 static func get_all_research_plans() -> Dictionary:
@@ -545,6 +555,78 @@ static func get_all_research_plans() -> Dictionary:
             "global_bonuses": []
         },
 
+        RESEARCH_TENT_PLAN: {
+            "id": RESEARCH_TENT_PLAN,
+            "name": "Tent Plan",
+            "tier": RESEARCH_TIER_STONE_AGE_T3,
+            "cost": 12,
+            "description": "The village learns how to turn Tent Kits into portable shelters.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT,
+                RegionBuildingData.BUILDING_WOODWORKING_BENCH
+            ],
+            "required_research": [
+                RESEARCH_TENT_KIT_PLAN
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [],
+            "unlocks_buildings": [
+                RegionBuildingData.BUILDING_TENT
+            ],
+            "unlocks_recipes": [],
+            "global_bonuses": []
+        },
+
+        RESEARCH_CHIEFTAINS_TENT_PLAN: {
+            "id": RESEARCH_CHIEFTAINS_TENT_PLAN,
+            "name": "Chieftain's Tent Plan",
+            "tier": RESEARCH_TIER_STONE_AGE_T3,
+            "cost": 12,
+            "description": "The village learns how to build a portable leadership tent using multiple Tent Kits.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT,
+                RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER
+            ],
+            "required_research": [
+                RESEARCH_TENT_PLAN
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [],
+            "unlocks_buildings": [
+                RegionBuildingData.BUILDING_CHIEFTAINS_TENT
+            ],
+            "unlocks_recipes": [],
+            "global_bonuses": []
+        },
+
+        RESEARCH_PERSONAL_CARRYING: {
+            "id": RESEARCH_PERSONAL_CARRYING,
+            "name": "Personal Carrying",
+            "tier": RESEARCH_TIER_STONE_AGE_T3,
+            "cost": 14,
+            "description": "The village learns better carrying habits. Villagers gain one additional belonging slot, reaching the Stone Age cap of 2.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT
+            ],
+            "required_research": [
+                RESEARCH_DRAG_SLED_PLAN,
+                RESEARCH_CRUDE_CONTAINER_PLAN
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [
+                RESOURCE_FIBER_NAME
+            ],
+            "unlocks_buildings": [],
+            "unlocks_recipes": [],
+            "global_bonuses": [
+                {
+                    "id": BONUS_BELONGING_SLOTS,
+                    "name": "Belonging Slots",
+                    "amount": BELONGING_SLOT_BONUS_AMOUNT
+                }
+            ]
+        },
+
         RESEARCH_ADVANCED_SLING_PLAN: {
             "id": RESEARCH_ADVANCED_SLING_PLAN,
             "name": "Advanced Sling Plan",
@@ -667,6 +749,94 @@ static func get_all_research_plans() -> Dictionary:
             "unlocks_recipes": [
                 RECIPE_FLINT_TIPPED_MINING_PICK
             ],
+            "global_bonuses": []
+        },
+
+        RESEARCH_FEAR_OF_THE_DARK: {
+            "id": RESEARCH_FEAR_OF_THE_DARK,
+            "name": "Fear of the Dark",
+            "tier": RESEARCH_TIER_STONE_AGE_T3,
+            "cost": 12,
+            "description": "The village begins to explain and organize its fear of the dark, opening the first cultural and spiritual systems.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT,
+                RegionBuildingData.BUILDING_WARLEADER_SHELTER
+            ],
+            "required_research": [
+                RESEARCH_WARLEADER_SHELTER_PLAN
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [],
+            "unlocks_buildings": [],
+            "unlocks_recipes": [],
+            "global_bonuses": []
+        },
+
+        RESEARCH_BONFIRE_PLAN: {
+            "id": RESEARCH_BONFIRE_PLAN,
+            "name": "Bonfire Plan",
+            "tier": RESEARCH_TIER_STONE_AGE_T3,
+            "cost": 14,
+            "description": "The village learns to build a larger communal fire with a wider camp influence.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT
+            ],
+            "required_research": [
+                RESEARCH_FEAR_OF_THE_DARK
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [],
+            "unlocks_buildings": [
+                RegionBuildingData.BUILDING_BONFIRE
+            ],
+            "unlocks_recipes": [],
+            "global_bonuses": []
+        },
+
+        RESEARCH_SPIRITUAL_LEADER_TENT_PLAN: {
+            "id": RESEARCH_SPIRITUAL_LEADER_TENT_PLAN,
+            "name": "Spiritual Leader's Tent Plan",
+            "tier": RESEARCH_TIER_STONE_AGE_T3,
+            "cost": 16,
+            "description": "The village learns to build a special tent for a future Spiritual Leader.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT,
+                RegionBuildingData.BUILDING_CHIEFTAINS_TENT
+            ],
+            "required_research": [
+                RESEARCH_FEAR_OF_THE_DARK,
+                RESEARCH_CHIEFTAINS_TENT_PLAN
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [],
+            "unlocks_buildings": [
+                RegionBuildingData.BUILDING_SPIRITUAL_LEADER_TENT
+            ],
+            "unlocks_recipes": [],
+            "global_bonuses": []
+        },
+
+        RESEARCH_RITUAL_SITE_PLAN: {
+            "id": RESEARCH_RITUAL_SITE_PLAN,
+            "name": "Ritual Site Plan",
+            "tier": RESEARCH_TIER_STONE_AGE_T3,
+            "cost": 18,
+            "description": "The village learns to mark a gathering place for future rituals.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT,
+                RegionBuildingData.BUILDING_BONFIRE,
+                RegionBuildingData.BUILDING_SPIRITUAL_LEADER_TENT
+            ],
+            "required_research": [
+                RESEARCH_BONFIRE_PLAN,
+                RESEARCH_SPIRITUAL_LEADER_TENT_PLAN
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [],
+            "unlocks_buildings": [
+                RegionBuildingData.BUILDING_RITUAL_SITE
+            ],
+            "unlocks_recipes": [],
             "global_bonuses": []
         }
     }

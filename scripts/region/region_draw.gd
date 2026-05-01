@@ -145,11 +145,7 @@ static func draw_resources_button(
     if show_resource_inventory_panel:
         button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
 
-    node.draw_rect(
-        button_world_rect,
-        button_fill_color,
-        true
-    )
+    node.draw_rect(button_world_rect, button_fill_color, true)
 
     node.draw_rect(
         button_world_rect,
@@ -192,11 +188,7 @@ static func draw_inventory_button(
     if show_village_inventory_panel:
         button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
 
-    node.draw_rect(
-        button_world_rect,
-        button_fill_color,
-        true
-    )
+    node.draw_rect(button_world_rect, button_fill_color, true)
 
     node.draw_rect(
         button_world_rect,
@@ -239,11 +231,7 @@ static func draw_research_button(
     if show_research_panel:
         button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
 
-    node.draw_rect(
-        button_world_rect,
-        button_fill_color,
-        true
-    )
+    node.draw_rect(button_world_rect, button_fill_color, true)
 
     node.draw_rect(
         button_world_rect,
@@ -259,6 +247,49 @@ static func draw_research_button(
             button_screen_rect.position + Vector2(8, 16)
         ),
         "Research",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_body_font_size(world_per_screen_y),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+
+static func draw_build_button(
+    node: CanvasItem,
+    show_build_panel: bool
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var button_screen_rect: Rect2 = RegionUI.get_build_button_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var button_fill_color := Color(0.16, 0.13, 0.08, 0.95)
+
+    if show_build_panel:
+        button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
+
+    node.draw_rect(button_world_rect, button_fill_color, true)
+
+    node.draw_rect(
+        button_world_rect,
+        Color(0.95, 0.82, 0.45, 1.0),
+        false,
+        get_button_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(8, 16)
+        ),
+        "Build",
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         get_body_font_size(world_per_screen_y),
@@ -284,11 +315,7 @@ static func draw_resource_inventory_panel(
         panel_screen_rect
     )
 
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.92),
-        true
-    )
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.92), true)
 
     node.draw_rect(
         panel_world_rect,
@@ -364,11 +391,7 @@ static func draw_village_inventory_panel(
         panel_screen_rect
     )
 
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.92),
-        true
-    )
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.92), true)
 
     node.draw_rect(
         panel_world_rect,
@@ -429,6 +452,7 @@ static func draw_village_inventory_panel(
             Color(1.0, 1.0, 1.0, 1.0)
         )
 
+
 static func draw_research_panel(
     node: CanvasItem,
     buyable_plans: Array
@@ -444,11 +468,7 @@ static func draw_research_panel(
         panel_screen_rect
     )
 
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.94),
-        true
-    )
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.94), true)
 
     node.draw_rect(
         panel_world_rect,
@@ -501,11 +521,7 @@ static func draw_research_panel(
             plan_button_screen_rect
         )
 
-        node.draw_rect(
-            plan_button_world_rect,
-            Color(0.12, 0.10, 0.07, 0.95),
-            true
-        )
+        node.draw_rect(plan_button_world_rect, Color(0.12, 0.10, 0.07, 0.95), true)
 
         node.draw_rect(
             plan_button_world_rect,
@@ -532,6 +548,240 @@ static func draw_research_panel(
         )
 
 
+static func draw_build_panel(
+    node: CanvasItem,
+    build_ages: Array,
+    selected_build_age: String,
+    build_categories: Array,
+    selected_build_category: String,
+    unlocked_buildings: Array
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var panel_screen_rect: Rect2 = RegionUI.get_build_panel_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.94), true)
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 20)
+        ),
+        "Build",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_title_font_size(world_per_screen_y),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    draw_build_age_buttons(
+        node,
+        build_ages,
+        selected_build_age
+    )
+
+    draw_build_category_buttons(
+        node,
+        build_categories,
+        selected_build_category
+    )
+
+    if unlocked_buildings.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(10, RegionUI.BUILD_LIST_START_Y + 20)
+            ),
+            "No buildings unlocked in this category.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_body_font_size(world_per_screen_y),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    var visible_count: int = min(
+        unlocked_buildings.size(),
+        RegionUI.get_build_visible_row_count()
+    )
+
+    for building_index in range(visible_count):
+        draw_building_button_row(
+            node,
+            unlocked_buildings[building_index],
+            building_index
+        )
+
+
+static func draw_build_age_buttons(
+    node: CanvasItem,
+    build_ages: Array,
+    selected_build_age: String
+) -> void:
+    for age_index in range(build_ages.size()):
+        var age_data: Dictionary = build_ages[age_index]
+        var age_id: String = str(age_data.get("id", ""))
+        var age_name: String = str(age_data.get("name", age_id))
+
+        var age_button_screen_rect: Rect2 = RegionUI.get_build_age_button_screen_rect(
+            node.get_viewport().get_visible_rect().size,
+            age_index,
+            build_ages.size()
+        )
+
+        draw_build_filter_button(
+            node,
+            age_button_screen_rect,
+            age_name,
+            age_id == selected_build_age
+        )
+
+
+static func draw_build_category_buttons(
+    node: CanvasItem,
+    build_categories: Array,
+    selected_build_category: String
+) -> void:
+    for category_index in range(build_categories.size()):
+        var category_data: Dictionary = build_categories[category_index]
+        var category_id: String = str(category_data.get("id", ""))
+        var category_name: String = str(category_data.get("name", category_id))
+
+        var category_button_screen_rect: Rect2 = RegionUI.get_build_category_button_screen_rect(
+            node.get_viewport().get_visible_rect().size,
+            category_index,
+            build_categories.size()
+        )
+
+        draw_build_filter_button(
+            node,
+            category_button_screen_rect,
+            category_name,
+            category_id == selected_build_category
+        )
+
+
+static func draw_build_filter_button(
+    node: CanvasItem,
+    button_screen_rect: Rect2,
+    label: String,
+    is_selected: bool
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var fill_color := Color(0.12, 0.10, 0.07, 0.95)
+    var border_color := Color(0.65, 0.55, 0.32, 0.95)
+
+    if is_selected:
+        fill_color = Color(0.32, 0.24, 0.10, 0.98)
+        border_color = Color(1.0, 0.86, 0.42, 1.0)
+
+    node.draw_rect(button_world_rect, fill_color, true)
+
+    node.draw_rect(
+        button_world_rect,
+        border_color,
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(8, 17)
+        ),
+        label,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+
+static func draw_building_button_row(
+    node: CanvasItem,
+    building_data: Dictionary,
+    building_index: int
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var building_button_screen_rect: Rect2 = RegionUI.get_building_button_screen_rect(
+        node.get_viewport().get_visible_rect().size,
+        building_index
+    )
+
+    var building_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        building_button_screen_rect
+    )
+
+    node.draw_rect(building_button_world_rect, Color(0.12, 0.10, 0.07, 0.95), true)
+
+    node.draw_rect(
+        building_button_world_rect,
+        Color(0.65, 0.55, 0.32, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    var building_name: String = str(building_data.get("name", "Building"))
+    var resource_cost_text: String = get_resource_cost_text(building_data.get("cost", {}))
+    var item_cost_text: String = get_item_cost_text(building_data.get("item_cost", {}))
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            building_button_screen_rect.position + Vector2(8, 14)
+        ),
+        building_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_small_font_size(world_per_screen_y),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    var cost_line: String = "Cost: " + resource_cost_text
+
+    if item_cost_text != "Free":
+        cost_line += " | Items: " + item_cost_text
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            building_button_screen_rect.position + Vector2(8, 29)
+        ),
+        cost_line,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        Color(0.88, 0.88, 0.88, 1.0)
+    )
+
+
 static func draw_crafting_panel(
     node: CanvasItem,
     selected_crafting_building_name: String,
@@ -550,11 +800,7 @@ static func draw_crafting_panel(
         panel_screen_rect
     )
 
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.94),
-        true
-    )
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.94), true)
 
     node.draw_rect(
         panel_world_rect,
@@ -607,11 +853,7 @@ static func draw_crafting_panel(
             recipe_button_screen_rect
         )
 
-        node.draw_rect(
-            recipe_button_world_rect,
-            Color(0.12, 0.10, 0.07, 0.95),
-            true
-        )
+        node.draw_rect(recipe_button_world_rect, Color(0.12, 0.10, 0.07, 0.95), true)
 
         node.draw_rect(
             recipe_button_world_rect,
@@ -672,11 +914,7 @@ static func draw_village_log_button(
     if show_village_log_panel:
         button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
 
-    node.draw_rect(
-        button_world_rect,
-        button_fill_color,
-        true
-    )
+    node.draw_rect(button_world_rect, button_fill_color, true)
 
     node.draw_rect(
         button_world_rect,
@@ -718,11 +956,7 @@ static func draw_village_log_panel(
         panel_screen_rect
     )
 
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.94),
-        true
-    )
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.94), true)
 
     node.draw_rect(
         panel_world_rect,
@@ -816,11 +1050,7 @@ static func draw_villager_hover_panel(
 
     var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
 
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.04, 0.035, 0.025, 0.94),
-        true
-    )
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.94), true)
 
     node.draw_rect(
         panel_world_rect,
@@ -1021,11 +1251,7 @@ static func draw_storage_selector(
             )
         )
 
-        node.draw_rect(
-            option_rect,
-            Color(0.08, 0.07, 0.05, 0.92),
-            true
-        )
+        node.draw_rect(option_rect, Color(0.08, 0.07, 0.05, 0.92), true)
 
         node.draw_rect(
             option_rect,
@@ -1043,6 +1269,8 @@ static func draw_storage_selector(
             14,
             Color(1.0, 1.0, 1.0, 1.0)
         )
+
+
 static func draw_debug_button(
     node: CanvasItem,
     show_debug_panel: bool
@@ -1063,11 +1291,7 @@ static func draw_debug_button(
     if show_debug_panel:
         button_fill_color = Color(0.35, 0.12, 0.10, 0.98)
 
-    node.draw_rect(
-        button_world_rect,
-        button_fill_color,
-        true
-    )
+    node.draw_rect(button_world_rect, button_fill_color, true)
 
     node.draw_rect(
         button_world_rect,
@@ -1108,11 +1332,7 @@ static func draw_debug_panel(
         panel_screen_rect
     )
 
-    node.draw_rect(
-        panel_world_rect,
-        Color(0.045, 0.025, 0.025, 0.96),
-        true
-    )
+    node.draw_rect(panel_world_rect, Color(0.045, 0.025, 0.025, 0.96), true)
 
     node.draw_rect(
         panel_world_rect,
@@ -1150,11 +1370,7 @@ static func draw_debug_panel(
             button_screen_rect
         )
 
-        node.draw_rect(
-            button_world_rect,
-            Color(0.14, 0.08, 0.07, 0.98),
-            true
-        )
+        node.draw_rect(button_world_rect, Color(0.14, 0.08, 0.07, 0.98), true)
 
         node.draw_rect(
             button_world_rect,
@@ -1175,3 +1391,117 @@ static func draw_debug_panel(
             get_small_font_size(world_per_screen_y),
             Color(1.0, 1.0, 1.0, 1.0)
         )
+
+
+static func get_resource_cost_text(cost_variant: Variant) -> String:
+    if typeof(cost_variant) != TYPE_DICTIONARY:
+        return "Free"
+
+    var cost: Dictionary = cost_variant
+
+    if cost.is_empty():
+        return "Free"
+
+    var parts: Array = []
+    var resource_names: Array = cost.keys()
+    resource_names.sort()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name: String = str(resource_names[resource_index])
+        var amount: int = int(cost.get(resource_name, 0))
+
+        if amount <= 0:
+            continue
+
+        parts.append(resource_name + " " + str(amount))
+
+    if parts.is_empty():
+        return "Free"
+
+    return ", ".join(parts)
+
+
+static func get_item_cost_text(item_cost_variant: Variant) -> String:
+    if typeof(item_cost_variant) != TYPE_DICTIONARY:
+        return "Free"
+
+    var item_cost: Dictionary = item_cost_variant
+
+    if item_cost.is_empty():
+        return "Free"
+
+    var parts: Array = []
+    var item_ids: Array = item_cost.keys()
+    item_ids.sort()
+
+    for item_index in range(item_ids.size()):
+        var item_id: String = str(item_ids[item_index])
+        var amount: int = int(item_cost.get(item_id, 0))
+
+        if amount <= 0:
+            continue
+
+        parts.append(get_item_display_name(item_id) + " " + str(amount))
+
+    if parts.is_empty():
+        return "Free"
+
+    return ", ".join(parts)
+
+
+static func get_item_display_name(item_id: String) -> String:
+    if item_id == RegionRecipeData.ITEM_POINTED_STICK:
+        return "Pointed Stick"
+
+    if item_id == RegionRecipeData.ITEM_SIMPLE_HAND_AXE:
+        return "Simple Hand Axe"
+
+    if item_id == RegionRecipeData.ITEM_SHARP_STONE_KNIFE:
+        return "Sharp Stone Knife"
+
+    if item_id == RegionRecipeData.ITEM_CRUDE_CONTAINER:
+        return "Crude Container"
+
+    if item_id == RegionRecipeData.ITEM_SLING:
+        return "Sling"
+
+    if item_id == RegionRecipeData.ITEM_HERBAL_POULTICE:
+        return "Herbal Poultice"
+
+    if item_id == RegionRecipeData.ITEM_THROWING_SPEAR:
+        return "Throwing Spear"
+
+    if item_id == RegionRecipeData.ITEM_STONE_TIPPED_SPEAR:
+        return "Stone-Tipped Spear"
+
+    if item_id == RegionRecipeData.ITEM_STONE_CLUB:
+        return "Stone Club"
+
+    if item_id == RegionRecipeData.ITEM_STONE_SCRAPER:
+        return "Stone Scraper"
+
+    if item_id == RegionRecipeData.ITEM_WORKED_HAND_AXE:
+        return "Worked Hand Axe"
+
+    if item_id == RegionRecipeData.ITEM_DRAG_SLED:
+        return "Drag Sled"
+
+    if item_id == RegionRecipeData.ITEM_TENT_KIT:
+        return "Tent Kit"
+
+    if item_id == RegionRecipeData.ITEM_ADVANCED_SLING:
+        return "Advanced Sling"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_TIPPED_HUNTING_SPEAR:
+        return "Flint-Tipped Hunting Spear"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_EDGED_HAND_AXE:
+        return "Flint-Edged Hand Axe"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_EDGED_WOODSMAN_AXE:
+        return "Flint-Edged Woodsman Axe"
+
+    if item_id == RegionRecipeData.ITEM_FLINT_TIPPED_MINING_PICK:
+        return "Flint-Tipped Mining Pick"
+
+    return item_id.capitalize()

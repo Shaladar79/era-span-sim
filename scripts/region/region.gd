@@ -59,6 +59,10 @@ var storage_selector_options: Array = []
 var show_resource_inventory_panel: bool = false
 var show_village_inventory_panel: bool = false
 var show_research_panel: bool = false
+var show_build_panel: bool = false
+var selected_build_age: String = RegionBuildingData.get_default_build_age()
+var selected_build_category: String = RegionBuildingData.get_default_build_category_for_age(selected_build_age)
+
 var show_crafting_panel: bool = false
 var selected_crafting_building_id: String = ""
 var selected_crafting_building_name: String = ""
@@ -121,6 +125,7 @@ func generate_region() -> void:
     )
 
     RegionBuildingData.reset_runtime_unlocks()
+    reset_build_panel_filters()
     setup_building_manager()
     clear_buildings()
     reset_test_inventory()
@@ -132,6 +137,7 @@ func generate_region() -> void:
     show_resource_inventory_panel = false
     show_village_inventory_panel = false
     show_research_panel = false
+    show_build_panel = false
     close_crafting_panel()
     show_village_log_panel = false
     show_debug_panel = false
@@ -164,6 +170,7 @@ func generate_from_world_selection(
     )
 
     RegionBuildingData.reset_runtime_unlocks()
+    reset_build_panel_filters()
     setup_building_manager()
     clear_buildings()
 
@@ -176,6 +183,7 @@ func generate_from_world_selection(
     show_resource_inventory_panel = false
     show_village_inventory_panel = false
     show_research_panel = false
+    show_build_panel = false
     close_crafting_panel()
     show_village_log_panel = false
     show_debug_panel = false
@@ -225,6 +233,7 @@ func regenerate_region() -> void:
         )
 
     RegionBuildingData.reset_runtime_unlocks()
+    reset_build_panel_filters()
     setup_building_manager()
     clear_buildings()
 
@@ -238,6 +247,7 @@ func regenerate_region() -> void:
     show_resource_inventory_panel = false
     show_village_inventory_panel = false
     show_research_panel = false
+    show_build_panel = false
     close_crafting_panel()
     show_village_log_panel = false
     show_debug_panel = false
@@ -254,6 +264,11 @@ func regenerate_region() -> void:
     queue_redraw()
 
     print("Regenerated region.")
+
+
+func reset_build_panel_filters() -> void:
+    selected_build_age = RegionBuildingData.get_default_build_age()
+    selected_build_category = RegionBuildingData.get_default_build_category_for_age(selected_build_age)
 
 
 func reset_test_inventory() -> void:
@@ -357,6 +372,12 @@ func start_campfire_placement() -> void:
 
 func start_building_placement(building_id: String) -> void:
     close_storage_selector()
+    show_build_panel = false
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    close_crafting_panel()
+
     building_manager.start_building_placement(building_id)
     queue_redraw()
 
@@ -376,11 +397,13 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
     )
 
     if did_place_building:
-      apply_stone_age_building_progression_unlocks()
-      print_settlement_inventory()
-      print_research_status()
+        apply_stone_age_building_progression_unlocks()
+        print_settlement_inventory()
+        print_research_status()
 
     queue_redraw()
+
+
 func apply_stone_age_building_progression_unlocks() -> void:
     var unlock_messages: Array = RegionStoneAgeProgression.update_building_trigger_unlocks(
         building_manager
@@ -393,6 +416,7 @@ func apply_stone_age_building_progression_unlocks() -> void:
 
     for message_index in range(unlock_messages.size()):
         print(str(unlock_messages[message_index]))
+
 
 func add_village_log_message(message: String) -> void:
     if message == "":
@@ -453,6 +477,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         if show_resource_inventory_panel:
             show_village_inventory_panel = false
             show_research_panel = false
+            show_build_panel = false
             close_crafting_panel()
 
         queue_redraw()
@@ -467,6 +492,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         if show_village_inventory_panel:
             show_resource_inventory_panel = false
             show_research_panel = false
+            show_build_panel = false
             close_crafting_panel()
 
         queue_redraw()
@@ -481,6 +507,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         if show_research_panel:
             show_resource_inventory_panel = false
             show_village_inventory_panel = false
+            show_build_panel = false
             close_crafting_panel()
 
         queue_redraw()
@@ -489,11 +516,39 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         print("Show Research Panel: ", show_research_panel)
         return true
 
+    if get_build_button_screen_rect().has_point(mouse_screen_position):
+        show_build_panel = not show_build_panel
+
+        if show_build_panel:
+            show_resource_inventory_panel = false
+            show_village_inventory_panel = false
+            show_research_panel = false
+            close_crafting_panel()
+
+        queue_redraw()
+
+        print("Build button clicked.")
+        print("Show Build Panel: ", show_build_panel)
+        return true
+
     if show_research_panel:
         if try_buy_research_from_mouse(mouse_screen_position):
             return true
 
         if get_research_panel_screen_rect().has_point(mouse_screen_position):
+            return true
+
+    if show_build_panel:
+        if try_select_build_age_from_mouse(mouse_screen_position):
+            return true
+
+        if try_select_build_category_from_mouse(mouse_screen_position):
+            return true
+
+        if try_start_building_from_mouse(mouse_screen_position):
+            return true
+
+        if get_build_panel_screen_rect().has_point(mouse_screen_position):
             return true
 
     if show_resource_inventory_panel:
@@ -510,6 +565,108 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
 
         if get_crafting_panel_screen_rect().has_point(mouse_screen_position):
             return true
+
+    return false
+
+
+func try_select_build_age_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_build_panel:
+        return false
+
+    var build_ages: Array = RegionBuildingData.get_available_build_ages()
+
+    for age_index in range(build_ages.size()):
+        var age_button_rect: Rect2 = get_build_age_button_screen_rect(
+            age_index,
+            build_ages.size()
+        )
+
+        if not age_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var age_data: Dictionary = build_ages[age_index]
+        var age_id: String = str(age_data.get("id", ""))
+
+        if age_id == "":
+            return true
+
+        selected_build_age = age_id
+        selected_build_category = RegionBuildingData.get_default_build_category_for_age(
+            selected_build_age
+        )
+
+        queue_redraw()
+
+        print("Selected build age: ", RegionBuildingData.get_build_age_name(selected_build_age))
+        print("Selected build category: ", RegionBuildingData.get_build_category_name(selected_build_category))
+
+        return true
+
+    return false
+
+
+func try_select_build_category_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_build_panel:
+        return false
+
+    var build_categories: Array = RegionBuildingData.get_build_categories_for_age(
+        selected_build_age
+    )
+
+    for category_index in range(build_categories.size()):
+        var category_button_rect: Rect2 = get_build_category_button_screen_rect(
+            category_index,
+            build_categories.size()
+        )
+
+        if not category_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var category_data: Dictionary = build_categories[category_index]
+        var category_id: String = str(category_data.get("id", ""))
+
+        if category_id == "":
+            return true
+
+        selected_build_category = category_id
+
+        queue_redraw()
+
+        print("Selected build category: ", RegionBuildingData.get_build_category_name(selected_build_category))
+
+        return true
+
+    return false
+
+
+func try_start_building_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_build_panel:
+        return false
+
+    var unlocked_buildings: Array = RegionBuildingData.get_unlocked_buildings_for_age_and_category(
+        selected_build_age,
+        selected_build_category
+    )
+
+    var visible_count: int = min(
+        unlocked_buildings.size(),
+        RegionUI.get_build_visible_row_count()
+    )
+
+    for building_index in range(visible_count):
+        var building_button_rect: Rect2 = get_building_button_screen_rect(building_index)
+
+        if not building_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var building_data: Dictionary = unlocked_buildings[building_index]
+        var building_id: String = str(building_data.get("id", ""))
+
+        if building_id == "":
+            return true
+
+        start_building_placement(building_id)
+        return true
 
     return false
 
@@ -891,6 +1048,7 @@ func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
     show_resource_inventory_panel = false
     show_village_inventory_panel = false
     show_research_panel = false
+    show_build_panel = false
 
     selected_crafting_building_id = building_id
     selected_crafting_building_name = str(building_data.get("name", building_id))
@@ -1065,9 +1223,11 @@ func _draw() -> void:
 
     draw_storage_selector()
     draw_top_info_panel()
+    draw_build_button()
     draw_resource_inventory_panel()
     draw_village_inventory_panel()
     draw_research_panel()
+    draw_build_panel()
     draw_crafting_panel()
     draw_village_log_button()
     draw_debug_button()
@@ -1127,6 +1287,13 @@ func draw_research_button() -> void:
     )
 
 
+func draw_build_button() -> void:
+    RegionDraw.draw_build_button(
+        self,
+        show_build_panel
+    )
+
+
 func draw_resource_inventory_panel() -> void:
     if not show_resource_inventory_panel:
         return
@@ -1171,6 +1338,29 @@ func draw_research_panel() -> void:
     RegionDraw.draw_research_panel(
         self,
         buyable_plans
+    )
+
+
+func draw_build_panel() -> void:
+    if not show_build_panel:
+        return
+
+    var build_ages: Array = RegionBuildingData.get_available_build_ages()
+    var build_categories: Array = RegionBuildingData.get_build_categories_for_age(
+        selected_build_age
+    )
+    var filtered_buildings: Array = RegionBuildingData.get_unlocked_buildings_for_age_and_category(
+        selected_build_age,
+        selected_build_category
+    )
+
+    RegionDraw.draw_build_panel(
+        self,
+        build_ages,
+        selected_build_age,
+        build_categories,
+        selected_build_category,
+        filtered_buildings
     )
 
 
@@ -1300,6 +1490,12 @@ func get_research_button_screen_rect() -> Rect2:
     )
 
 
+func get_build_button_screen_rect() -> Rect2:
+    return RegionUI.get_build_button_screen_rect(
+        get_viewport().get_visible_rect().size
+    )
+
+
 func get_resource_list_panel_screen_rect() -> Rect2:
     var visible_resources: Array = get_visible_inventory_resource_names()
 
@@ -1326,6 +1522,41 @@ func get_research_plan_button_screen_rect(plan_index: int) -> Rect2:
     return RegionUI.get_research_plan_button_screen_rect(
         get_viewport().get_visible_rect().size,
         plan_index
+    )
+
+
+func get_build_panel_screen_rect() -> Rect2:
+    return RegionUI.get_build_panel_screen_rect(
+        get_viewport().get_visible_rect().size
+    )
+
+
+func get_build_age_button_screen_rect(
+    age_index: int,
+    age_count: int
+) -> Rect2:
+    return RegionUI.get_build_age_button_screen_rect(
+        get_viewport().get_visible_rect().size,
+        age_index,
+        age_count
+    )
+
+
+func get_build_category_button_screen_rect(
+    category_index: int,
+    category_count: int
+) -> Rect2:
+    return RegionUI.get_build_category_button_screen_rect(
+        get_viewport().get_visible_rect().size,
+        category_index,
+        category_count
+    )
+
+
+func get_building_button_screen_rect(building_index: int) -> Rect2:
+    return RegionUI.get_building_button_screen_rect(
+        get_viewport().get_visible_rect().size,
+        building_index
     )
 
 

@@ -97,7 +97,7 @@ func start_building_placement(building_id: String) -> void:
         print("Storage Area starts unassigned. Click it after building to choose what resource it stores.")
 
     if bool(building_data.get("requires_campfire_range", false)):
-        print("Placement Requirement: Must be within Campfire range.")
+        print("Placement Requirement: Must be within active fire range.")
 
 
 func cancel_build_mode() -> void:
@@ -150,7 +150,7 @@ func try_place_current_building(
         footprint_height
     ):
         print("Cannot place " + building_name + " here.")
-        print("- Building must be within range " + str(RegionBuildingData.CAMPFIRE_BUILD_RADIUS) + " of a Campfire.")
+        print("- Building must be within active fire range.")
         return false
 
     if not inventory.has_cost(cost):
@@ -197,11 +197,29 @@ func apply_building_unlock_side_effects(
         print("Shelters built: ", shelter_count)
         print("Normal housing capacity: ", get_normal_housing_capacity())
 
+    if building_id == RegionBuildingData.BUILDING_TENT:
+        print("Normal housing capacity: ", get_normal_housing_capacity())
+
     if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
-        grant_generic_chieftain(building_instance_id)
+        grant_generic_chieftain(
+            building_instance_id,
+            RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER
+        )
+
+    if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_TENT:
+        grant_generic_chieftain(
+            building_instance_id,
+            RegionBuildingData.BUILDING_CHIEFTAINS_TENT
+        )
+
+    if building_id == RegionBuildingData.BUILDING_BONFIRE:
+        print("Bonfire built. Active fire range expanded from this building.")
 
 
-func grant_generic_chieftain(source_building_instance_id: int) -> void:
+func grant_generic_chieftain(
+    source_building_instance_id: int,
+    source_building_id: String = RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER
+) -> void:
     if has_chieftain:
         print("The village already has a Chieftain.")
         return
@@ -217,7 +235,7 @@ func grant_generic_chieftain(source_building_instance_id: int) -> void:
         "name": "Generic Chieftain",
         "skills": {},
         "traits": {},
-        "source": RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER,
+        "source": source_building_id,
         "shelter_instance_id": source_building_instance_id,
         "tile": chieftain_tile
     }
@@ -307,20 +325,18 @@ func meets_campfire_range_requirement(
     if not bool(building_data.get("requires_campfire_range", false)):
         return true
 
-    return is_footprint_in_campfire_range(
+    return is_footprint_in_active_fire_range(
         origin_tile,
         footprint_width,
         footprint_height
     )
 
 
-func is_footprint_in_campfire_range(
+func is_footprint_in_active_fire_range(
     origin_tile: Vector2i,
     footprint_width: int,
     footprint_height: int
 ) -> bool:
-    var campfire_radius: int = RegionBuildingData.CAMPFIRE_BUILD_RADIUS
-
     for building_index in range(region_buildings.size()):
         var building_variant: Variant = region_buildings[building_index]
 
@@ -330,29 +346,40 @@ func is_footprint_in_campfire_range(
         var building_data: Dictionary = building_variant
         var building_id: String = str(building_data.get("id", ""))
 
-        if building_id != RegionBuildingData.BUILDING_CAMPFIRE:
+        if not is_fire_source_building(building_id):
             continue
 
-        var campfire_origin := Vector2i(
+        if not bool(building_data.get("active", true)):
+            continue
+
+        var fire_origin := Vector2i(
             int(building_data.get("x", 0)),
             int(building_data.get("y", 0))
         )
 
-        var campfire_width: int = int(building_data.get("width", 1))
-        var campfire_height: int = int(building_data.get("height", 1))
+        var fire_width: int = int(building_data.get("width", 1))
+        var fire_height: int = int(building_data.get("height", 1))
+        var fire_radius: int = int(building_data.get("campfire_radius", RegionBuildingData.CAMPFIRE_BUILD_RADIUS))
 
         if footprints_are_within_range(
             origin_tile,
             footprint_width,
             footprint_height,
-            campfire_origin,
-            campfire_width,
-            campfire_height,
-            campfire_radius
+            fire_origin,
+            fire_width,
+            fire_height,
+            fire_radius
         ):
             return true
 
     return false
+
+
+func is_fire_source_building(building_id: String) -> bool:
+    return (
+        building_id == RegionBuildingData.BUILDING_CAMPFIRE
+        or building_id == RegionBuildingData.BUILDING_BONFIRE
+    )
 
 
 func footprints_are_within_range(
@@ -415,13 +442,27 @@ func place_building(
         building_data["housing_capacity"] = RegionBuildingData.SHELTER_CAPACITY
         building_data["assigned_villagers"] = []
 
+    if building_id == RegionBuildingData.BUILDING_TENT:
+        building_data["housing_capacity"] = RegionBuildingData.TENT_CAPACITY
+        building_data["assigned_villagers"] = []
+        building_data["portable_shelter"] = true
+
     if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_SHELTER:
         building_data["housing_capacity"] = RegionBuildingData.CHIEFTAINS_SHELTER_CAPACITY
         building_data["houses_chieftain"] = true
         building_data["grants_generic_chieftain"] = true
 
+    if building_id == RegionBuildingData.BUILDING_CHIEFTAINS_TENT:
+        building_data["housing_capacity"] = RegionBuildingData.CHIEFTAINS_TENT_CAPACITY
+        building_data["houses_chieftain"] = true
+        building_data["portable_shelter"] = true
+
     if building_id == RegionBuildingData.BUILDING_CAMPFIRE:
         building_data["campfire_radius"] = RegionBuildingData.CAMPFIRE_BUILD_RADIUS
+
+    if building_id == RegionBuildingData.BUILDING_BONFIRE:
+        building_data["campfire_radius"] = RegionBuildingData.BONFIRE_BUILD_RADIUS
+        building_data["provides_bonfire_radius"] = true
 
     if building_id == RegionBuildingData.BUILDING_THINKERS_SPOT:
         building_data["research_per_minute"] = RegionBuildingData.THINKERS_SPOT_RESEARCH_PER_MINUTE
@@ -429,13 +470,13 @@ func place_building(
     if building_id == RegionBuildingData.BUILDING_STONEWORKING_BENCH:
         building_data["crafting_skill"] = "stoneworking"
         building_data["specialist_role"] = "stoneworker"
-        building_data["specialist_housing_capacity"] = 1
+        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
         building_data["assigned_villagers"] = []
 
     if building_id == RegionBuildingData.BUILDING_WOODWORKING_BENCH:
         building_data["crafting_skill"] = "woodworking"
         building_data["specialist_role"] = "woodworker"
-        building_data["specialist_housing_capacity"] = 1
+        building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
         building_data["assigned_villagers"] = []
 
     if building_id == RegionBuildingData.BUILDING_HUNTERS_HUT:
@@ -452,6 +493,14 @@ func place_building(
         building_data["specialist_role"] = "warrior"
         building_data["specialist_housing_capacity"] = RegionBuildingData.SPECIALIST_HUT_CAPACITY
         building_data["assigned_villagers"] = []
+
+    if building_id == RegionBuildingData.BUILDING_SPIRITUAL_LEADER_TENT:
+        building_data["housing_capacity"] = RegionBuildingData.SPIRITUAL_LEADER_TENT_CAPACITY
+        building_data["houses_spiritual_leader"] = true
+        building_data["portable_shelter"] = true
+
+    if building_id == RegionBuildingData.BUILDING_RITUAL_SITE:
+        building_data["ritual_site"] = true
 
     region_buildings.append(building_data)
 
@@ -482,7 +531,7 @@ func get_normal_housing_capacity() -> int:
         var building_data: Dictionary = building_variant
         var building_id: String = str(building_data.get("id", ""))
 
-        if building_id != RegionBuildingData.BUILDING_SHELTER:
+        if not is_normal_housing_building(building_id):
             continue
 
         if not bool(building_data.get("active", true)):
@@ -491,6 +540,13 @@ func get_normal_housing_capacity() -> int:
         housing_capacity += int(building_data.get("housing_capacity", 0))
 
     return housing_capacity
+
+
+func is_normal_housing_building(building_id: String) -> bool:
+    return (
+        building_id == RegionBuildingData.BUILDING_SHELTER
+        or building_id == RegionBuildingData.BUILDING_TENT
+    )
 
 
 func has_available_normal_housing(current_villager_count: int) -> bool:
