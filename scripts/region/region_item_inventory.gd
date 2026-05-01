@@ -7,6 +7,7 @@ const CATEGORY_MEDICINE: String = "Medicine"
 const CATEGORY_KIT: String = "Kit"
 const CATEGORY_MATERIAL: String = "Material"
 const CATEGORY_MISC: String = "Misc"
+const CATEGORY_ARMOR: String = "Armor"
 
 var items: Dictionary = {}
 
@@ -20,7 +21,8 @@ func add_item(
     item_name: String,
     amount: int = 1,
     category: String = CATEGORY_MISC,
-    description: String = ""
+    description: String = "",
+    metadata: Dictionary = {}
 ) -> void:
     if item_id == "":
         return
@@ -43,7 +45,54 @@ func add_item(
     item_data["category"] = category
     item_data["description"] = description
 
+    for metadata_key in metadata.keys():
+        var key_string: String = str(metadata_key)
+
+        if key_string == "":
+            continue
+
+        if key_string == "id":
+            continue
+
+        if key_string == "name":
+            continue
+
+        if key_string == "amount":
+            continue
+
+        if key_string == "category":
+            continue
+
+        if key_string == "description":
+            continue
+
+        item_data[key_string] = metadata.get(metadata_key)
+
     items[item_id] = item_data
+
+
+func add_item_from_output(output_data: Dictionary) -> void:
+    var output_type: String = str(output_data.get("type", ""))
+
+    if output_type != RegionRecipeData.OUTPUT_TYPE_ITEM:
+        return
+
+    var item_id: String = str(output_data.get("id", ""))
+    var item_name: String = str(output_data.get("name", item_id))
+    var amount: int = int(output_data.get("amount", 1))
+    var category: String = str(output_data.get("category", CATEGORY_MISC))
+    var description: String = str(output_data.get("description", ""))
+
+    var metadata: Dictionary = output_data.duplicate(true)
+
+    add_item(
+        item_id,
+        item_name,
+        amount,
+        category,
+        description,
+        metadata
+    )
 
 
 func add_items_from_outputs(outputs: Array) -> void:
@@ -54,24 +103,8 @@ func add_items_from_outputs(outputs: Array) -> void:
             continue
 
         var output_data: Dictionary = output_variant
-        var output_type: String = str(output_data.get("type", ""))
 
-        if output_type != RegionRecipeData.OUTPUT_TYPE_ITEM:
-            continue
-
-        var item_id: String = str(output_data.get("id", ""))
-        var item_name: String = str(output_data.get("name", item_id))
-        var amount: int = int(output_data.get("amount", 1))
-        var category: String = str(output_data.get("category", CATEGORY_MISC))
-        var description: String = str(output_data.get("description", ""))
-
-        add_item(
-            item_id,
-            item_name,
-            amount,
-            category,
-            description
-        )
+        add_item_from_output(output_data)
 
 
 func remove_item(
@@ -174,6 +207,52 @@ func get_visible_items_by_category(category: String) -> Array:
     return matching_items
 
 
+func get_item_function(item_id: String) -> String:
+    var item_data: Dictionary = get_item(item_id)
+
+    if item_data.is_empty():
+        return ""
+
+    return str(item_data.get("item_function", ""))
+
+
+func get_item_role_tags(item_id: String) -> Array:
+    var item_data: Dictionary = get_item(item_id)
+
+    if item_data.is_empty():
+        return []
+
+    var role_tags: Variant = item_data.get("role_tags", [])
+
+    if typeof(role_tags) != TYPE_ARRAY:
+        return []
+
+    return role_tags.duplicate(true)
+
+
+func get_item_skill_tags(item_id: String) -> Array:
+    var item_data: Dictionary = get_item(item_id)
+
+    if item_data.is_empty():
+        return []
+
+    var skill_tags: Variant = item_data.get("skill_tags", [])
+
+    if typeof(skill_tags) != TYPE_ARRAY:
+        return []
+
+    return skill_tags.duplicate(true)
+
+
+func get_item_effect_notes(item_id: String) -> String:
+    var item_data: Dictionary = get_item(item_id)
+
+    if item_data.is_empty():
+        return ""
+
+    return str(item_data.get("effect_notes", ""))
+
+
 func print_inventory() -> void:
     print("")
     print("Village Item Inventory:")
@@ -190,8 +269,14 @@ func print_inventory() -> void:
         var item_name: String = str(item_data.get("name", "Unknown Item"))
         var category: String = str(item_data.get("category", CATEGORY_MISC))
         var amount: int = int(item_data.get("amount", 0))
+        var item_function: String = str(item_data.get("item_function", ""))
 
-        print("- [" + category + "] " + item_name + ": " + str(amount))
+        var print_text: String = "- [" + category + "] " + item_name + ": " + str(amount)
+
+        if item_function != "":
+            print_text += " (" + item_function + ")"
+
+        print(print_text)
 
     print("")
 
