@@ -894,6 +894,234 @@ static func draw_crafting_panel(
         )
 
 
+static func draw_assignment_panel(
+    node: CanvasItem,
+    selected_assignment_building: Dictionary,
+    unassigned_villagers: Array
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var panel_screen_rect: Rect2 = RegionUI.get_assignment_panel_screen_rect(
+        node.get_viewport().get_visible_rect().size
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.94), true)
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.95),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    if selected_assignment_building.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(10, 22)
+            ),
+            "Assignment",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_title_font_size(world_per_screen_y),
+            Color(1.0, 0.95, 0.75, 1.0)
+        )
+        return
+
+    var building_name: String = str(selected_assignment_building.get("name", "Building"))
+    var assignment_role: String = str(selected_assignment_building.get("assignment_role", ""))
+    var assignment_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assignment_role)
+    var assignment_slots: int = int(selected_assignment_building.get("assignment_slots", 0))
+    var assigned_villagers: Array = selected_assignment_building.get("assigned_villagers", [])
+    var assignment_count: int = assigned_villagers.size()
+    var replaces_shelter: bool = bool(selected_assignment_building.get("assignment_replaces_shelter", false))
+
+    var shelter_text: String = "Shelter: Does not replace normal shelter"
+
+    if replaces_shelter:
+        shelter_text = "Shelter: Replaces normal shelter"
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 20)
+        ),
+        building_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_title_font_size(world_per_screen_y),
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 42)
+        ),
+        "Role: " + assignment_role_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_body_font_size(world_per_screen_y),
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 60)
+        ),
+        "Slots: " + str(assignment_count) + " / " + str(assignment_slots),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_body_font_size(world_per_screen_y),
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 78)
+        ),
+        shelter_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_small_font_size(world_per_screen_y),
+        Color(0.88, 0.88, 0.88, 1.0)
+    )
+
+    if assignment_count >= assignment_slots:
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(10, RegionUI.ASSIGNMENT_LIST_START_Y + 20)
+            ),
+            "No open assignment slots.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_body_font_size(world_per_screen_y),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    if unassigned_villagers.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_screen_rect.position + Vector2(10, RegionUI.ASSIGNMENT_LIST_START_Y + 20)
+            ),
+            "No unassigned villagers available.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            get_body_font_size(world_per_screen_y),
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
+        return
+
+    var visible_count: int = min(
+        unassigned_villagers.size(),
+        RegionUI.get_assignment_visible_row_count()
+    )
+
+    for villager_index in range(visible_count):
+        draw_assignment_villager_row(
+            node,
+            unassigned_villagers[villager_index],
+            villager_index
+        )
+
+
+static func draw_assignment_villager_row(
+    node: CanvasItem,
+    villager_data: Dictionary,
+    villager_index: int
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var villager_button_screen_rect: Rect2 = RegionUI.get_assignment_villager_button_screen_rect(
+        node.get_viewport().get_visible_rect().size,
+        villager_index
+    )
+
+    var villager_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        villager_button_screen_rect
+    )
+
+    node.draw_rect(villager_button_world_rect, Color(0.12, 0.10, 0.07, 0.95), true)
+
+    node.draw_rect(
+        villager_button_world_rect,
+        Color(0.65, 0.55, 0.32, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var level: float = float(villager_data.get("level", 0.0))
+    var speed: int = int(villager_data.get("speed", 100))
+    var health_state: String = str(villager_data.get("health_state", "healthy"))
+    var skills: Dictionary = villager_data.get("skills", {})
+
+    var top_line: String = (
+        villager_name
+        + " — Lv "
+        + str(snappedf(level, 0.1))
+        + " — "
+        + health_state
+    )
+
+    var skill_line: String = (
+        "Gather "
+        + str(int(skills.get(VillagerManager.SKILL_GATHERING, 0)))
+        + " | Wood "
+        + str(int(skills.get(VillagerManager.SKILL_WOOD_WORKING, 0)))
+        + " | Stone "
+        + str(int(skills.get(VillagerManager.SKILL_STONE_WORKING, 0)))
+        + " | Think "
+        + str(int(skills.get(VillagerManager.SKILL_THINKING, 0)))
+        + " | Speed "
+        + str(speed)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            villager_button_screen_rect.position + Vector2(8, 14)
+        ),
+        top_line,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_small_font_size(world_per_screen_y),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            villager_button_screen_rect.position + Vector2(8, 29)
+        ),
+        skill_line,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        Color(0.88, 0.88, 0.88, 1.0)
+    )
+
+
 static func draw_village_log_button(
     node: CanvasItem,
     show_village_log_panel: bool
@@ -1081,6 +1309,10 @@ static func draw_villager_hover_panel_text(
     var speed: int = int(villager_data.get("speed", 100))
     var health_state: String = str(villager_data.get("health_state", "healthy"))
     var current_state: String = str(villager_data.get("state", "idle"))
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(role)
+    var assigned_role: String = str(villager_data.get("assigned_building_role", ""))
+    var assigned_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assigned_role)
     var is_housed: bool = bool(villager_data.get("is_housed", false))
     var housed_text: String = "Housed"
 
@@ -1149,6 +1381,23 @@ static func draw_villager_hover_panel_text(
         -1,
         body_font_size,
         Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 16.0
+
+    var role_line: String = "Role: " + role_name
+
+    if assigned_role != "":
+        role_line += " / Assigned: " + assigned_role_name
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        role_line,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
     )
 
     text_y += 16.0

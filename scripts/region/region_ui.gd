@@ -48,6 +48,14 @@ const CRAFTING_PANEL_HEIGHT: int = 260
 const CRAFTING_PANEL_GAP: int = 4
 const CRAFTING_ROW_HEIGHT: int = 42
 
+const ASSIGNMENT_PANEL_WIDTH: int = 380
+const ASSIGNMENT_PANEL_HEIGHT: int = 320
+const ASSIGNMENT_PANEL_GAP: int = 4
+const ASSIGNMENT_ROW_HEIGHT: int = 34
+
+const ASSIGNMENT_LIST_START_Y: int = 94
+const ASSIGNMENT_HEADER_HEIGHT: int = 84
+
 const VILLAGER_HOVER_PANEL_WIDTH: int = 250
 const VILLAGER_HOVER_PANEL_HEIGHT: int = 225
 const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
@@ -329,6 +337,46 @@ static func get_crafting_recipe_button_screen_rect(
         )
     )
 
+static func get_assignment_panel_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x - ASSIGNMENT_PANEL_WIDTH + TOP_INFO_PANEL_WIDTH,
+            panel_rect.position.y + panel_rect.size.y + ASSIGNMENT_PANEL_GAP
+        ),
+        Vector2(
+            ASSIGNMENT_PANEL_WIDTH,
+            ASSIGNMENT_PANEL_HEIGHT
+        )
+    )
+
+
+static func get_assignment_villager_button_screen_rect(
+    viewport_size: Vector2,
+    villager_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_assignment_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            ASSIGNMENT_LIST_START_Y + villager_index * ASSIGNMENT_ROW_HEIGHT
+        ),
+        Vector2(
+            ASSIGNMENT_PANEL_WIDTH - 20,
+            ASSIGNMENT_ROW_HEIGHT - 4
+        )
+    )
+
+
+static func get_assignment_visible_row_count() -> int:
+    return int(
+        floor(
+            float(ASSIGNMENT_PANEL_HEIGHT - ASSIGNMENT_LIST_START_Y - 10)
+            / float(ASSIGNMENT_ROW_HEIGHT)
+        )
+    )
 
 static func get_village_log_button_screen_rect(viewport_size: Vector2) -> Rect2:
     return Rect2(

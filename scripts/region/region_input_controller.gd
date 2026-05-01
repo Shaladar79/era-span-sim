@@ -73,6 +73,10 @@ func handle_key(event: InputEventKey) -> void:
 
 
 func handle_escape_key() -> void:
+    if region.show_assignment_panel:
+       region.close_assignment_panel()
+       return
+    
     if region.storage_selector_open:
         region.close_storage_selector()
         return

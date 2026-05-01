@@ -68,6 +68,9 @@ var selected_crafting_building_id: String = ""
 var selected_crafting_building_name: String = ""
 var selected_crafting_building_instance_id: int = 0
 
+var show_assignment_panel: bool = false
+var selected_assignment_building_instance_id: int = 0
+
 var show_village_log_panel: bool = false
 var show_debug_panel: bool = false
 var village_log_messages: Array = []
@@ -139,6 +142,7 @@ func generate_region() -> void:
     show_research_panel = false
     show_build_panel = false
     close_crafting_panel()
+    close_assignment_panel()
     show_village_log_panel = false
     show_debug_panel = false
     village_log_messages.clear()
@@ -185,6 +189,7 @@ func generate_from_world_selection(
     show_research_panel = false
     show_build_panel = false
     close_crafting_panel()
+    close_assignment_panel()
     show_village_log_panel = false
     show_debug_panel = false
     village_log_messages.clear()
@@ -249,6 +254,7 @@ func regenerate_region() -> void:
     show_research_panel = false
     show_build_panel = false
     close_crafting_panel()
+    close_assignment_panel()
     show_village_log_panel = false
     show_debug_panel = false
     village_log_messages.clear()
@@ -377,6 +383,7 @@ func start_building_placement(building_id: String) -> void:
     show_village_inventory_panel = false
     show_research_panel = false
     close_crafting_panel()
+    close_assignment_panel()
 
     building_manager.start_building_placement(building_id)
     queue_redraw()
@@ -389,6 +396,7 @@ func cancel_build_mode() -> void:
 
 func try_place_current_building(origin_tile: Vector2i) -> void:
     close_storage_selector()
+    close_assignment_panel()
 
     var did_place_building: bool = building_manager.try_place_current_building(
         origin_tile,
@@ -479,6 +487,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             show_research_panel = false
             show_build_panel = false
             close_crafting_panel()
+            close_assignment_panel()
 
         queue_redraw()
 
@@ -494,6 +503,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             show_research_panel = false
             show_build_panel = false
             close_crafting_panel()
+            close_assignment_panel()
 
         queue_redraw()
 
@@ -509,6 +519,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             show_village_inventory_panel = false
             show_build_panel = false
             close_crafting_panel()
+            close_assignment_panel()
 
         queue_redraw()
 
@@ -524,6 +535,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             show_village_inventory_panel = false
             show_research_panel = false
             close_crafting_panel()
+            close_assignment_panel()
 
         queue_redraw()
 
@@ -564,6 +576,13 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             return true
 
         if get_crafting_panel_screen_rect().has_point(mouse_screen_position):
+            return true
+
+    if show_assignment_panel:
+        if try_assign_villager_from_assignment_panel(mouse_screen_position):
+            return true
+
+        if get_assignment_panel_screen_rect().has_point(mouse_screen_position):
             return true
 
     return false
@@ -780,6 +799,133 @@ func craft_recipe(recipe_id: String) -> void:
     queue_redraw()
 
 
+func try_assign_villager_from_assignment_panel(mouse_screen_position: Vector2) -> bool:
+    if not show_assignment_panel:
+        return false
+
+    var selected_building: Dictionary = get_selected_assignment_building()
+
+    if selected_building.is_empty():
+        close_assignment_panel()
+        return false
+
+    var assigned_villagers: Array = selected_building.get("assigned_villagers", [])
+    var assignment_slots: int = int(selected_building.get("assignment_slots", 0))
+
+    if assigned_villagers.size() >= assignment_slots:
+        return false
+
+    var unassigned_villagers: Array = villager_manager.get_unassigned_villagers()
+    var visible_count: int = min(
+        unassigned_villagers.size(),
+        RegionUI.get_assignment_visible_row_count()
+    )
+
+    for villager_index in range(visible_count):
+        var villager_button_rect: Rect2 = get_assignment_villager_button_screen_rect(villager_index)
+
+        if not villager_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var villager_data: Dictionary = unassigned_villagers[villager_index]
+        var villager_id: int = int(villager_data.get("id", 0))
+
+        assign_villager_to_selected_assignment_building(villager_id)
+        return true
+
+    return false
+
+
+func assign_villager_to_selected_assignment_building(villager_id: int) -> void:
+    if villager_id <= 0:
+        return
+
+    var selected_building: Dictionary = get_selected_assignment_building()
+
+    if selected_building.is_empty():
+        add_village_log_message("No assignment building selected.")
+        close_assignment_panel()
+        queue_redraw()
+        return
+
+    var building_instance_id: int = int(selected_building.get("instance_id", 0))
+
+    var building_result: Dictionary = building_manager.assign_villager_to_building(
+        villager_id,
+        building_instance_id
+    )
+
+    var building_message: String = str(building_result.get("message", ""))
+
+    if building_message != "":
+        add_village_log_message(building_message)
+
+    if not bool(building_result.get("success", false)):
+        queue_redraw()
+        return
+
+    var assignment_role: String = str(building_result.get("role", ""))
+    var replaces_shelter: bool = bool(building_result.get("replaces_shelter", false))
+
+    var villager_result: Dictionary = villager_manager.assign_villager_to_building_assignment(
+        villager_id,
+        building_instance_id,
+        assignment_role,
+        replaces_shelter
+    )
+
+    var villager_message: String = str(villager_result.get("message", ""))
+
+    if villager_message != "":
+        add_village_log_message(villager_message)
+
+    var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
+    villager_manager.auto_assign_villager_housing(normal_housing_capacity)
+
+    queue_redraw()
+
+
+func get_selected_assignment_building() -> Dictionary:
+    if selected_assignment_building_instance_id <= 0:
+        return {}
+
+    return building_manager.get_building_by_instance_id(
+        selected_assignment_building_instance_id
+    )
+
+
+func get_assignment_hovered_villager(mouse_screen_position: Vector2) -> Dictionary:
+    if not show_assignment_panel:
+        return {}
+
+    var selected_building: Dictionary = get_selected_assignment_building()
+
+    if selected_building.is_empty():
+        return {}
+
+    var assigned_villagers: Array = selected_building.get("assigned_villagers", [])
+    var assignment_slots: int = int(selected_building.get("assignment_slots", 0))
+
+    if assigned_villagers.size() >= assignment_slots:
+        return {}
+
+    var unassigned_villagers: Array = villager_manager.get_unassigned_villagers()
+    var visible_count: int = min(
+        unassigned_villagers.size(),
+        RegionUI.get_assignment_visible_row_count()
+    )
+
+    for villager_index in range(visible_count):
+        var villager_button_rect: Rect2 = get_assignment_villager_button_screen_rect(villager_index)
+
+        if not villager_button_rect.has_point(mouse_screen_position):
+            continue
+
+        return unassigned_villagers[villager_index]
+
+    return {}
+
+
 func try_buy_research_from_mouse(mouse_screen_position: Vector2) -> bool:
     var buyable_plans: Array = research.get_buyable_research_plans(
         building_manager,
@@ -868,6 +1014,9 @@ func try_start_villager_drag_or_select() -> void:
         close_storage_selector()
 
     if try_open_storage_selector_at_tile(hovered_tile):
+        return
+
+    if try_open_assignment_panel_at_tile(hovered_tile):
         return
 
     if try_open_crafting_panel_at_tile(hovered_tile):
@@ -1025,6 +1174,38 @@ func close_storage_selector() -> void:
     queue_redraw()
 
 
+func try_open_assignment_panel_at_tile(tile_position: Vector2i) -> bool:
+    if not is_tile_in_bounds(tile_position):
+        return false
+
+    var building_data: Dictionary = building_manager.get_building_at_tile(tile_position)
+
+    if building_data.is_empty():
+        return false
+
+    if not building_manager.is_assignment_enabled_building(building_data):
+        return false
+
+    show_assignment_panel = true
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    show_build_panel = false
+    close_crafting_panel()
+
+    selected_assignment_building_instance_id = int(building_data.get("instance_id", 0))
+
+    print("Opened assignment panel for: " + str(building_data.get("name", "Building")))
+
+    queue_redraw()
+    return true
+
+
+func close_assignment_panel() -> void:
+    show_assignment_panel = false
+    selected_assignment_building_instance_id = 0
+
+
 func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
     if not is_tile_in_bounds(tile_position):
         return false
@@ -1044,6 +1225,7 @@ func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
     show_village_inventory_panel = false
     show_research_panel = false
     show_build_panel = false
+    close_assignment_panel()
 
     selected_crafting_building_id = building_id
     selected_crafting_building_name = str(building_data.get("name", building_id))
@@ -1248,6 +1430,7 @@ func _draw() -> void:
     draw_research_panel()
     draw_build_panel()
     draw_crafting_panel()
+    draw_assignment_panel()
     draw_village_log_button()
     draw_debug_button()
     draw_village_log_panel()
@@ -1269,9 +1452,10 @@ func draw_storage_selector() -> void:
 
 func draw_top_info_panel() -> void:
     var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
+    var normal_shelter_demand: int = villager_manager.get_normal_shelter_demand_count()
     var available_shelter: int = max(
         0,
-        normal_housing_capacity - villager_manager.get_population_count()
+        normal_housing_capacity - normal_shelter_demand
     )
 
     RegionDraw.draw_top_info_panel(
@@ -1402,6 +1586,20 @@ func draw_crafting_panel() -> void:
     )
 
 
+func draw_assignment_panel() -> void:
+    if not show_assignment_panel:
+        return
+
+    var selected_building: Dictionary = get_selected_assignment_building()
+    var unassigned_villagers: Array = villager_manager.get_unassigned_villagers()
+
+    RegionDraw.draw_assignment_panel(
+        self,
+        selected_building,
+        unassigned_villagers
+    )
+
+
 func draw_village_log_button() -> void:
     RegionDraw.draw_village_log_button(
         self,
@@ -1436,6 +1634,13 @@ func draw_paused_villager_hover_panel() -> void:
         return
 
     if is_dragging_villager:
+        return
+
+    var mouse_screen_position: Vector2 = get_viewport().get_mouse_position()
+    var assignment_hover_villager: Dictionary = get_assignment_hovered_villager(mouse_screen_position)
+
+    if not assignment_hover_villager.is_empty():
+        draw_villager_hover_panel(assignment_hover_villager)
         return
 
     var mouse_world_position: Vector2 = get_global_mouse_position()
@@ -1589,6 +1794,19 @@ func get_crafting_recipe_button_screen_rect(recipe_index: int) -> Rect2:
     return RegionUI.get_crafting_recipe_button_screen_rect(
         get_viewport().get_visible_rect().size,
         recipe_index
+    )
+
+
+func get_assignment_panel_screen_rect() -> Rect2:
+    return RegionUI.get_assignment_panel_screen_rect(
+        get_viewport().get_visible_rect().size
+    )
+
+
+func get_assignment_villager_button_screen_rect(villager_index: int) -> Rect2:
+    return RegionUI.get_assignment_villager_button_screen_rect(
+        get_viewport().get_visible_rect().size,
+        villager_index
     )
 
 

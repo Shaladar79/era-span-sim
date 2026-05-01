@@ -313,10 +313,12 @@ func process_population_growth(
 
     population_growth_timer -= POPULATION_GROWTH_INTERVAL
 
-    if normal_housing_capacity <= villagers.size():
+    var normal_shelter_demand: int = get_normal_shelter_demand_count()
+
+    if normal_housing_capacity <= normal_shelter_demand:
         add_event_message(
             "Population growth skipped. Housing is full: "
-            + str(villagers.size())
+            + str(normal_shelter_demand)
             + "/"
             + str(normal_housing_capacity)
         )
@@ -344,6 +346,11 @@ func auto_assign_villager_housing(normal_housing_capacity: int) -> void:
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if bool(villager_data.get("assignment_replaces_shelter", false)):
+            villager_data["is_housed"] = true
+            villagers[villager_index] = villager_data
+            continue
 
         if housed_count < normal_housing_capacity:
             villager_data["is_housed"] = true
@@ -406,15 +413,17 @@ func debug_add_villagers(
         result["message"] = "Debug: no villagers requested."
         return result
 
+    var normal_shelter_demand: int = get_normal_shelter_demand_count()
+
     var open_shelter_slots: int = max(
         0,
-        normal_housing_capacity - villagers.size()
+        normal_housing_capacity - normal_shelter_demand
     )
 
     if open_shelter_slots <= 0:
         result["message"] = (
-            "Debug: no open shelter available. Population "
-            + str(villagers.size())
+            "Debug: no open shelter available. Shelter demand "
+            + str(normal_shelter_demand)
             + "/"
             + str(normal_housing_capacity)
             + "."
@@ -443,6 +452,8 @@ func debug_add_villagers(
     var spawned_count: int = spawned_names.size()
     result["spawned"] = spawned_count
 
+    var new_normal_shelter_demand: int = get_normal_shelter_demand_count()
+
     if spawned_count <= 0:
         result["message"] = "Debug: no valid spawn tile was found."
         return result
@@ -453,8 +464,8 @@ func debug_add_villagers(
             + str(spawned_count)
             + " of "
             + str(requested_amount)
-            + " requested villagers. Shelter "
-            + str(villagers.size())
+            + " requested villagers. Shelter demand "
+            + str(new_normal_shelter_demand)
             + "/"
             + str(normal_housing_capacity)
             + "."
@@ -464,8 +475,8 @@ func debug_add_villagers(
     result["message"] = (
         "Debug: added "
         + str(spawned_count)
-        + " villagers. Shelter "
-        + str(villagers.size())
+        + " villagers. Shelter demand "
+        + str(new_normal_shelter_demand)
         + "/"
         + str(normal_housing_capacity)
         + "."
@@ -496,6 +507,10 @@ func spawn_villager_at_tile(
         "tile": spawn_tile,
         "world_position": tile_to_world_center(spawn_tile),
         "state": VILLAGER_STATE_IDLE,
+        "role": StoneAgeVillagerAssignmentData.get_default_role(),
+        "assigned_building_instance_id": 0,
+        "assigned_building_role": "",
+        "assignment_replaces_shelter": false,
         "target_tile": Vector2i(-1, -1),
         "harvest_tile": Vector2i(-1, -1),
         "move_timer": 0.0,
@@ -687,6 +702,169 @@ func get_population_count() -> int:
 func get_villagers() -> Array:
     return villagers
 
+func get_villager_data_by_id(villager_id: int) -> Dictionary:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if int(villager_data.get("id", 0)) == villager_id:
+            return villager_data.duplicate(true)
+
+    return {}
+
+
+func get_villager_index_by_id(villager_id: int) -> int:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if int(villager_data.get("id", 0)) == villager_id:
+            return villager_index
+
+    return -1
+
+
+func get_unassigned_villagers() -> Array:
+    var unassigned_villagers: Array = []
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
+        var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+        if assigned_building_instance_id > 0:
+            continue
+
+        unassigned_villagers.append(villager_data.duplicate(true))
+
+    return unassigned_villagers
+
+
+func is_villager_assigned_to_building(villager_id: int) -> bool:
+    var villager_data: Dictionary = get_villager_data_by_id(villager_id)
+
+    if villager_data.is_empty():
+        return false
+
+    return int(villager_data.get("assigned_building_instance_id", 0)) > 0
+
+
+func assign_villager_to_building_assignment(
+    villager_id: int,
+    building_instance_id: int,
+    assignment_role: String,
+    replaces_shelter: bool
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    if building_instance_id <= 0:
+        result["message"] = "Invalid building."
+        return result
+
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        result["message"] = "Villager not found."
+        return result
+
+    var villager_data: Dictionary = villagers[villager_index]
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var display_role: String = StoneAgeVillagerAssignmentData.get_role_display_name(assignment_role)
+
+    villager_data["assigned_building_instance_id"] = building_instance_id
+    villager_data["assigned_building_role"] = assignment_role
+    villager_data["assignment_replaces_shelter"] = replaces_shelter
+
+    if not villager_data.has("role"):
+        villager_data["role"] = StoneAgeVillagerAssignmentData.get_default_role()
+
+    villagers[villager_index] = villager_data
+
+    result["success"] = true
+    result["message"] = (
+        villager_name
+        + " assigned as "
+        + display_role
+        + "."
+    )
+
+    return result
+
+
+func clear_villager_building_assignment(villager_id: int) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        result["message"] = "Villager not found."
+        return result
+
+    var villager_data: Dictionary = villagers[villager_index]
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+
+    villager_data["assigned_building_instance_id"] = 0
+    villager_data["assigned_building_role"] = ""
+    villager_data["assignment_replaces_shelter"] = false
+
+    if not villager_data.has("role"):
+        villager_data["role"] = StoneAgeVillagerAssignmentData.get_default_role()
+
+    villagers[villager_index] = villager_data
+
+    result["success"] = true
+    result["message"] = villager_name + " is no longer assigned to a building."
+
+    return result
+
+
+func get_normal_shelter_demand_count() -> int:
+    var shelter_demand_count: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if bool(villager_data.get("assignment_replaces_shelter", false)):
+            continue
+
+        shelter_demand_count += 1
+
+    return shelter_demand_count
 
 func get_villager_at_world_position(world_position: Vector2, hit_radius: float = 8.0) -> int:
     for villager_index in range(villagers.size()):
@@ -1481,7 +1659,10 @@ func print_villager_summary(villager_data: Dictionary) -> void:
     var level: float = float(villager_data.get("level", 0.0))
     var speed: int = int(villager_data.get("speed", BASE_SPEED))
     var skills: Dictionary = villager_data.get("skills", {})
-
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var assigned_role: String = str(villager_data.get("assigned_building_role", ""))
+    var assigned_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assigned_role)
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
     print(
         "- ",
         villager_name,
@@ -1506,6 +1687,13 @@ func print_villager_summary(villager_data: Dictionary) -> void:
         int(skills.get(SKILL_MEDICINE, 0)),
         ", Thinking ",
         int(skills.get(SKILL_THINKING, 0))
+        ,
+        ", Role ",
+           role,
+        ", Assigned Role ",
+           assigned_role_name,
+        ", Assigned Building ",
+           assigned_building_instance_id
     )
 
 
