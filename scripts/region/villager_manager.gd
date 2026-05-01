@@ -8,51 +8,91 @@ const POPULATION_GROWTH_CHANCE: float = 0.25
 const VILLAGER_STATE_IDLE: String = "idle"
 const VILLAGER_STATE_MOVING: String = "moving"
 const VILLAGER_STATE_HARVESTING: String = "harvesting"
+const VILLAGER_STATE_THINKING: String = "thinking"
 
 const VILLAGER_MOVE_INTERVAL: float = 0.18
 const DEFAULT_HARVEST_DURATION: float = 1.0
 
 const NO_ASSIGNED_AREA: Vector2i = Vector2i(-1, -1)
+const DEFAULT_ASSIGNED_WORK_RADIUS: int = 10
 
 const HEALTH_STATE_HEALTHY: String = "healthy"
 const HEALTH_STATE_SICK: String = "sick"
 const HEALTH_STATE_WEAKENED: String = "weakened"
 const HEALTH_STATE_DEAD: String = "dead"
 
+const BASE_HEALTH: int = 5
+const HUNGER_FULL: int = 100
+const HUNGER_EAT_THRESHOLD: int = 40
+
 const BASE_BELONGING_SLOTS: int = 1
 const STONE_AGE_MAX_BELONGING_SLOTS: int = 2
 const CURRENT_NAME_ERA: String = VillagerNameGenerator.NAME_ERA_STONE
 
 const BASE_SPEED: int = 100
+const MIN_BASE_SPEED: int = 90
+const MAX_BASE_SPEED: int = 100
 const MIN_SPEED: int = 10
 
 const SKILL_GATHERING: String = "gathering"
-const SKILL_WOOD_WORKING: String = "wood_working"
-const SKILL_STONE_WORKING: String = "stone_working"
 const SKILL_BUILDING: String = "building"
+const SKILL_MINING: String = "mining"
+const SKILL_WOODCUTTING: String = "woodcutting"
+
+const SKILL_CRAFTING: String = "crafting"
+const SKILL_THINKING: String = "thinking"
+const SKILL_STONEWORKING: String = "stoneworking"
+const SKILL_WOODWORKING: String = "woodworking"
+const SKILL_RITUALS: String = "rituals"
+
+const SKILL_RANGED_WEAPONS: String = "ranged_weapons"
+const SKILL_MELEE_WEAPONS: String = "melee_weapons"
+const SKILL_EVADE: String = "evade"
+const SKILL_PARRY: String = "parry"
+
+# Compatibility aliases for older references inside the project.
+const SKILL_WOOD_WORKING: String = SKILL_WOODCUTTING
+const SKILL_STONE_WORKING: String = SKILL_STONEWORKING
+# Removed/legacy skill aliases kept so older Stone Age data files still parse.
 const SKILL_HAULING: String = "hauling"
 const SKILL_MEDICINE: String = "medicine"
-const SKILL_THINKING: String = "thinking"
 
 const SKILL_HARVEST_SPEED_BONUS_PER_LEVEL: float = 0.02
 const MAX_SKILL_LEVEL: int = 10
 
-const SKILL_IDS: Array = [
+const BASE_SKILL_IDS: Array = [
     SKILL_GATHERING,
-    SKILL_WOOD_WORKING,
-    SKILL_STONE_WORKING,
     SKILL_BUILDING,
-    SKILL_HAULING,
-    SKILL_MEDICINE,
-    SKILL_THINKING
+    SKILL_MINING,
+    SKILL_WOODCUTTING
 ]
 
-const STARTING_SPECIALIST_SKILLS: Array = [
+const ROLE_SKILL_IDS: Array = [
+    SKILL_CRAFTING,
+    SKILL_THINKING,
+    SKILL_STONEWORKING,
+    SKILL_WOODWORKING,
+    SKILL_RITUALS,
+    SKILL_RANGED_WEAPONS,
+    SKILL_MELEE_WEAPONS,
+    SKILL_EVADE,
+    SKILL_PARRY
+]
+
+const SKILL_IDS: Array = [
     SKILL_GATHERING,
-    SKILL_WOOD_WORKING,
-    SKILL_STONE_WORKING,
     SKILL_BUILDING,
-    SKILL_HAULING
+    SKILL_MINING,
+    SKILL_WOODCUTTING,
+    SKILL_CRAFTING,
+    SKILL_THINKING,
+    SKILL_STONEWORKING,
+    SKILL_WOODWORKING,
+    SKILL_RITUALS,
+    SKILL_RANGED_WEAPONS,
+    SKILL_MELEE_WEAPONS,
+    SKILL_EVADE,
+    SKILL_PARRY
 ]
 
 const RESOURCE_WOOD: String = "wood"
@@ -190,16 +230,7 @@ func reset_and_spawn_starting_villagers() -> void:
         if not is_tile_in_bounds(spawn_tile):
             continue
 
-        var forced_skill: String = ""
-
-        if spawned_count < STARTING_SPECIALIST_SKILLS.size():
-            forced_skill = str(STARTING_SPECIALIST_SKILLS[spawned_count])
-
-        spawn_villager_at_tile(
-            spawn_tile,
-            forced_skill
-        )
-
+        spawn_villager_at_tile(spawn_tile)
         spawned_count += 1
 
     while spawned_count < STARTING_POPULATION:
@@ -208,19 +239,11 @@ func reset_and_spawn_starting_villagers() -> void:
         if not is_tile_in_bounds(fallback_tile):
             break
 
-        var forced_fallback_skill: String = ""
-
-        if spawned_count < STARTING_SPECIALIST_SKILLS.size():
-            forced_fallback_skill = str(STARTING_SPECIALIST_SKILLS[spawned_count])
-
-        spawn_villager_at_tile(
-            fallback_tile,
-            forced_fallback_skill
-        )
-
+        spawn_villager_at_tile(fallback_tile)
         spawned_count += 1
 
     update_all_villager_speed_stats()
+    update_all_villager_belonging_caps()
 
     print("Starting Population: ", villagers.size())
     print_villager_roster()
@@ -229,6 +252,7 @@ func reset_and_spawn_starting_villagers() -> void:
 func set_global_movement_speed_bonus(new_bonus: float) -> void:
     global_movement_speed_bonus = max(0.0, new_bonus)
     update_all_villager_speed_stats()
+
 
 func get_current_max_belongings() -> int:
     return clampi(
@@ -254,7 +278,9 @@ func update_all_villager_belonging_caps() -> void:
 
         var villager_data: Dictionary = villager_variant
         villager_data["max_belongings"] = max_slots
+        villager_data["belonging_slots"] = max_slots
         villagers[villager_index] = villager_data
+
 
 func get_movement_speed_multiplier_for_villager(villager_data: Dictionary) -> float:
     var speed: int = int(villager_data.get("speed", BASE_SPEED))
@@ -289,17 +315,49 @@ func update_villager_speed_stat(villager_data: Dictionary) -> void:
     villager_data["speed"] = max(MIN_SPEED, base_speed + bonus_speed)
 
 
-func get_villager_level_from_skills(skills: Dictionary) -> float:
-    if SKILL_IDS.is_empty():
-        return 0.0
+func get_skill_cap(_villager_data: Dictionary, _skill_id: String) -> int:
+    return MAX_SKILL_LEVEL
+
+
+func clamp_skill_level(
+    villager_data: Dictionary,
+    skill_id: String,
+    skill_level: int
+) -> int:
+    return clampi(
+        skill_level,
+        0,
+        get_skill_cap(villager_data, skill_id)
+    )
+
+
+func get_villager_level_from_skills(skills: Dictionary) -> int:
+    if skills.is_empty():
+        return 0
 
     var total_skill_levels: int = 0
+    var counted_skills: int = 0
 
-    for skill_index in range(SKILL_IDS.size()):
-        var skill_id: String = str(SKILL_IDS[skill_index])
+    var skill_keys: Array = skills.keys()
+
+    for skill_index in range(skill_keys.size()):
+        var skill_id: String = str(skill_keys[skill_index])
+
+        if not SKILL_IDS.has(skill_id):
+            continue
+
         total_skill_levels += int(skills.get(skill_id, 0))
+        counted_skills += 1
 
-    return float(total_skill_levels) / float(SKILL_IDS.size())
+    if counted_skills <= 0:
+        return 0
+
+    return int(floor(float(total_skill_levels) / float(counted_skills)))
+
+
+func recalculate_villager_level(villager_data: Dictionary) -> void:
+    var skills: Dictionary = villager_data.get("skills", {})
+    villager_data["level"] = get_villager_level_from_skills(skills)
 
 
 func process_population_growth(
@@ -399,6 +457,7 @@ func spawn_new_villager_near_village_center() -> bool:
 
     return true
 
+
 func debug_add_villagers(
     requested_amount: int,
     normal_housing_capacity: int
@@ -484,9 +543,10 @@ func debug_add_villagers(
 
     return result
 
+
 func spawn_villager_at_tile(
     spawn_tile: Vector2i,
-    forced_specialist_skill: String = ""
+    _forced_specialist_skill: String = ""
 ) -> void:
     var used_names: Array = get_used_villager_names()
     var gender: String = VillagerNameGenerator.generate_gender(rng)
@@ -497,8 +557,9 @@ func spawn_villager_at_tile(
         CURRENT_NAME_ERA
     )
 
-    var generated_skills: Dictionary = generate_villager_skills(forced_specialist_skill)
-    var villager_level: float = get_villager_level_from_skills(generated_skills)
+    var generated_skills: Dictionary = generate_villager_skills()
+    var villager_level: int = get_villager_level_from_skills(generated_skills)
+    var generated_base_speed: int = rng.randi_range(MIN_BASE_SPEED, MAX_BASE_SPEED)
 
     var villager_data := {
         "id": next_villager_id,
@@ -511,6 +572,9 @@ func spawn_villager_at_tile(
         "assigned_building_instance_id": 0,
         "assigned_building_role": "",
         "assignment_replaces_shelter": false,
+        "assigned_work_anchor_tile": NO_ASSIGNED_AREA,
+        "assigned_work_radius": DEFAULT_ASSIGNED_WORK_RADIUS,
+        "current_work_task": "",
         "target_tile": Vector2i(-1, -1),
         "harvest_tile": Vector2i(-1, -1),
         "move_timer": 0.0,
@@ -520,50 +584,32 @@ func spawn_villager_at_tile(
         "is_housed": false,
         "skills": generated_skills,
         "level": villager_level,
-        "base_speed": BASE_SPEED,
-        "speed": BASE_SPEED,
+        "health": BASE_HEALTH,
+        "max_health": BASE_HEALTH,
+        "hunger": HUNGER_FULL,
+        "base_speed": generated_base_speed,
+        "speed": generated_base_speed,
         "belongings": [],
         "max_belongings": get_current_max_belongings(),
+        "belonging_slots": get_current_max_belongings(),
+        "tool_slots": 0,
+        "weapon_slots": 0,
+        "armor_slots": 0,
         "statuses": [],
         "health_state": HEALTH_STATE_HEALTHY
     }
 
-    update_all_villager_speed_stats()
-    update_all_villager_belonging_caps()
-
+    update_villager_speed_stat(villager_data)
     villagers.append(villager_data)
     next_villager_id += 1
 
 
-func generate_villager_skills(forced_specialist_skill: String = "") -> Dictionary:
+func generate_villager_skills(_forced_specialist_skill: String = "") -> Dictionary:
     var generated_skills: Dictionary = {}
 
-    var valid_forced_skill: String = ""
-
-    if SKILL_IDS.has(forced_specialist_skill):
-        valid_forced_skill = forced_specialist_skill
-
-    var zero_skill: String = get_random_skill_excluding([valid_forced_skill])
-    var high_skill: String = valid_forced_skill
-
-    if high_skill == "":
-        high_skill = get_random_skill_excluding([zero_skill])
-
-    for skill_index in range(SKILL_IDS.size()):
-        var skill_id: String = str(SKILL_IDS[skill_index])
-
-        if skill_id == zero_skill:
-            generated_skills[skill_id] = 0
-            continue
-
-        if skill_id == high_skill:
-            generated_skills[skill_id] = 3
-            continue
-
-        if rng.randf() < 0.35:
-            generated_skills[skill_id] = 2
-        else:
-            generated_skills[skill_id] = 1
+    for skill_index in range(BASE_SKILL_IDS.size()):
+        var skill_id: String = str(BASE_SKILL_IDS[skill_index])
+        generated_skills[skill_id] = rng.randi_range(0, 3)
 
     return generated_skills
 
@@ -571,8 +617,8 @@ func generate_villager_skills(forced_specialist_skill: String = "") -> Dictionar
 func get_random_skill_excluding(excluded_skills: Array) -> String:
     var valid_skills: Array = []
 
-    for skill_index in range(SKILL_IDS.size()):
-        var skill_id: String = str(SKILL_IDS[skill_index])
+    for skill_index in range(BASE_SKILL_IDS.size()):
+        var skill_id: String = str(BASE_SKILL_IDS[skill_index])
 
         if excluded_skills.has(skill_id):
             continue
@@ -580,7 +626,7 @@ func get_random_skill_excluding(excluded_skills: Array) -> String:
         valid_skills.append(skill_id)
 
     if valid_skills.is_empty():
-        return str(SKILL_IDS[0])
+        return str(BASE_SKILL_IDS[0])
 
     return str(valid_skills[rng.randi_range(0, valid_skills.size() - 1)])
 
@@ -702,6 +748,7 @@ func get_population_count() -> int:
 func get_villagers() -> Array:
     return villagers
 
+
 func get_villager_data_by_id(villager_id: int) -> Dictionary:
     for villager_index in range(villagers.size()):
         var villager_variant: Variant = villagers[villager_index]
@@ -784,6 +831,10 @@ func assign_villager_to_building_assignment(
         result["message"] = "Invalid building."
         return result
 
+    if assignment_role == "":
+        result["message"] = "Building has no assignment role."
+        return result
+
     var villager_index: int = get_villager_index_by_id(villager_id)
 
     if villager_index < 0:
@@ -792,14 +843,47 @@ func assign_villager_to_building_assignment(
 
     var villager_data: Dictionary = villagers[villager_index]
     var villager_name: String = str(villager_data.get("name", "Villager"))
+    var current_role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
     var display_role: String = StoneAgeVillagerAssignmentData.get_role_display_name(assignment_role)
+    var current_display_role: String = StoneAgeVillagerAssignmentData.get_role_display_name(current_role)
+
+    if current_role != default_role and current_role != assignment_role:
+        result["message"] = (
+            villager_name
+            + " is already a "
+            + current_display_role
+            + " and can only be assigned to matching "
+            + current_display_role
+            + " buildings."
+        )
+        return result
+
+    if current_role == default_role:
+        apply_role_specialization_to_villager(
+            villager_data,
+            assignment_role
+        )
+    else:
+        refresh_role_stats_for_villager(villager_data)
 
     villager_data["assigned_building_instance_id"] = building_instance_id
     villager_data["assigned_building_role"] = assignment_role
     villager_data["assignment_replaces_shelter"] = replaces_shelter
+    villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
 
-    if not villager_data.has("role"):
-        villager_data["role"] = StoneAgeVillagerAssignmentData.get_default_role()
+    if not villager_data.has("assigned_work_anchor_tile"):
+        villager_data["assigned_work_anchor_tile"] = NO_ASSIGNED_AREA
+
+    if not villager_data.has("current_work_task"):
+        villager_data["current_work_task"] = ""
+
+    if assignment_role == StoneAgeVillagerAssignmentData.ROLE_THINKER:
+        villager_data["state"] = VILLAGER_STATE_THINKING
+        villager_data["target_tile"] = Vector2i(-1, -1)
+        villager_data["harvest_tile"] = Vector2i(-1, -1)
+        villager_data["harvest_timer"] = 0.0
+        villager_data["move_timer"] = 0.0
 
     villagers[villager_index] = villager_data
 
@@ -836,6 +920,12 @@ func clear_villager_building_assignment(villager_id: int) -> Dictionary:
     villager_data["assigned_building_instance_id"] = 0
     villager_data["assigned_building_role"] = ""
     villager_data["assignment_replaces_shelter"] = false
+    villager_data["assigned_work_anchor_tile"] = NO_ASSIGNED_AREA
+    villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
+    villager_data["current_work_task"] = ""
+
+    if str(villager_data.get("state", VILLAGER_STATE_IDLE)) == VILLAGER_STATE_THINKING:
+        villager_data["state"] = VILLAGER_STATE_IDLE
 
     if not villager_data.has("role"):
         villager_data["role"] = StoneAgeVillagerAssignmentData.get_default_role()
@@ -846,6 +936,165 @@ func clear_villager_building_assignment(villager_id: int) -> Dictionary:
     result["message"] = villager_name + " is no longer assigned to a building."
 
     return result
+
+
+func apply_role_specialization_to_villager(
+    villager_data: Dictionary,
+    new_role: String
+) -> void:
+    villager_data["role"] = new_role
+
+    add_role_skills_if_missing(
+        villager_data,
+        get_skill_ids_for_role(new_role)
+    )
+
+    recalculate_villager_level(villager_data)
+    apply_slot_counts_for_role(villager_data)
+    refresh_role_stats_for_villager(villager_data)
+
+
+func refresh_role_stats_for_villager(villager_data: Dictionary) -> void:
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+
+    recalculate_villager_level(villager_data)
+
+    var level: int = int(villager_data.get("level", 0))
+
+    if role == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+        villager_data["max_health"] = BASE_HEALTH + level * 2
+        villager_data["health"] = int(villager_data.get("max_health", BASE_HEALTH))
+        villager_data["attack"] = 2 + level
+        villager_data["defense"] = 1 + level
+        return
+
+    if role == StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
+        villager_data["max_health"] = BASE_HEALTH + level * 3
+        villager_data["health"] = int(villager_data.get("max_health", BASE_HEALTH))
+        villager_data["attack"] = 3 + level
+        villager_data["defense"] = 2 + level
+        return
+
+    villager_data["max_health"] = BASE_HEALTH
+    villager_data["health"] = min(
+        int(villager_data.get("health", BASE_HEALTH)),
+        BASE_HEALTH
+    )
+
+    if villager_data.has("attack"):
+        villager_data.erase("attack")
+
+    if villager_data.has("defense"):
+        villager_data.erase("defense")
+
+
+func add_role_skills_if_missing(
+    villager_data: Dictionary,
+    role_skill_ids: Array
+) -> void:
+    var skills: Dictionary = villager_data.get("skills", {})
+
+    for skill_index in range(role_skill_ids.size()):
+        var skill_id: String = str(role_skill_ids[skill_index])
+
+        if skills.has(skill_id):
+            skills[skill_id] = clamp_skill_level(
+                villager_data,
+                skill_id,
+                int(skills.get(skill_id, 0))
+            )
+            continue
+
+        skills[skill_id] = rng.randi_range(2, 4)
+
+    villager_data["skills"] = skills
+
+
+func get_skill_ids_for_role(role_id: String) -> Array:
+    match role_id:
+        StoneAgeVillagerAssignmentData.ROLE_MAKER:
+            return [SKILL_CRAFTING]
+
+        StoneAgeVillagerAssignmentData.ROLE_THINKER:
+            return [SKILL_THINKING]
+
+        StoneAgeVillagerAssignmentData.ROLE_STONEWORKER:
+            return [SKILL_STONEWORKING]
+
+        StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
+            return [SKILL_WOODWORKING]
+
+        StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+            return [
+                SKILL_RANGED_WEAPONS,
+                SKILL_EVADE
+            ]
+
+        StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
+            return [
+                SKILL_MELEE_WEAPONS,
+                SKILL_PARRY
+            ]
+
+        StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
+            return [SKILL_RITUALS]
+
+        _:
+            return []
+
+
+func apply_slot_counts_for_role(villager_data: Dictionary) -> void:
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+
+    villager_data["belonging_slots"] = get_current_max_belongings()
+    villager_data["max_belongings"] = get_current_max_belongings()
+    villager_data["tool_slots"] = 0
+    villager_data["weapon_slots"] = 0
+    villager_data["armor_slots"] = 0
+
+    match role:
+        StoneAgeVillagerAssignmentData.ROLE_MAKER:
+            villager_data["tool_slots"] = 1
+
+        StoneAgeVillagerAssignmentData.ROLE_THINKER:
+            villager_data["tool_slots"] = 1
+
+        StoneAgeVillagerAssignmentData.ROLE_STONEWORKER:
+            villager_data["tool_slots"] = 1
+
+        StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
+            villager_data["tool_slots"] = 1
+
+        StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
+            villager_data["tool_slots"] = 1
+
+        StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+            villager_data["tool_slots"] = 1
+            villager_data["weapon_slots"] = 1
+            villager_data["armor_slots"] = 1
+
+        StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
+            villager_data["tool_slots"] = 1
+            villager_data["weapon_slots"] = 1
+            villager_data["armor_slots"] = 1
+
+
+func set_villager_assigned_work_anchor(
+    villager_id: int,
+    anchor_tile: Vector2i,
+    work_radius: int = DEFAULT_ASSIGNED_WORK_RADIUS
+) -> bool:
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        return false
+
+    var villager_data: Dictionary = villagers[villager_index]
+    villager_data["assigned_work_anchor_tile"] = anchor_tile
+    villager_data["assigned_work_radius"] = max(0, work_radius)
+    villagers[villager_index] = villager_data
+
+    return true
 
 
 func get_normal_shelter_demand_count() -> int:
@@ -865,6 +1114,7 @@ func get_normal_shelter_demand_count() -> int:
         shelter_demand_count += 1
 
     return shelter_demand_count
+
 
 func get_villager_at_world_position(world_position: Vector2, hit_radius: float = 8.0) -> int:
     for villager_index in range(villagers.size()):
@@ -981,7 +1231,23 @@ func process_villager(villager_index: int, delta: float, inventory: RegionInvent
         VILLAGER_STATE_HARVESTING:
             process_harvesting_villager(villager_data, delta, inventory)
 
+        VILLAGER_STATE_THINKING:
+            process_thinking_villager(villager_data, delta)
+
     villagers[villager_index] = villager_data
+
+
+func process_thinking_villager(
+    villager_data: Dictionary,
+    _delta: float
+) -> void:
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+    if assigned_building_instance_id <= 0:
+        villager_data["state"] = VILLAGER_STATE_IDLE
+        return
+
+    villager_data["current_work_task"] = "thinking"
 
 
 func assign_next_harvest_target(
@@ -989,6 +1255,14 @@ func assign_next_harvest_target(
     villager_id: int,
     inventory: RegionInventory
 ) -> void:
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+    if role == StoneAgeVillagerAssignmentData.ROLE_THINKER and assigned_building_instance_id > 0:
+        villager_data["state"] = VILLAGER_STATE_THINKING
+        villager_data["current_work_task"] = "thinking"
+        return
+
     var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
     var resource_tile: Vector2i = find_harvest_target_for_villager(
         current_tile,
@@ -1100,6 +1374,19 @@ func find_harvest_target_for_villager(
             origin_tile,
             assigned_center,
             assigned_radius,
+            villager_id,
+            inventory
+        )
+
+    var work_anchor_tile: Vector2i = villager_data.get("assigned_work_anchor_tile", NO_ASSIGNED_AREA)
+    var work_radius: int = int(villager_data.get("assigned_work_radius", DEFAULT_ASSIGNED_WORK_RADIUS))
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+    if assigned_building_instance_id > 0 and is_tile_in_bounds(work_anchor_tile) and work_radius > 0:
+        return find_random_harvestable_tile_in_area(
+            origin_tile,
+            work_anchor_tile,
+            work_radius,
             villager_id,
             inventory
         )
@@ -1262,13 +1549,16 @@ func get_harvest_duration_for_tile(
 
 func get_harvest_skill_for_resource(resource_id: String) -> String:
     if resource_id == RESOURCE_WOOD:
-        return SKILL_WOOD_WORKING
+        return SKILL_WOODCUTTING
 
     if resource_id == RESOURCE_STONE:
-        return SKILL_STONE_WORKING
+        return SKILL_MINING
 
     if resource_id == RESOURCE_FLINT:
-        return SKILL_STONE_WORKING
+        return SKILL_MINING
+
+    if resource_id == RESOURCE_CLAY:
+        return SKILL_MINING
 
     if resource_id == RESOURCE_BERRIES:
         return SKILL_GATHERING
@@ -1277,9 +1567,6 @@ func get_harvest_skill_for_resource(resource_id: String) -> String:
         return SKILL_GATHERING
 
     if resource_id == RESOURCE_REEDS:
-        return SKILL_GATHERING
-
-    if resource_id == RESOURCE_CLAY:
         return SKILL_GATHERING
 
     if resource_id == RESOURCE_FIBER:
@@ -1301,10 +1588,10 @@ func get_villager_skill_level(
     var skills: Dictionary = villager_data.get("skills", {})
     var skill_level: int = int(skills.get(skill_id, 0))
 
-    return clampi(
-        skill_level,
-        0,
-        MAX_SKILL_LEVEL
+    return clamp_skill_level(
+        villager_data,
+        skill_id,
+        skill_level
     )
 
 
@@ -1656,13 +1943,27 @@ func print_villager_roster() -> void:
 func print_villager_summary(villager_data: Dictionary) -> void:
     var villager_name: String = str(villager_data.get("name", "Villager"))
     var gender: String = str(villager_data.get("gender", "unknown"))
-    var level: float = float(villager_data.get("level", 0.0))
+    var level: int = int(villager_data.get("level", 0))
     var speed: int = int(villager_data.get("speed", BASE_SPEED))
+    var health: int = int(villager_data.get("health", BASE_HEALTH))
+    var max_health: int = int(villager_data.get("max_health", BASE_HEALTH))
+    var hunger: int = int(villager_data.get("hunger", HUNGER_FULL))
     var skills: Dictionary = villager_data.get("skills", {})
     var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(role)
     var assigned_role: String = str(villager_data.get("assigned_building_role", ""))
     var assigned_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assigned_role)
     var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+    var attack_text: String = "-"
+
+    if villager_data.has("attack"):
+        attack_text = str(int(villager_data.get("attack", 0)))
+
+    var defense_text: String = "-"
+
+    if villager_data.has("defense"):
+        defense_text = str(int(villager_data.get("defense", 0)))
+
     print(
         "- ",
         villager_name,
@@ -1670,30 +1971,54 @@ func print_villager_summary(villager_data: Dictionary) -> void:
         gender,
         ") ",
         "Level ",
-        snappedf(level, 0.1),
+        level,
         ", Speed ",
         speed,
-        ", Gathering ",
+        ", Health ",
+        health,
+        "/",
+        max_health,
+        ", Hunger ",
+        hunger,
+        ", Core Skills [Gathering ",
         int(skills.get(SKILL_GATHERING, 0)),
-        ", Wood ",
-        int(skills.get(SKILL_WOOD_WORKING, 0)),
-        ", Stone ",
-        int(skills.get(SKILL_STONE_WORKING, 0)),
         ", Building ",
         int(skills.get(SKILL_BUILDING, 0)),
-        ", Hauling ",
-        int(skills.get(SKILL_HAULING, 0)),
-        ", Medicine ",
-        int(skills.get(SKILL_MEDICINE, 0)),
+        ", Mining ",
+        int(skills.get(SKILL_MINING, 0)),
+        ", WoodCutting ",
+        int(skills.get(SKILL_WOODCUTTING, 0)),
+        "]",
+        ", Role Skills [Crafting ",
+        int(skills.get(SKILL_CRAFTING, 0)),
         ", Thinking ",
-        int(skills.get(SKILL_THINKING, 0))
-        ,
+        int(skills.get(SKILL_THINKING, 0)),
+        ", Stoneworking ",
+        int(skills.get(SKILL_STONEWORKING, 0)),
+        ", Woodworking ",
+        int(skills.get(SKILL_WOODWORKING, 0)),
+        ", Rituals ",
+        int(skills.get(SKILL_RITUALS, 0)),
+        "]",
+        ", Combat [Attack ",
+        attack_text,
+        ", Defense ",
+        defense_text,
+        ", Ranged ",
+        int(skills.get(SKILL_RANGED_WEAPONS, 0)),
+        ", Melee ",
+        int(skills.get(SKILL_MELEE_WEAPONS, 0)),
+        ", Evade ",
+        int(skills.get(SKILL_EVADE, 0)),
+        ", Parry ",
+        int(skills.get(SKILL_PARRY, 0)),
+        "]",
         ", Role ",
-           role,
+        role_name,
         ", Assigned Role ",
-           assigned_role_name,
+        assigned_role_name,
         ", Assigned Building ",
-           assigned_building_instance_id
+        assigned_building_instance_id
     )
 
 
