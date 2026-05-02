@@ -7,6 +7,8 @@ const GAME_MODE_REGION_CONFIRM: String = "region_confirm"
 const GAME_MODE_REGION: String = "region"
 const GAME_MODE_PAUSED: String = "paused"
 
+const DEFAULT_WORLD_NAME: String = "New World"
+
 @onready var world: Node2D = $World
 @onready var region: Node2D = $Region
 @onready var main_camera: Camera2D = $MainCamera
@@ -362,6 +364,104 @@ func get_default_region_name() -> String:
     return "New Settlement"
 
 
+func get_current_region_name() -> String:
+    if region != null and region.has_method("get_region_name"):
+        var region_name_from_node: String = str(region.call("get_region_name")).strip_edges()
+
+        if region_name_from_node != "":
+            return region_name_from_node
+
+    if current_region_name.strip_edges() != "":
+        return current_region_name.strip_edges()
+
+    return "New Settlement"
+
+
+func get_save_name() -> String:
+    var region_name: String = get_current_region_name()
+
+    if region_name == "":
+        region_name = "New Settlement"
+
+    return region_name
+
+
+func build_current_save_data() -> Dictionary:
+    var world_data: Dictionary = build_current_world_save_data()
+    var region_data: Dictionary = build_current_region_save_data()
+
+    return SaveManager.build_base_save_data(
+        get_save_name(),
+        DEFAULT_WORLD_NAME,
+        get_current_region_name(),
+        world_data,
+        region_data
+    )
+
+
+func build_current_world_save_data() -> Dictionary:
+    var world_seed: int = 0
+
+    if world != null:
+        world_seed = int(world.get("world_seed"))
+
+    return {
+        "world_name": DEFAULT_WORLD_NAME,
+        "world_seed": world_seed,
+        "game_mode": game_mode,
+        "previous_game_mode": previous_game_mode
+    }
+
+
+func build_current_region_save_data() -> Dictionary:
+    var region_seed: int = 0
+    var source_world_seed: int = 0
+    var source_selection_origin: Vector2i = Vector2i(-1, -1)
+    var source_world_resource_totals: Dictionary = {}
+    var source_world_tiles: Array = []
+    var simulation_paused: bool = true
+
+    if region != null:
+        region_seed = int(region.get("region_seed"))
+        source_world_seed = int(region.get("source_world_seed"))
+        source_selection_origin = region.get("source_selection_origin")
+        source_world_resource_totals = region.get("source_world_resource_totals").duplicate(true)
+        source_world_tiles = region.get("source_world_tiles").duplicate(true)
+        simulation_paused = bool(region.get("simulation_paused"))
+
+    return {
+        "region_name": get_current_region_name(),
+        "region_seed": region_seed,
+        "source_world_seed": source_world_seed,
+        "source_selection_origin": vector2i_to_save_dict(source_selection_origin),
+        "source_world_resource_totals": source_world_resource_totals,
+        "source_world_tiles": source_world_tiles,
+        "simulation_paused": simulation_paused
+    }
+
+
+func vector2i_to_save_dict(value: Vector2i) -> Dictionary:
+    return {
+        "x": value.x,
+        "y": value.y
+    }
+
+
+func save_current_game() -> void:
+    if game_mode != GAME_MODE_REGION and game_mode != GAME_MODE_PAUSED:
+        print("Save Game requested, but no active region is running.")
+        return
+
+    var save_data: Dictionary = build_current_save_data()
+    var result: Dictionary = SaveManager.write_save(get_save_name(), save_data)
+
+    var message: String = str(result.get("message", "Save complete."))
+    print(message)
+
+    if region != null and region.has_method("add_village_log_message"):
+        region.call("add_village_log_message", message)
+
+
 func _on_world_region_requested(
     selected_world_tiles: Array,
     source_world_seed: int,
@@ -421,7 +521,7 @@ func _on_pause_resume_requested() -> void:
 
 
 func _on_pause_save_requested() -> void:
-    print("Save Game requested. Save/load system is not implemented yet.")
+    save_current_game()
 
 
 func _on_pause_load_requested() -> void:
