@@ -11,6 +11,14 @@ const VILLAGER_STATE_HARVESTING: String = "harvesting"
 const VILLAGER_STATE_THINKING: String = "thinking"
 const VILLAGER_STATE_WAITING_AT_BUILDING: String = "waiting_at_building"
 const VILLAGER_STATE_PATROLLING: String = "patrolling"
+const VILLAGER_STATE_MOVING_TO_HUNT: String = "moving_to_hunt"
+const VILLAGER_STATE_HUNTING: String = "hunting"
+const VILLAGER_STATE_RETURNING_FROM_HUNT: String = "returning_from_hunt"
+
+const HUNTING_PHASE_NONE: String = ""
+const HUNTING_PHASE_TRAVEL_TO_ANIMAL: String = "travel_to_animal"
+const HUNTING_PHASE_HUNTING: String = "hunting"
+const HUNTING_PHASE_RETURNING: String = "returning"
 
 const VILLAGER_MOVE_INTERVAL: float = CoreTuning.VILLAGER_MOVE_INTERVAL
 const DEFAULT_HARVEST_DURATION: float = CoreTuning.DEFAULT_HARVEST_DURATION
@@ -80,6 +88,7 @@ const SKILL_STONEWORKING: String = "stoneworking"
 const SKILL_WOODWORKING: String = "woodworking"
 const SKILL_RITUALS: String = "rituals"
 
+const SKILL_HUNTING: String = "hunting"
 const SKILL_RANGED_WEAPONS: String = "ranged_weapons"
 const SKILL_MELEE_WEAPONS: String = "melee_weapons"
 const SKILL_EVADE: String = "evade"
@@ -109,6 +118,7 @@ const ROLE_SKILL_IDS: Array = [
     SKILL_STONEWORKING,
     SKILL_WOODWORKING,
     SKILL_RITUALS,
+    SKILL_HUNTING,
     SKILL_RANGED_WEAPONS,
     SKILL_MELEE_WEAPONS,
     SKILL_EVADE,
@@ -125,6 +135,7 @@ const SKILL_IDS: Array = [
     SKILL_STONEWORKING,
     SKILL_WOODWORKING,
     SKILL_RITUALS,
+    SKILL_HUNTING,
     SKILL_RANGED_WEAPONS,
     SKILL_MELEE_WEAPONS,
     SKILL_EVADE,
@@ -370,6 +381,18 @@ func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
 
     if not villager_data.has("current_work_task"):
         villager_data["current_work_task"] = ""
+        
+    if not villager_data.has("hunting_animal_instance_id"):
+        villager_data["hunting_animal_instance_id"] = 0
+
+    if not villager_data.has("hunting_target_tile"):
+        villager_data["hunting_target_tile"] = Vector2i(-1, -1)
+
+    if not villager_data.has("hunting_return_tile"):
+        villager_data["hunting_return_tile"] = Vector2i(-1, -1)
+
+    if not villager_data.has("hunting_phase"):
+        villager_data["hunting_phase"] = HUNTING_PHASE_NONE
 
     recalculate_villager_level(villager_data)
     apply_slot_counts_for_role(villager_data)
@@ -847,6 +870,10 @@ func spawn_villager_at_tile(
         "assigned_work_anchor_tile": NO_ASSIGNED_AREA,
         "assigned_work_radius": DEFAULT_ASSIGNED_WORK_RADIUS,
         "current_work_task": "",
+        "hunting_animal_instance_id": 0,
+        "hunting_target_tile": Vector2i(-1, -1),
+        "hunting_return_tile": Vector2i(-1, -1),
+        "hunting_phase": HUNTING_PHASE_NONE,
         "target_tile": Vector2i(-1, -1),
         "harvest_tile": Vector2i(-1, -1),
         "move_timer": 0.0,
@@ -1151,6 +1178,11 @@ func assign_villager_to_building_assignment(
     villager_data["assigned_building_role"] = assignment_role
     villager_data["assignment_replaces_shelter"] = replaces_shelter
     villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
+
+# Building assignments override manual harvest-area assignments.
+    villager_data["assigned_harvest_center"] = NO_ASSIGNED_AREA
+    villager_data["assigned_harvest_radius"] = 0
+
     villager_data["current_work_task"] = ""
     villager_data["target_tile"] = Vector2i(-1, -1)
     villager_data["harvest_tile"] = Vector2i(-1, -1)
@@ -1215,9 +1247,14 @@ func clear_villager_building_assignment(villager_id: int) -> Dictionary:
     villager_data["harvest_tile"] = Vector2i(-1, -1)
     villager_data["move_timer"] = 0.0
     villager_data["harvest_timer"] = 0.0
+    villager_data["hunting_animal_instance_id"] = 0
+    villager_data["hunting_target_tile"] = Vector2i(-1, -1)
+    villager_data["hunting_return_tile"] = Vector2i(-1, -1)
+    villager_data["hunting_phase"] = HUNTING_PHASE_NONE
 
     if str(villager_data.get("state", VILLAGER_STATE_IDLE)) in [
         VILLAGER_STATE_THINKING,
+        
         VILLAGER_STATE_WAITING_AT_BUILDING,
         VILLAGER_STATE_PATROLLING
     ]:
@@ -1325,9 +1362,10 @@ func get_skill_ids_for_role(role_id: String) -> Array:
 
         StoneAgeVillagerAssignmentData.ROLE_HUNTER:
             return [
-                SKILL_RANGED_WEAPONS,
-                SKILL_EVADE
-            ]
+            SKILL_HUNTING,
+            SKILL_RANGED_WEAPONS,
+            SKILL_EVADE
+    ]
 
         StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
             return [
@@ -1464,23 +1502,44 @@ func assign_harvest_area(
         if int(villager_data.get("id", 0)) != villager_id:
             continue
 
+        var villager_name: String = str(villager_data.get("name", "Villager"))
+
+        if int(villager_data.get("assigned_building_instance_id", 0)) > 0:
+            add_event_message(
+                villager_name
+                + " is assigned to a building and cannot be given a manual harvest area."
+            )
+            return
+
+        if not is_tile_in_bounds(center_tile):
+            add_event_message(
+                villager_name
+                + " could not be assigned a harvest area because the target tile is invalid."
+            )
+            return
+
         villager_data["assigned_harvest_center"] = center_tile
-        villager_data["assigned_harvest_radius"] = radius
+        villager_data["assigned_harvest_radius"] = max(0, radius)
         villager_data["state"] = VILLAGER_STATE_IDLE
         villager_data["target_tile"] = Vector2i(-1, -1)
         villager_data["harvest_tile"] = Vector2i(-1, -1)
         villager_data["move_timer"] = 0.0
         villager_data["harvest_timer"] = 0.0
+        villager_data["current_work_task"] = "manual_harvest_area"
 
         villagers[villager_index] = villager_data
 
         add_event_message(
-            str(villager_data.get("name", "Villager"))
+            villager_name
             + " assigned to harvest near "
             + str(center_tile)
+            + " with radius "
+            + str(max(0, radius))
             + "."
         )
         return
+
+    add_event_message("Could not assign harvest area. Villager not found.")
 
 
 func clear_harvest_area_assignment(villager_id: int) -> void:
@@ -1601,6 +1660,13 @@ func process_assigned_role_behavior(
     if role == StoneAgeVillagerAssignmentData.get_default_role():
         return false
 
+    if role == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+        var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+        if hunting_phase != HUNTING_PHASE_NONE:
+            process_hunting_villager(villager_data, delta)
+            return true
+
     match role:
         StoneAgeVillagerAssignmentData.ROLE_THINKER:
             process_thinking_villager(villager_data, delta)
@@ -1661,6 +1727,558 @@ func process_assigned_role_behavior(
             return true
 
     return false
+    
+func get_available_hunters_for_hunt(required_count: int) -> Array:
+    var available_hunters: Array = []
+
+    if required_count <= 0:
+        return available_hunters
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if is_villager_unavailable_for_work(villager_data):
+            continue
+
+        var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+
+        if role != StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+            continue
+
+        var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+        if assigned_building_instance_id <= 0:
+            continue
+
+        var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+        if hunting_phase != HUNTING_PHASE_NONE:
+            continue
+
+        var return_tile: Vector2i = villager_data.get("assigned_work_anchor_tile", NO_ASSIGNED_AREA)
+
+        if not is_tile_in_bounds(return_tile):
+            continue
+
+        available_hunters.append(villager_data.duplicate(true))
+
+        if available_hunters.size() >= required_count:
+            break
+
+    return available_hunters
+
+
+func get_available_hunter_count() -> int:
+    var available_count: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if is_villager_unavailable_for_work(villager_data):
+            continue
+
+        var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+
+        if role != StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+            continue
+
+        if int(villager_data.get("assigned_building_instance_id", 0)) <= 0:
+            continue
+
+        if str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE)) != HUNTING_PHASE_NONE:
+            continue
+
+        if not is_tile_in_bounds(villager_data.get("assigned_work_anchor_tile", NO_ASSIGNED_AREA)):
+            continue
+
+        available_count += 1
+
+    return available_count
+
+
+func assign_hunters_to_animal_hunt(
+    animal_instance_id: int,
+    animal_tile: Vector2i,
+    required_hunters: int
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": "",
+        "hunter_ids": []
+    }
+
+    if animal_instance_id <= 0:
+        result["message"] = "Invalid hunting target."
+        return result
+
+    if not is_tile_in_bounds(animal_tile):
+        result["message"] = "Invalid animal location."
+        return result
+
+    if required_hunters <= 0:
+        result["message"] = "Invalid hunter requirement."
+        return result
+
+    var available_hunters: Array = get_available_hunters_for_hunt(required_hunters)
+
+    if available_hunters.size() < required_hunters:
+        result["message"] = (
+            "Not enough available Hunters. Required: "
+            + str(required_hunters)
+            + ", Available: "
+            + str(available_hunters.size())
+            + "."
+        )
+        return result
+
+    var assigned_hunt_positions: Array = []
+    var assigned_names: Array = []
+    var hunter_ids: Array = []
+
+    for hunter_index in range(required_hunters):
+        var hunter_data: Dictionary = available_hunters[hunter_index]
+        var hunter_id: int = int(hunter_data.get("id", 0))
+        var villager_index: int = get_villager_index_by_id(hunter_id)
+
+        if villager_index < 0:
+            continue
+
+        var villager_data: Dictionary = villagers[villager_index]
+        var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
+
+        var hunt_position: Vector2i = find_hunt_position_for_hunter(
+            animal_tile,
+            current_tile,
+            assigned_hunt_positions
+        )
+
+        if not is_tile_in_bounds(hunt_position):
+            continue
+
+        var return_tile: Vector2i = villager_data.get("assigned_work_anchor_tile", NO_ASSIGNED_AREA)
+
+        villager_data["hunting_animal_instance_id"] = animal_instance_id
+        villager_data["hunting_target_tile"] = hunt_position
+        villager_data["hunting_return_tile"] = return_tile
+        villager_data["hunting_phase"] = HUNTING_PHASE_TRAVEL_TO_ANIMAL
+        villager_data["state"] = VILLAGER_STATE_MOVING_TO_HUNT
+        villager_data["current_work_task"] = "traveling_to_hunt"
+        villager_data["target_tile"] = hunt_position
+        villager_data["harvest_tile"] = Vector2i(-1, -1)
+        villager_data["move_timer"] = 0.0
+        villager_data["harvest_timer"] = 0.0
+
+        villagers[villager_index] = villager_data
+
+        assigned_hunt_positions.append(hunt_position)
+        hunter_ids.append(hunter_id)
+        assigned_names.append(str(villager_data.get("name", "Hunter")))
+
+    if hunter_ids.size() < required_hunters:
+        for assigned_hunter_index in range(hunter_ids.size()):
+            clear_hunting_assignment_by_villager_id(int(hunter_ids[assigned_hunter_index]))
+
+        result["message"] = (
+            "Could not find enough open hunt positions around the animal. Required: "
+            + str(required_hunters)
+            + ", Positions found: "
+            + str(hunter_ids.size())
+            + "."
+        )
+        return result
+
+    result["success"] = true
+    result["hunter_ids"] = hunter_ids
+    result["message"] = "Hunters sent: " + ", ".join(assigned_names) + "."
+
+    return result
+    
+func find_hunt_position_for_hunter(
+    animal_tile: Vector2i,
+    hunter_current_tile: Vector2i,
+    reserved_hunt_positions: Array
+) -> Vector2i:
+    var candidates: Array = get_hunt_approach_candidates(animal_tile)
+
+    var best_tile := Vector2i(-1, -1)
+    var best_distance: int = 999999
+
+    for candidate_index in range(candidates.size()):
+        var candidate_tile: Vector2i = candidates[candidate_index]
+
+        if not is_tile_in_bounds(candidate_tile):
+            continue
+
+        if not is_tile_walkable_for_villager(candidate_tile):
+            continue
+
+        if is_hunt_position_reserved(candidate_tile, reserved_hunt_positions):
+            continue
+
+        if is_villager_on_tile(candidate_tile) and candidate_tile != hunter_current_tile:
+            continue
+
+        var distance: int = abs(candidate_tile.x - hunter_current_tile.x) + abs(candidate_tile.y - hunter_current_tile.y)
+
+        if distance < best_distance:
+            best_distance = distance
+            best_tile = candidate_tile
+
+    return best_tile
+
+
+func get_hunt_approach_candidates(animal_tile: Vector2i) -> Array:
+    return [
+        Vector2i(animal_tile.x + 1, animal_tile.y),
+        Vector2i(animal_tile.x - 1, animal_tile.y),
+        Vector2i(animal_tile.x, animal_tile.y + 1),
+        Vector2i(animal_tile.x, animal_tile.y - 1),
+        Vector2i(animal_tile.x + 1, animal_tile.y + 1),
+        Vector2i(animal_tile.x - 1, animal_tile.y + 1),
+        Vector2i(animal_tile.x + 1, animal_tile.y - 1),
+        Vector2i(animal_tile.x - 1, animal_tile.y - 1),
+        Vector2i(animal_tile.x + 2, animal_tile.y),
+        Vector2i(animal_tile.x - 2, animal_tile.y),
+        Vector2i(animal_tile.x, animal_tile.y + 2),
+        Vector2i(animal_tile.x, animal_tile.y - 2)
+    ]
+
+
+func is_hunt_position_reserved(
+    tile_position: Vector2i,
+    reserved_hunt_positions: Array
+) -> bool:
+    for reserved_index in range(reserved_hunt_positions.size()):
+        var reserved_tile: Vector2i = reserved_hunt_positions[reserved_index]
+
+        if reserved_tile == tile_position:
+            return true
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+        if hunting_phase == HUNTING_PHASE_NONE:
+            continue
+
+        var hunter_target_tile: Vector2i = villager_data.get("hunting_target_tile", Vector2i(-1, -1))
+
+        if hunter_target_tile == tile_position:
+            return true
+
+    return false
+
+
+func clear_hunting_assignment_by_villager_id(villager_id: int) -> void:
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        return
+
+    var villager_data: Dictionary = villagers[villager_index]
+
+    clear_hunting_fields_for_villager(villager_data)
+
+    if str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role())) == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+        villager_data["state"] = VILLAGER_STATE_PATROLLING
+        villager_data["current_work_task"] = "hunting_placeholder"
+    else:
+        villager_data["state"] = VILLAGER_STATE_IDLE
+        villager_data["current_work_task"] = ""
+
+    villagers[villager_index] = villager_data
+
+
+func process_hunting_villager(
+    villager_data: Dictionary,
+    delta: float
+) -> void:
+    var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+    if hunting_phase == HUNTING_PHASE_NONE:
+        return
+
+    var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
+
+    if not is_tile_in_bounds(current_tile):
+        clear_hunting_fields_for_villager(villager_data)
+        return
+
+    if hunting_phase == HUNTING_PHASE_TRAVEL_TO_ANIMAL:
+        process_hunter_travel_to_animal(villager_data, delta)
+        return
+
+    if hunting_phase == HUNTING_PHASE_HUNTING:
+        villager_data["state"] = VILLAGER_STATE_HUNTING
+        villager_data["current_work_task"] = "hunting"
+        villager_data["target_tile"] = Vector2i(-1, -1)
+        villager_data["harvest_tile"] = Vector2i(-1, -1)
+        villager_data["move_timer"] = 0.0
+        villager_data["harvest_timer"] = 0.0
+        return
+
+    if hunting_phase == HUNTING_PHASE_RETURNING:
+        process_hunter_returning_from_hunt(villager_data, delta)
+        return
+
+
+func process_hunter_travel_to_animal(
+    villager_data: Dictionary,
+    delta: float
+) -> void:
+    var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
+    var target_tile: Vector2i = villager_data.get("hunting_target_tile", Vector2i(-1, -1))
+
+    if not is_tile_in_bounds(target_tile):
+        clear_hunting_fields_for_villager(villager_data)
+        return
+
+    villager_data["state"] = VILLAGER_STATE_MOVING_TO_HUNT
+    villager_data["current_work_task"] = "traveling_to_hunt"
+    villager_data["target_tile"] = target_tile
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+
+    if current_tile == target_tile:
+        villager_data["state"] = VILLAGER_STATE_HUNTING
+        villager_data["current_work_task"] = "hunting"
+        villager_data["hunting_phase"] = HUNTING_PHASE_HUNTING
+        villager_data["move_timer"] = 0.0
+        return
+
+    var move_timer: float = float(villager_data.get("move_timer", 0.0))
+    move_timer -= delta
+    villager_data["move_timer"] = move_timer
+
+    if move_timer > 0.0:
+        return
+
+    var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
+
+    if next_tile == current_tile:
+        next_tile = get_next_open_step_toward_tile(current_tile, target_tile)
+
+    if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
+        if not is_villager_on_tile(next_tile) or next_tile == target_tile:
+            villager_data["tile"] = next_tile
+            villager_data["world_position"] = tile_to_world_center(next_tile)
+            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+            return
+
+    villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+
+
+func process_hunter_returning_from_hunt(
+    villager_data: Dictionary,
+    delta: float
+) -> void:
+    var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
+    var return_tile: Vector2i = villager_data.get("hunting_return_tile", Vector2i(-1, -1))
+
+    if not is_tile_in_bounds(return_tile):
+        clear_hunting_fields_for_villager(villager_data)
+        return
+
+    villager_data["state"] = VILLAGER_STATE_RETURNING_FROM_HUNT
+    villager_data["current_work_task"] = "returning_from_hunt"
+    villager_data["target_tile"] = return_tile
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+
+    if current_tile == return_tile:
+        clear_hunting_fields_for_villager(villager_data)
+        villager_data["state"] = VILLAGER_STATE_PATROLLING
+        villager_data["current_work_task"] = "hunting_placeholder"
+        return
+
+    var move_timer: float = float(villager_data.get("move_timer", 0.0))
+    move_timer -= delta
+    villager_data["move_timer"] = move_timer
+
+    if move_timer > 0.0:
+        return
+
+    var next_tile: Vector2i = get_next_step_toward_tile(current_tile, return_tile)
+
+    if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
+        villager_data["tile"] = next_tile
+        villager_data["world_position"] = tile_to_world_center(next_tile)
+        villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+        return
+
+    villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+
+
+func get_hunt_status_for_animal(
+    animal_instance_id: int,
+    required_hunters: int
+) -> Dictionary:
+    var assigned_count: int = 0
+    var arrived_count: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
+            continue
+
+        var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+        if hunting_phase == HUNTING_PHASE_NONE:
+            continue
+
+        assigned_count += 1
+
+        if hunting_phase == HUNTING_PHASE_HUNTING:
+            arrived_count += 1
+
+    return {
+        "assigned_count": assigned_count,
+        "arrived_count": arrived_count,
+        "required_hunters": required_hunters,
+        "all_arrived": assigned_count >= required_hunters and arrived_count >= required_hunters
+    }
+    
+func get_average_hunting_skill_for_animal(animal_instance_id: int) -> float:
+    if animal_instance_id <= 0:
+        return 0.0
+
+    var total_hunting_skill: int = 0
+    var hunter_count: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
+            continue
+
+        var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+        if hunting_phase == HUNTING_PHASE_NONE:
+            continue
+
+        if is_villager_unavailable_for_work(villager_data):
+            continue
+
+        total_hunting_skill += get_villager_skill_level(
+            villager_data,
+            SKILL_HUNTING
+        )
+
+        hunter_count += 1
+
+    if hunter_count <= 0:
+        return 0.0
+
+    return float(total_hunting_skill) / float(hunter_count)
+
+
+func send_hunt_party_home(animal_instance_id: int) -> void:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
+            continue
+
+        villager_data["hunting_phase"] = HUNTING_PHASE_RETURNING
+        villager_data["state"] = VILLAGER_STATE_RETURNING_FROM_HUNT
+        villager_data["current_work_task"] = "returning_from_hunt"
+        villager_data["target_tile"] = villager_data.get("hunting_return_tile", Vector2i(-1, -1))
+        villager_data["harvest_tile"] = Vector2i(-1, -1)
+        villager_data["move_timer"] = 0.0
+        villager_data["harvest_timer"] = 0.0
+
+        villagers[villager_index] = villager_data
+
+
+func apply_hunting_result_to_party(
+    animal_instance_id: int,
+    injury_occurred: bool,
+    death_occurred: bool
+) -> Array:
+    var result_messages: Array = []
+    var hunter_indexes: Array = []
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
+            continue
+
+        hunter_indexes.append(villager_index)
+
+    if hunter_indexes.is_empty():
+        return result_messages
+
+    if injury_occurred:
+        var injured_index: int = int(hunter_indexes[rng.randi_range(0, hunter_indexes.size() - 1)])
+        var injured_villager: Dictionary = villagers[injured_index]
+        var injured_name: String = str(injured_villager.get("name", "Hunter"))
+
+        injured_villager["health"] = max(1, int(injured_villager.get("health", BASE_HEALTH)) - 1)
+        injured_villager["health_state"] = HEALTH_STATE_WEAKENED
+        villagers[injured_index] = injured_villager
+
+        result_messages.append(injured_name + " was injured during the hunt.")
+
+    if death_occurred:
+        var dead_index: int = int(hunter_indexes[rng.randi_range(0, hunter_indexes.size() - 1)])
+        var dead_villager: Dictionary = villagers[dead_index]
+        var dead_name: String = str(dead_villager.get("name", "Hunter"))
+
+        dead_villager["health"] = 0
+        dead_villager["health_state"] = HEALTH_STATE_DEAD
+        dead_villager["state"] = VILLAGER_STATE_IDLE
+        dead_villager["current_work_task"] = "dead"
+        villagers[dead_index] = dead_villager
+
+        result_messages.append(dead_name + " was killed during the hunt.")
+
+    return result_messages
+
+
+func clear_hunting_fields_for_villager(villager_data: Dictionary) -> void:
+    villager_data["hunting_animal_instance_id"] = 0
+    villager_data["hunting_target_tile"] = Vector2i(-1, -1)
+    villager_data["hunting_return_tile"] = Vector2i(-1, -1)
+    villager_data["hunting_phase"] = HUNTING_PHASE_NONE
+    villager_data["target_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+    villager_data["move_timer"] = 0.0
+    villager_data["harvest_timer"] = 0.0
 
 
 func process_thinking_villager(
@@ -2433,6 +3051,44 @@ func get_next_step_toward_tile(from_tile: Vector2i, to_tile: Vector2i) -> Vector
             return secondary_step
 
     return from_tile
+    
+func get_next_open_step_toward_tile(
+    from_tile: Vector2i,
+    to_tile: Vector2i
+) -> Vector2i:
+    var candidate_steps: Array = [
+        Vector2i(from_tile.x + 1, from_tile.y),
+        Vector2i(from_tile.x - 1, from_tile.y),
+        Vector2i(from_tile.x, from_tile.y + 1),
+        Vector2i(from_tile.x, from_tile.y - 1),
+        Vector2i(from_tile.x + 1, from_tile.y + 1),
+        Vector2i(from_tile.x - 1, from_tile.y + 1),
+        Vector2i(from_tile.x + 1, from_tile.y - 1),
+        Vector2i(from_tile.x - 1, from_tile.y - 1)
+    ]
+
+    var best_tile := from_tile
+    var best_distance: int = abs(to_tile.x - from_tile.x) + abs(to_tile.y - from_tile.y)
+
+    for candidate_index in range(candidate_steps.size()):
+        var candidate_tile: Vector2i = candidate_steps[candidate_index]
+
+        if not is_tile_in_bounds(candidate_tile):
+            continue
+
+        if not is_tile_walkable_for_villager(candidate_tile):
+            continue
+
+        if is_villager_on_tile(candidate_tile) and candidate_tile != to_tile:
+            continue
+
+        var candidate_distance: int = abs(to_tile.x - candidate_tile.x) + abs(to_tile.y - candidate_tile.y)
+
+        if candidate_distance < best_distance:
+            best_distance = candidate_distance
+            best_tile = candidate_tile
+
+    return best_tile
 
 
 func harvest_resource_at_tile(
@@ -2596,6 +3252,8 @@ func print_villager_summary(villager_data: Dictionary) -> void:
         attack_text,
         ", Defense ",
         defense_text,
+        ", Hunting ",
+        int(skills.get(SKILL_HUNTING, 0)),
         ", Ranged ",
         int(skills.get(SKILL_RANGED_WEAPONS, 0)),
         ", Melee ",

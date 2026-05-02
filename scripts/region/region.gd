@@ -507,6 +507,7 @@ func _process(delta: float) -> void:
         return
 
     update_villager_manager(delta)
+    update_hunting_jobs()
     update_research(delta)
     update_wild_animal_manager(delta)
 
@@ -754,7 +755,82 @@ func update_villager_manager(delta: float) -> void:
 
     if villager_manager.has_tile_changes():
         queue_redraw()
+        
+func update_hunting_jobs() -> void:
+    var reserved_hunts: Array = wild_animal_manager.get_reserved_hunts_ready_to_check()
 
+    if reserved_hunts.is_empty():
+        return
+
+    var delta: float = get_process_delta_time()
+
+    for hunt_index in range(reserved_hunts.size()):
+        var animal_data: Dictionary = reserved_hunts[hunt_index]
+        var animal_instance_id: int = int(animal_data.get(RegionWildAnimalManager.KEY_INSTANCE_ID, 0))
+        var required_hunters: int = int(animal_data.get(RegionWildAnimalManager.KEY_REQUIRED_HUNTERS, 1))
+
+        if animal_instance_id <= 0:
+            continue
+
+        var hunt_status: Dictionary = villager_manager.get_hunt_status_for_animal(
+            animal_instance_id,
+            required_hunters
+        )
+
+        if not bool(hunt_status.get("all_arrived", false)):
+            continue
+
+        var average_hunting_skill: float = villager_manager.get_average_hunting_skill_for_animal(
+            animal_instance_id
+        )
+
+        var countdown_start: Dictionary = wild_animal_manager.start_hunt_countdown_if_needed(
+            animal_instance_id,
+            average_hunting_skill
+        )
+
+        var countdown_start_message: String = str(countdown_start.get("message", ""))
+
+        if countdown_start_message != "":
+            add_village_log_message(countdown_start_message)
+
+        var countdown_result: Dictionary = wild_animal_manager.update_hunt_countdown(
+            animal_instance_id,
+            delta
+        )
+
+        if not bool(countdown_result.get("complete", false)):
+            queue_redraw()
+            continue
+
+        var hunt_result: Dictionary = wild_animal_manager.resolve_hunt_for_animal_instance(
+            animal_instance_id
+        )
+
+        var hunt_message: String = str(hunt_result.get("message", ""))
+
+        if hunt_message != "":
+            add_village_log_message(hunt_message)
+
+        if bool(hunt_result.get("success", false)):
+            var hunt_yields: Dictionary = get_dictionary_from_variant(
+                hunt_result.get("yields", {})
+            )
+
+            if not hunt_yields.is_empty():
+                inventory.add_resources(hunt_yields)
+                print_settlement_inventory()
+
+            var party_messages: Array = villager_manager.apply_hunting_result_to_party(
+                animal_instance_id,
+                bool(hunt_result.get("injury_occurred", false)),
+                bool(hunt_result.get("death_occurred", false))
+            )
+
+            add_village_log_messages(party_messages)
+
+        villager_manager.send_hunt_party_home(animal_instance_id)
+        queue_redraw()
 
 func update_research(delta: float) -> void:
     research.update(
@@ -1533,9 +1609,67 @@ func buy_research_plan(research_id: String) -> void:
 
     print_research_status()
     queue_redraw()
+    
+func try_start_hunt_at_hovered_animal() -> bool:
+    if not simulation_paused:
+        return false
+
+    if not is_tile_in_bounds(hovered_tile):
+        return false
+
+    var animal_data: Dictionary = wild_animal_manager.get_animal_at_tile(hovered_tile)
+
+    if animal_data.is_empty():
+        return false
+
+    var animal_name: String = str(animal_data.get(RegionWildAnimalManager.KEY_NAME, "Wild Animal"))
+    var required_hunters: int = int(animal_data.get(RegionWildAnimalManager.KEY_REQUIRED_HUNTERS, 1))
+    var animal_instance_id: int = int(animal_data.get(RegionWildAnimalManager.KEY_INSTANCE_ID, 0))
+    var animal_tile: Vector2i = animal_data.get(RegionWildAnimalManager.KEY_TILE, Vector2i(-1, -1))
+
+    if animal_instance_id <= 0:
+        add_village_log_message("Could not start hunt. Invalid animal target.")
+        return true
+
+    var reserve_result: Dictionary = wild_animal_manager.reserve_animal_for_hunt_at_tile(hovered_tile)
+
+    if not bool(reserve_result.get("success", false)):
+        add_village_log_message(str(reserve_result.get("message", "Could not reserve animal for hunting.")))
+        queue_redraw()
+        return true
+
+    var assign_result: Dictionary = villager_manager.assign_hunters_to_animal_hunt(
+        animal_instance_id,
+        animal_tile,
+        required_hunters
+    )
+
+    if not bool(assign_result.get("success", false)):
+        wild_animal_manager.clear_hunt_reservation(animal_instance_id)
+        add_village_log_message(str(assign_result.get("message", "Could not assign Hunters.")))
+        queue_redraw()
+        return true
+
+    wild_animal_manager.mark_hunting_party_assigned(animal_instance_id)
+
+    add_village_log_message(
+        "Hunt started for "
+        + animal_name
+        + ". Required Hunters: "
+        + str(required_hunters)
+        + "."
+    )
+
+    add_village_log_message(str(assign_result.get("message", "")))
+
+    queue_redraw()
+    return true
 
 
 func try_start_villager_drag_or_select() -> void:
+    if try_start_hunt_at_hovered_animal():
+        return
+        
     if storage_selector_open:
         if try_select_storage_resource_from_mouse():
             return
