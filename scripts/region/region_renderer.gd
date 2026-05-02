@@ -43,6 +43,7 @@ func draw_all(
     show_campfire_radius: bool,
     building_manager: RegionBuildingManager,
     villager_manager: VillagerManager,
+    wild_animals: Array,
     hovered_tile: Vector2i,
     selected_tile: Vector2i,
     is_dragging_villager: bool,
@@ -85,6 +86,12 @@ func draw_all(
     draw_buildings(
         canvas,
         building_manager,
+        region_tile_size
+    )
+
+    draw_wild_animals(
+        canvas,
+        wild_animals,
         region_tile_size
     )
 
@@ -566,6 +573,105 @@ func draw_generic_building(
     canvas.draw_rect(building_rect, Color(0.85, 0.70, 0.45, 1.0), false, 2.0)
 
 
+func draw_wild_animals(
+    canvas: CanvasItem,
+    wild_animals: Array,
+    region_tile_size: int
+) -> void:
+    for animal_index in range(wild_animals.size()):
+        var animal_variant: Variant = wild_animals[animal_index]
+
+        if typeof(animal_variant) != TYPE_DICTIONARY:
+            continue
+
+        var animal_data: Dictionary = animal_variant
+
+        if not bool(animal_data.get(RegionWildAnimalManager.KEY_ACTIVE, true)):
+            continue
+
+        draw_wild_animal(
+            canvas,
+            animal_data,
+            region_tile_size
+        )
+
+
+func draw_wild_animal(
+    canvas: CanvasItem,
+    animal_data: Dictionary,
+    region_tile_size: int
+) -> void:
+    var tile: Vector2i = animal_data.get(
+        RegionWildAnimalManager.KEY_TILE,
+        Vector2i(-1, -1)
+    )
+
+    if tile.x < 0 or tile.y < 0:
+        return
+
+    var center := Vector2(
+        tile.x * region_tile_size + region_tile_size / 2.0,
+        tile.y * region_tile_size + region_tile_size / 2.0
+    )
+
+    var dangerous: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_DANGEROUS, false))
+    var radius: float = StoneAgeTuning.WILD_ANIMAL_NORMAL_ICON_RADIUS
+    var fill_color := Color(1.0, 0.88, 0.16, 1.0)
+    var outline_color := Color(0.18, 0.12, 0.02, 1.0)
+
+    if dangerous:
+        radius = StoneAgeTuning.WILD_ANIMAL_DANGEROUS_ICON_RADIUS
+        fill_color = Color(1.0, 0.12, 0.08, 1.0)
+        outline_color = Color(0.18, 0.02, 0.02, 1.0)
+
+    draw_star_marker(
+        canvas,
+        center,
+        radius,
+        fill_color,
+        outline_color
+    )
+
+
+func draw_star_marker(
+    canvas: CanvasItem,
+    center: Vector2,
+    radius: float,
+    fill_color: Color,
+    outline_color: Color
+) -> void:
+    var point_count: int = max(5, StoneAgeTuning.WILD_ANIMAL_ICON_POINTS)
+    var inner_radius: float = radius * 0.45
+    var points: PackedVector2Array = PackedVector2Array()
+
+    for point_index in range(point_count * 2):
+        var use_outer_radius: bool = point_index % 2 == 0
+        var current_radius: float = inner_radius
+
+        if use_outer_radius:
+            current_radius = radius
+
+        var angle: float = -PI / 2.0 + float(point_index) * PI / float(point_count)
+        var point := center + Vector2(
+            cos(angle) * current_radius,
+            sin(angle) * current_radius
+        )
+
+        points.append(point)
+
+    canvas.draw_colored_polygon(points, fill_color)
+
+    for point_index in range(points.size()):
+        var next_index: int = (point_index + 1) % points.size()
+
+        canvas.draw_line(
+            points[point_index],
+            points[next_index],
+            outline_color,
+            1.25
+        )
+
+
 func draw_villagers(
     canvas: CanvasItem,
     villager_manager: VillagerManager
@@ -980,6 +1086,14 @@ func get_short_resource_label(resource_name: String) -> String:
             return "Cl"
         "Fish":
             return "Fi"
+        "Meat":
+            return "Mt"
+        "Hide":
+            return "Hd"
+        "Bone":
+            return "Bn"
+        "Feather":
+            return "Ft"
         _:
             return resource_name.substr(0, min(2, resource_name.length()))
 

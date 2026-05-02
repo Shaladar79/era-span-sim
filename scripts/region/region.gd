@@ -41,6 +41,7 @@ const SAVE_KEY_ITEM_INVENTORY: String = "item_inventory"
 const SAVE_KEY_RESEARCH: String = "research"
 const SAVE_KEY_BUILDING_MANAGER: String = "building_manager"
 const SAVE_KEY_VILLAGER_MANAGER: String = "villager_manager"
+const SAVE_KEY_WILD_ANIMAL_MANAGER: String = "wild_animal_manager"
 
 const SAVE_KEY_VILLAGE_LOG_MESSAGES: String = "village_log_messages"
 
@@ -71,6 +72,7 @@ var crafting := RegionCrafting.new()
 
 var building_manager := RegionBuildingManager.new()
 var villager_manager := VillagerManager.new()
+var wild_animal_manager := RegionWildAnimalManager.new()
 var renderer := RegionRenderer.new()
 var input_controller := RegionInputController.new()
 
@@ -157,6 +159,7 @@ func get_save_data() -> Dictionary:
         SAVE_KEY_RESEARCH: research.get_save_data(),
         SAVE_KEY_BUILDING_MANAGER: building_manager.get_save_data(),
         SAVE_KEY_VILLAGER_MANAGER: villager_manager.get_save_data(),
+        SAVE_KEY_WILD_ANIMAL_MANAGER: wild_animal_manager.get_save_data(),
         SAVE_KEY_VILLAGE_LOG_MESSAGES: village_log_messages.duplicate(true)
     }
 
@@ -216,6 +219,7 @@ func load_save_data(save_data: Dictionary) -> void:
 
     setup_building_manager()
     setup_villager_manager_for_loaded_save()
+    setup_wild_animal_manager()
 
     var restored_hovered_tile: Variant = restore_save_safe_value(
         save_data.get(SAVE_KEY_HOVERED_TILE, Vector2i(-1, -1))
@@ -282,6 +286,11 @@ func load_save_data(save_data: Dictionary) -> void:
     )
     villager_manager.load_save_data(villager_manager_save_data)
 
+    var wild_animal_manager_save_data: Dictionary = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_WILD_ANIMAL_MANAGER, {})
+    )
+    wild_animal_manager.load_save_data(wild_animal_manager_save_data)
+
     restore_runtime_unlocks_from_loaded_research()
 
     village_log_messages.clear()
@@ -314,6 +323,71 @@ func setup_villager_manager_for_loaded_save() -> void:
         REGION_TERRAIN_WATER,
         FEATURE_NONE
     )
+
+
+func setup_wild_animal_manager() -> void:
+    wild_animal_manager.setup(
+        region_tiles,
+        REGION_WIDTH,
+        REGION_HEIGHT
+    )
+
+
+func spawn_stone_age_wild_animals() -> void:
+    setup_wild_animal_manager()
+    wild_animal_manager.spawn_stone_age_animals(
+        region_seed,
+        get_campfire_center_tiles()
+    )
+
+    var animal_count: int = wild_animal_manager.get_active_animals().size()
+    add_village_log_message("Wild animals spotted in the region: " + str(animal_count) + ".")
+    print("Wild animals spawned: ", animal_count)
+
+
+func relocate_wild_animals_away_from_campfires() -> void:
+    setup_wild_animal_manager()
+
+    var moved_count: int = wild_animal_manager.relocate_animals_away_from_campfires(
+        get_campfire_center_tiles()
+    )
+
+    if moved_count <= 0:
+        return
+
+    add_village_log_message("Wild animals moved away from campfires: " + str(moved_count) + ".")
+    print("Wild animals moved away from campfires: ", moved_count)
+
+
+func get_campfire_center_tiles() -> Array:
+    var campfire_tiles: Array = []
+    var manager_buildings: Array = building_manager.get_buildings()
+
+    for building_index in range(manager_buildings.size()):
+        var building_variant: Variant = manager_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", ""))
+
+        if building_id != BUILDING_CAMPFIRE:
+            continue
+
+        var tile_x: int = int(building_data.get("x", 0))
+        var tile_y: int = int(building_data.get("y", 0))
+        var width: int = int(building_data.get("width", 1))
+        var height: int = int(building_data.get("height", 1))
+
+        var center_tile := Vector2i(
+            tile_x + int(floor(float(width) / 2.0)),
+            tile_y + int(floor(float(height) / 2.0))
+        )
+
+        campfire_tiles.append(center_tile)
+
+    return campfire_tiles
 
 
 func restore_runtime_unlocks_from_loaded_research() -> void:
@@ -377,8 +451,7 @@ func get_save_safe_value(value: Variant) -> Variant:
 
         _:
             return value
-
-
+            
 func restore_save_safe_value(value: Variant) -> Variant:
     if typeof(value) == TYPE_DICTIONARY:
         var source_dict: Dictionary = value
@@ -435,8 +508,21 @@ func _process(delta: float) -> void:
 
     update_villager_manager(delta)
     update_research(delta)
+    update_wild_animal_manager(delta)
 
     queue_redraw()
+
+
+func update_wild_animal_manager(delta: float) -> void:
+    setup_wild_animal_manager()
+
+    var did_animals_move: bool = wild_animal_manager.update_wild_animals(
+        delta,
+        get_campfire_center_tiles()
+    )
+
+    if did_animals_move:
+        queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -454,10 +540,12 @@ func generate_region() -> void:
     reset_build_panel_filters()
     setup_building_manager()
     clear_buildings()
+    setup_wild_animal_manager()
     reset_test_inventory()
     reset_research()
     setup_villager_manager()
     close_storage_selector()
+    spawn_stone_age_wild_animals()
 
     simulation_paused = true
     show_resource_inventory_panel = false
@@ -502,6 +590,7 @@ func generate_from_world_selection(
     reset_build_panel_filters()
     setup_building_manager()
     clear_buildings()
+    setup_wild_animal_manager()
 
     hovered_tile = Vector2i(-1, -1)
     selected_tile = Vector2i(-1, -1)
@@ -523,6 +612,7 @@ func generate_from_world_selection(
     reset_test_inventory()
     reset_research()
     setup_villager_manager()
+    spawn_stone_age_wild_animals()
 
     add_village_log_message("Settlement founded: " + region_name + ".")
     add_village_log_message(
@@ -576,6 +666,7 @@ func regenerate_region() -> void:
     reset_build_panel_filters()
     setup_building_manager()
     clear_buildings()
+    setup_wild_animal_manager()
 
     if not is_tile_in_bounds(selected_tile):
         selected_tile = Vector2i(-1, -1)
@@ -598,6 +689,7 @@ func regenerate_region() -> void:
     reset_test_inventory()
     reset_research()
     setup_villager_manager()
+    spawn_stone_age_wild_animals()
 
     add_village_log_message("Settlement regenerated: " + region_name + ".")
 
@@ -734,6 +826,7 @@ func try_place_current_building(origin_tile: Vector2i) -> void:
 
     if did_place_building:
         apply_stone_age_building_progression_unlocks()
+        relocate_wild_animals_away_from_campfires()
         print_settlement_inventory()
         print_research_status()
 
@@ -914,8 +1007,7 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             return true
 
     return false
-
-
+    
 func try_select_build_age_from_mouse(mouse_screen_position: Vector2) -> bool:
     if not show_build_panel:
         return false
@@ -1851,6 +1943,7 @@ func _draw() -> void:
         show_campfire_radius,
         building_manager,
         villager_manager,
+        wild_animal_manager.get_active_animals(),
         hovered_tile,
         selected_tile,
         is_dragging_villager,
