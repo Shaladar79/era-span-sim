@@ -9,6 +9,8 @@ const GAME_MODE_PAUSED: String = "paused"
 
 const DEFAULT_WORLD_NAME: String = "New World"
 
+const AUTOSAVE_INTERVAL_SECONDS: float = 600.0
+
 @onready var world: Node2D = $World
 @onready var region: Node2D = $Region
 @onready var main_camera: Camera2D = $MainCamera
@@ -23,6 +25,9 @@ var pending_selection_origin: Vector2i = Vector2i(-1, -1)
 var pending_source_resource_totals: Dictionary = {}
 var current_region_name: String = ""
 
+var autosave_timer: float = 0.0
+var autosave_index: int = 0
+
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
@@ -36,6 +41,8 @@ func _ready() -> void:
     connect_ui_signals()
     enter_main_menu_mode()
 
+func _process(delta: float) -> void:
+    update_autosave(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -248,7 +255,8 @@ func enter_region_mode(
     get_tree().paused = false
     game_mode = GAME_MODE_REGION
     previous_game_mode = GAME_MODE_REGION
-
+    autosave_timer = 0.0
+    autosave_index = 0
     current_region_name = region_name.strip_edges()
 
     if current_region_name == "":
@@ -436,6 +444,40 @@ func vector2i_to_save_dict(value: Vector2i) -> Dictionary:
         "y": value.y
     }
 
+func update_autosave(delta: float) -> void:
+    if game_mode != GAME_MODE_REGION:
+        return
+
+    if get_tree().paused:
+        return
+
+    autosave_timer += delta
+
+    if autosave_timer < AUTOSAVE_INTERVAL_SECONDS:
+        return
+
+    autosave_timer = 0.0
+    autosave_current_game()
+
+
+func autosave_current_game() -> void:
+    if game_mode != GAME_MODE_REGION:
+        return
+
+    autosave_index += 1
+
+    var save_data: Dictionary = build_current_save_data()
+    var result: Dictionary = SaveManager.write_autosave(
+        get_current_region_name(),
+        autosave_index,
+        save_data
+    )
+
+    var message: String = str(result.get("message", "Autosave complete."))
+    print(message)
+
+    if region != null and region.has_method("add_village_log_message"):
+        region.call("add_village_log_message", "Autosave complete.")
 
 func save_current_game() -> void:
     if game_mode != GAME_MODE_REGION and game_mode != GAME_MODE_PAUSED:
@@ -482,7 +524,7 @@ func apply_loaded_save_data(save_data: Dictionary) -> void:
     get_tree().paused = false
     game_mode = GAME_MODE_REGION
     previous_game_mode = GAME_MODE_REGION
-
+    autosave_timer = 0.0
     world.visible = false
     region.visible = true
 
