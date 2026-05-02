@@ -33,6 +33,10 @@ var pause_menu_panel: Panel = null
 var load_game_panel: Panel = null
 var load_game_opened_from_pause: bool = false
 
+var confirm_load_panel: Panel = null
+var pending_load_save_file_name: String = ""
+var pending_load_save_label: String = ""
+
 var generated_build_buttons: Array = []
 var generated_age_buttons: Array = []
 var generated_main_menu_buttons: Array = []
@@ -40,6 +44,7 @@ var generated_world_preview_buttons: Array = []
 var generated_region_start_buttons: Array = []
 var generated_pause_menu_buttons: Array = []
 var generated_load_save_buttons: Array = []
+var generated_confirm_load_buttons: Array = []
 
 var selected_build_age: String = ""
 var build_ui_enabled: bool = false
@@ -54,6 +59,7 @@ func _ready() -> void:
     setup_world_preview_panel()
     setup_region_start_panel()
     setup_pause_menu()
+    setup_confirm_load_panel()
 
     if build_button == null:
         push_warning("BuildButton was not found under UI.")
@@ -83,6 +89,7 @@ func _notification(what: int) -> void:
         setup_pause_menu_layout()
         setup_build_ui_layout()
         setup_load_game_panel_layout()
+        setup_confirm_load_panel_layout()
 
 func set_build_ui_enabled(is_enabled: bool) -> void:
     build_ui_enabled = is_enabled
@@ -106,6 +113,7 @@ func hide_build_menu() -> void:
 func show_main_menu() -> void:
     if main_menu_panel == null:
         setup_main_menu()
+        
 
     if main_menu_panel != null:
         main_menu_panel.visible = true
@@ -115,6 +123,7 @@ func show_main_menu() -> void:
     hide_pause_menu()
     set_build_ui_enabled(false)
     hide_load_game_panel()
+    hide_confirm_load_panel()
 
 func hide_main_menu() -> void:
     if main_menu_panel != null:
@@ -133,6 +142,7 @@ func show_world_preview_panel() -> void:
     hide_pause_menu()
     set_build_ui_enabled(false)
     hide_load_game_panel()
+    hide_confirm_load_panel()
 
 
 func hide_world_preview_panel() -> void:
@@ -157,6 +167,7 @@ func show_region_start_panel(default_region_name: String = "New Settlement") -> 
     hide_pause_menu()
     set_build_ui_enabled(false)
     hide_load_game_panel()
+    hide_confirm_load_panel()
 
 
 func hide_region_start_panel() -> void:
@@ -173,6 +184,7 @@ func show_pause_menu() -> void:
 
     hide_build_menu()
     hide_load_game_panel()
+    hide_confirm_load_panel()
     
 func show_load_game_panel(
     save_infos: Array,
@@ -202,9 +214,42 @@ func show_load_game_panel(
 func hide_load_game_panel() -> void:
     if load_game_panel != null:
         load_game_panel.visible = false
-
+        
+    hide_confirm_load_panel()
     clear_generated_load_save_buttons()
 
+func show_confirm_load_panel(
+    save_file_name: String,
+    save_label: String
+) -> void:
+    if confirm_load_panel == null:
+        setup_confirm_load_panel()
+
+    pending_load_save_file_name = save_file_name
+    pending_load_save_label = save_label
+
+    if confirm_load_panel != null:
+        confirm_load_panel.visible = true
+
+    update_confirm_load_panel_text()
+
+
+func hide_confirm_load_panel() -> void:
+    if confirm_load_panel != null:
+        confirm_load_panel.visible = false
+
+    pending_load_save_file_name = ""
+    pending_load_save_label = ""
+
+
+func update_confirm_load_panel_text() -> void:
+    if confirm_load_panel == null:
+        return
+
+    var save_name_label: Label = confirm_load_panel.get_node_or_null("SaveNameLabel")
+
+    if save_name_label != null:
+        save_name_label.text = pending_load_save_label
 
 func populate_load_game_panel(save_infos: Array) -> void:
     if load_game_panel == null:
@@ -440,6 +485,67 @@ func setup_load_game_panel() -> void:
     generated_load_save_buttons.append(back_button)
 
     setup_load_game_panel_layout()
+    
+func setup_confirm_load_panel() -> void:
+    if confirm_load_panel != null:
+        return
+
+    confirm_load_panel = Panel.new()
+    confirm_load_panel.name = "GeneratedConfirmLoadPanel"
+    confirm_load_panel.visible = false
+    confirm_load_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(confirm_load_panel)
+
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.04, 0.04, 0.04, 0.97)
+    panel_style.border_color = Color(0.95, 0.72, 0.32, 1.0)
+    panel_style.set_border_width_all(2)
+    panel_style.set_corner_radius_all(6)
+    panel_style.content_margin_left = 12
+    panel_style.content_margin_right = 12
+    panel_style.content_margin_top = 12
+    panel_style.content_margin_bottom = 12
+    confirm_load_panel.add_theme_stylebox_override("panel", panel_style)
+
+    var title_label := Label.new()
+    title_label.name = "TitleLabel"
+    title_label.text = "Load This Save?"
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title_label.add_theme_font_size_override("font_size", 20)
+    title_label.position = Vector2(0, 16)
+    title_label.size = Vector2(360, 30)
+    confirm_load_panel.add_child(title_label)
+
+    var save_name_label := Label.new()
+    save_name_label.name = "SaveNameLabel"
+    save_name_label.text = ""
+    save_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    save_name_label.add_theme_font_size_override("font_size", 12)
+    save_name_label.position = Vector2(20, 54)
+    save_name_label.size = Vector2(320, 24)
+    confirm_load_panel.add_child(save_name_label)
+
+    var warning_label := Label.new()
+    warning_label.name = "WarningLabel"
+    warning_label.text = "Any unsaved progress in the current region will be lost."
+    warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    warning_label.add_theme_font_size_override("font_size", 12)
+    warning_label.position = Vector2(30, 86)
+    warning_label.size = Vector2(300, 44)
+    confirm_load_panel.add_child(warning_label)
+
+    var confirm_button := create_menu_button("Load This Save", Vector2(100, 142))
+    confirm_button.pressed.connect(_on_confirm_load_pressed)
+    confirm_load_panel.add_child(confirm_button)
+    generated_confirm_load_buttons.append(confirm_button)
+
+    var cancel_button := create_menu_button("Cancel", Vector2(100, 180))
+    cancel_button.pressed.connect(_on_confirm_load_cancel_pressed)
+    confirm_load_panel.add_child(cancel_button)
+    generated_confirm_load_buttons.append(cancel_button)
+
+    setup_confirm_load_panel_layout()
 
 
 func setup_region_start_panel() -> void:
@@ -682,6 +788,27 @@ func setup_load_game_panel_layout() -> void:
         viewport_size.x * 0.5 - load_game_panel.size.x * 0.5,
         viewport_size.y * 0.5 - load_game_panel.size.y * 0.5
     )
+    
+func setup_confirm_load_panel_layout() -> void:
+    if confirm_load_panel == null:
+        return
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    confirm_load_panel.size = Vector2(360, 230)
+    confirm_load_panel.position = Vector2(
+        viewport_size.x * 0.5 - confirm_load_panel.size.x * 0.5,
+        viewport_size.y * 0.5 - confirm_load_panel.size.y * 0.5
+    )
+    
+func clear_generated_confirm_load_buttons() -> void:
+    for button_index in range(generated_confirm_load_buttons.size()):
+        var button_variant: Variant = generated_confirm_load_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_confirm_load_buttons.clear()
 
 
 func force_build_button_visible() -> void:
@@ -1150,7 +1277,12 @@ func _on_pause_return_to_main_pressed() -> void:
     pause_return_to_main_requested.emit()
 
 func _on_load_save_file_pressed(save_file_name: String) -> void:
-    load_save_file_requested.emit(save_file_name)
+    var save_label: String = save_file_name
+
+    if save_label.ends_with(".json"):
+        save_label = save_label.substr(0, save_label.length() - 5)
+
+    show_confirm_load_panel(save_file_name, save_label)
 
 
 func _on_load_save_back_pressed() -> void:
@@ -1162,3 +1294,16 @@ func _on_load_save_back_pressed() -> void:
         show_main_menu()
 
     load_save_back_requested.emit()
+    
+func _on_confirm_load_pressed() -> void:
+    if pending_load_save_file_name.strip_edges() == "":
+        hide_confirm_load_panel()
+        return
+
+    var save_file_name: String = pending_load_save_file_name
+    hide_confirm_load_panel()
+    load_save_file_requested.emit(save_file_name)
+
+
+func _on_confirm_load_cancel_pressed() -> void:
+    hide_confirm_load_panel()
