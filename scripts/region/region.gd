@@ -24,6 +24,8 @@ const VILLAGE_LOG_MAX_MESSAGES: int = 50
 
 @export var region_seed: int = 12345
 
+var region_name: String = "New Settlement"
+
 var region_tiles: Array = []
 var source_world_tiles: Array = []
 var source_world_seed: int = 0
@@ -96,6 +98,20 @@ func deactivate() -> void:
     set_process_unhandled_input(false)
 
 
+func set_region_name(new_region_name: String) -> void:
+    region_name = new_region_name.strip_edges()
+
+    if region_name == "":
+        region_name = "New Settlement"
+
+    print("Region Name: ", region_name)
+    queue_redraw()
+
+
+func get_region_name() -> String:
+    return region_name
+
+
 func get_map_center() -> Vector2:
     return Vector2(
         float(REGION_WIDTH * REGION_TILE_SIZE) / 2.0,
@@ -146,8 +162,10 @@ func generate_region() -> void:
     show_village_log_panel = false
     show_debug_panel = false
     village_log_messages.clear()
+    add_village_log_message("Settlement founded: " + region_name + ".")
 
     print("Region Seed: ", region_seed)
+    print("Region Name: ", region_name)
 
 
 func generate_from_world_selection(
@@ -199,7 +217,17 @@ func generate_from_world_selection(
     reset_research()
     setup_villager_manager()
 
+    add_village_log_message("Settlement founded: " + region_name + ".")
+    add_village_log_message(
+        "Region selected from world origin "
+        + str(source_selection_origin.x)
+        + ", "
+        + str(source_selection_origin.y)
+        + "."
+    )
+
     print("Region Seed: ", region_seed)
+    print("Region Name: ", region_name)
     print("Source World Region Origin: ", source_selection_origin)
     print_source_world_selection_resource_totals()
     print_region_resource_totals()
@@ -263,6 +291,8 @@ func regenerate_region() -> void:
     reset_test_inventory()
     reset_research()
     setup_villager_manager()
+
+    add_village_log_message("Settlement regenerated: " + region_name + ".")
 
     print_region_resource_totals()
     print_settlement_inventory()
@@ -926,6 +956,8 @@ func get_selected_assignment_building() -> Dictionary:
     return building_manager.get_building_by_instance_id(
         selected_assignment_building_instance_id
     )
+
+
 func get_assigned_villager_data_for_building(selected_building: Dictionary) -> Array:
     var assigned_villager_data: Array = []
 
@@ -980,6 +1012,7 @@ func is_villager_compatible_with_assignment_role(
         return true
 
     return current_role == assignment_role
+
 
 func get_assignment_hovered_villager(mouse_screen_position: Vector2) -> Dictionary:
     if not show_assignment_panel:

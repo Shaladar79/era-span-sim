@@ -50,6 +50,14 @@ static func draw_top_info_panel(
         panel_screen_rect
     )
 
+    var panel_border_width: float = max(1.0, 1.5 * world_per_screen_y)
+    var button_border_width: float = max(1.0, 1.25 * world_per_screen_y)
+
+    var title_font_size: int = int(max(10.0, 13.0 * world_per_screen_y))
+    var font_size: int = int(max(10.0, 14.0 * world_per_screen_y))
+    var small_font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
+    var button_font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
+
     node.draw_rect(
         panel_rect,
         Color(0.05, 0.05, 0.05, 0.82),
@@ -60,21 +68,39 @@ static func draw_top_info_panel(
         panel_rect,
         Color(0.85, 0.75, 0.45, 0.95),
         false,
-        get_panel_border_width(world_per_screen_y)
+        panel_border_width
     )
+
+    var settlement_name: String = "New Settlement"
+
+    if node.has_method("get_region_name"):
+        settlement_name = str(node.call("get_region_name")).strip_edges()
+
+    if settlement_name == "":
+        settlement_name = "New Settlement"
 
     var research_text := "Research: " + str(research_points)
     var villager_text := "Villagers: " + str(villager_count)
     var shelter_text := "Shelter: " + str(available_shelter) + " open"
 
-    var font_size: int = int(max(10.0, 14.0 * world_per_screen_y))
-    var small_font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 18)
+        ),
+        settlement_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        title_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
 
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(
             node,
-            panel_screen_rect.position + Vector2(10, 22)
+            panel_screen_rect.position + Vector2(10, 40)
         ),
         research_text,
         HORIZONTAL_ALIGNMENT_LEFT,
@@ -87,7 +113,7 @@ static func draw_top_info_panel(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(
             node,
-            panel_screen_rect.position + Vector2(126, 22)
+            panel_screen_rect.position + Vector2(126, 40)
         ),
         villager_text,
         HORIZONTAL_ALIGNMENT_LEFT,
@@ -100,7 +126,7 @@ static func draw_top_info_panel(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(
             node,
-            panel_screen_rect.position + Vector2(126, 44)
+            panel_screen_rect.position + Vector2(126, 62)
         ),
         shelter_text,
         HORIZONTAL_ALIGNMENT_LEFT,
@@ -109,20 +135,77 @@ static func draw_top_info_panel(
         Color(0.90, 0.95, 1.0, 1.0)
     )
 
-    draw_resources_button(
-        node,
-        show_resource_inventory_panel
+    var resources_button_screen_rect: Rect2 = RegionUI.get_resources_button_screen_rect(
+        node.get_viewport().get_visible_rect().size
     )
 
-    draw_inventory_button(
-        node,
-        show_village_inventory_panel
+    var inventory_button_screen_rect: Rect2 = RegionUI.get_inventory_button_screen_rect(
+        node.get_viewport().get_visible_rect().size
     )
 
-    draw_research_button(
-        node,
-        show_research_panel
+    var research_button_screen_rect: Rect2 = RegionUI.get_research_button_screen_rect(
+        node.get_viewport().get_visible_rect().size
     )
+
+    var button_data: Array = [
+        {
+            "rect": resources_button_screen_rect,
+            "label": "Resources",
+            "active": show_resource_inventory_panel
+        },
+        {
+            "rect": inventory_button_screen_rect,
+            "label": "Inventory",
+            "active": show_village_inventory_panel
+        },
+        {
+            "rect": research_button_screen_rect,
+            "label": "Research",
+            "active": show_research_panel
+        }
+    ]
+
+    for button_index in range(button_data.size()):
+        var button_entry: Dictionary = button_data[button_index]
+        var button_screen_rect: Rect2 = button_entry.get("rect", Rect2())
+        var button_label: String = str(button_entry.get("label", "Button"))
+        var is_active: bool = bool(button_entry.get("active", false))
+
+        var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+            node,
+            button_screen_rect
+        )
+
+        var button_fill_color := Color(0.16, 0.13, 0.08, 0.95)
+
+        if is_active:
+            button_fill_color = Color(0.32, 0.24, 0.10, 0.98)
+
+        node.draw_rect(
+            button_world_rect,
+            button_fill_color,
+            true
+        )
+
+        node.draw_rect(
+            button_world_rect,
+            Color(0.95, 0.82, 0.45, 1.0),
+            false,
+            button_border_width
+        )
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                button_screen_rect.position + Vector2(8, 16)
+            ),
+            button_label,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            button_font_size,
+            Color(1.0, 1.0, 1.0, 1.0)
+        )
 
 
 static func draw_resources_button(
