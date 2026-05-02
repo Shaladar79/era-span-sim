@@ -4,6 +4,9 @@ signal main_menu_new_game_requested
 signal main_menu_load_game_requested
 signal main_menu_options_requested
 
+signal load_save_file_requested(save_file_name: String)
+signal load_save_back_requested
+
 signal world_preview_reroll_requested
 signal world_preview_confirm_requested
 signal world_preview_back_requested
@@ -27,12 +30,16 @@ var region_start_panel: Panel = null
 var region_name_input: LineEdit = null
 var pause_menu_panel: Panel = null
 
+var load_game_panel: Panel = null
+var load_game_opened_from_pause: bool = false
+
 var generated_build_buttons: Array = []
 var generated_age_buttons: Array = []
 var generated_main_menu_buttons: Array = []
 var generated_world_preview_buttons: Array = []
 var generated_region_start_buttons: Array = []
 var generated_pause_menu_buttons: Array = []
+var generated_load_save_buttons: Array = []
 
 var selected_build_age: String = ""
 var build_ui_enabled: bool = false
@@ -75,7 +82,7 @@ func _notification(what: int) -> void:
         setup_region_start_panel_layout()
         setup_pause_menu_layout()
         setup_build_ui_layout()
-
+        setup_load_game_panel_layout()
 
 func set_build_ui_enabled(is_enabled: bool) -> void:
     build_ui_enabled = is_enabled
@@ -107,7 +114,7 @@ func show_main_menu() -> void:
     hide_region_start_panel()
     hide_pause_menu()
     set_build_ui_enabled(false)
-
+    hide_load_game_panel()
 
 func hide_main_menu() -> void:
     if main_menu_panel != null:
@@ -125,6 +132,7 @@ func show_world_preview_panel() -> void:
     hide_region_start_panel()
     hide_pause_menu()
     set_build_ui_enabled(false)
+    hide_load_game_panel()
 
 
 func hide_world_preview_panel() -> void:
@@ -148,6 +156,7 @@ func show_region_start_panel(default_region_name: String = "New Settlement") -> 
     hide_world_preview_panel()
     hide_pause_menu()
     set_build_ui_enabled(false)
+    hide_load_game_panel()
 
 
 func hide_region_start_panel() -> void:
@@ -163,6 +172,127 @@ func show_pause_menu() -> void:
         pause_menu_panel.visible = true
 
     hide_build_menu()
+    hide_load_game_panel()
+    
+func show_load_game_panel(
+    save_infos: Array,
+    opened_from_pause: bool = false
+) -> void:
+    if load_game_panel == null:
+        setup_load_game_panel()
+
+    load_game_opened_from_pause = opened_from_pause
+    clear_generated_load_save_buttons()
+
+    if load_game_panel != null:
+        load_game_panel.visible = true
+
+    hide_main_menu()
+    hide_world_preview_panel()
+    hide_region_start_panel()
+
+    if not opened_from_pause:
+        hide_pause_menu()
+
+    set_build_ui_enabled(false)
+
+    populate_load_game_panel(save_infos)
+
+
+func hide_load_game_panel() -> void:
+    if load_game_panel != null:
+        load_game_panel.visible = false
+
+    clear_generated_load_save_buttons()
+
+
+func populate_load_game_panel(save_infos: Array) -> void:
+    if load_game_panel == null:
+        return
+
+    clear_generated_load_save_buttons()
+
+    var max_visible_saves: int = 8
+    var visible_count: int = min(save_infos.size(), max_visible_saves)
+
+    if visible_count <= 0:
+        var empty_label := Label.new()
+        empty_label.name = "GeneratedNoSavesLabel"
+        empty_label.text = "No save files found."
+        empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        empty_label.position = Vector2(20, 70)
+        empty_label.size = Vector2(360, 24)
+        empty_label.process_mode = Node.PROCESS_MODE_ALWAYS
+        load_game_panel.add_child(empty_label)
+        generated_load_save_buttons.append(empty_label)
+        return
+
+    for save_index in range(visible_count):
+        var save_info_variant: Variant = save_infos[save_index]
+
+        if typeof(save_info_variant) != TYPE_DICTIONARY:
+            continue
+
+        var save_info: Dictionary = save_info_variant
+        var file_name: String = str(save_info.get("file_name", ""))
+        var modified_time: int = int(save_info.get("modified_time", 0))
+
+        if file_name == "":
+            continue
+
+        var button_label: String = get_save_button_label(file_name, modified_time)
+        var save_button := create_load_save_button(
+            button_label,
+            Vector2(30, 64 + save_index * 32)
+        )
+
+        save_button.pressed.connect(
+            Callable(self, "_on_load_save_file_pressed").bind(file_name)
+        )
+
+        load_game_panel.add_child(save_button)
+        generated_load_save_buttons.append(save_button)
+
+
+func get_save_button_label(file_name: String, modified_time: int) -> String:
+    var clean_name: String = file_name
+
+    if clean_name.ends_with(".json"):
+        clean_name = clean_name.substr(0, clean_name.length() - 5)
+
+    var time_text: String = ""
+
+    if modified_time > 0:
+        var date_dict: Dictionary = Time.get_datetime_dict_from_unix_time(modified_time)
+        time_text = (
+            " | "
+            + str(int(date_dict.get("year", 0)))
+            + "-"
+            + str(int(date_dict.get("month", 0))).pad_zeros(2)
+            + "-"
+            + str(int(date_dict.get("day", 0))).pad_zeros(2)
+            + " "
+            + str(int(date_dict.get("hour", 0))).pad_zeros(2)
+            + ":"
+            + str(int(date_dict.get("minute", 0))).pad_zeros(2)
+        )
+
+    return clean_name + time_text
+
+
+func create_load_save_button(
+    button_text: String,
+    button_position: Vector2
+) -> Button:
+    var button := Button.new()
+    button.text = button_text
+    button.position = button_position
+    button.size = Vector2(340, 26)
+    button.custom_minimum_size = Vector2(340, 26)
+    button.process_mode = Node.PROCESS_MODE_ALWAYS
+    setup_menu_button_theme(button)
+
+    return button
 
 
 func hide_pause_menu() -> void:
@@ -273,6 +403,43 @@ func setup_world_preview_panel() -> void:
     generated_world_preview_buttons.append(back_button)
 
     setup_world_preview_panel_layout()
+    
+func setup_load_game_panel() -> void:
+    if load_game_panel != null:
+        return
+
+    load_game_panel = Panel.new()
+    load_game_panel.name = "GeneratedLoadGamePanel"
+    load_game_panel.visible = false
+    load_game_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(load_game_panel)
+
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.04, 0.04, 0.04, 0.94)
+    panel_style.border_color = Color(0.78, 0.70, 0.48, 1.0)
+    panel_style.set_border_width_all(2)
+    panel_style.set_corner_radius_all(6)
+    panel_style.content_margin_left = 12
+    panel_style.content_margin_right = 12
+    panel_style.content_margin_top = 12
+    panel_style.content_margin_bottom = 12
+    load_game_panel.add_theme_stylebox_override("panel", panel_style)
+
+    var title_label := Label.new()
+    title_label.name = "TitleLabel"
+    title_label.text = "Load Game"
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title_label.add_theme_font_size_override("font_size", 22)
+    title_label.position = Vector2(0, 16)
+    title_label.size = Vector2(400, 32)
+    load_game_panel.add_child(title_label)
+
+    var back_button := create_menu_button("Back", Vector2(120, 330))
+    back_button.pressed.connect(_on_load_save_back_pressed)
+    load_game_panel.add_child(back_button)
+    generated_load_save_buttons.append(back_button)
+
+    setup_load_game_panel_layout()
 
 
 func setup_region_start_panel() -> void:
@@ -398,7 +565,7 @@ func setup_pause_menu() -> void:
     generated_pause_menu_buttons.append(main_menu_button)
 
     setup_pause_menu_layout()
-
+    setup_load_game_panel()
 
 func create_menu_button(button_text: String, button_position: Vector2) -> Button:
     var button := Button.new()
@@ -503,6 +670,17 @@ func setup_pause_menu_layout() -> void:
     pause_menu_panel.position = Vector2(
         viewport_size.x * 0.5 - pause_menu_panel.size.x * 0.5,
         viewport_size.y * 0.5 - pause_menu_panel.size.y * 0.5
+    )
+    
+func setup_load_game_panel_layout() -> void:
+    if load_game_panel == null:
+        return
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    load_game_panel.size = Vector2(400, 372)
+    load_game_panel.position = Vector2(
+        viewport_size.x * 0.5 - load_game_panel.size.x * 0.5,
+        viewport_size.y * 0.5 - load_game_panel.size.y * 0.5
     )
 
 
@@ -791,6 +969,16 @@ func clear_generated_pause_menu_buttons() -> void:
             button_node.queue_free()
 
     generated_pause_menu_buttons.clear()
+    
+func clear_generated_load_save_buttons() -> void:
+    for button_index in range(generated_load_save_buttons.size()):
+        var button_variant: Variant = generated_load_save_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_load_save_buttons.clear()
 
 
 func get_building_tooltip_text(building_data: Dictionary) -> String:
@@ -960,3 +1148,17 @@ func _on_pause_load_pressed() -> void:
 
 func _on_pause_return_to_main_pressed() -> void:
     pause_return_to_main_requested.emit()
+
+func _on_load_save_file_pressed(save_file_name: String) -> void:
+    load_save_file_requested.emit(save_file_name)
+
+
+func _on_load_save_back_pressed() -> void:
+    hide_load_game_panel()
+
+    if load_game_opened_from_pause:
+        show_pause_menu()
+    else:
+        show_main_menu()
+
+    load_save_back_requested.emit()

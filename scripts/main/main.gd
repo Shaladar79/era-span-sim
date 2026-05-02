@@ -102,6 +102,12 @@ func connect_ui_signals() -> void:
 
     if ui.has_signal("pause_return_to_main_requested"):
         ui.connect("pause_return_to_main_requested", Callable(self, "_on_pause_return_to_main_requested"))
+        
+    if ui.has_signal("load_save_file_requested"):
+        ui.connect("load_save_file_requested", Callable(self, "_on_load_save_file_requested"))
+
+    if ui.has_signal("load_save_back_requested"):
+        ui.connect("load_save_back_requested", Callable(self, "_on_load_save_back_requested"))
 
 
 func enter_main_menu_mode() -> void:
@@ -510,6 +516,40 @@ func load_most_recent_game() -> void:
     apply_loaded_save_data(save_data)
 
     print(str(result.get("message", "Loaded save.")))
+    
+func show_load_game_selection(opened_from_pause: bool = false) -> void:
+    var save_infos: Array = SaveManager.list_save_file_infos()
+
+    if ui != null and ui.has_method("show_load_game_panel"):
+        ui.call("show_load_game_panel", save_infos, opened_from_pause)
+        return
+
+    print("Load panel is not available. Loading most recent save instead.")
+    load_most_recent_game()
+
+
+func load_save_file(save_file_name: String) -> void:
+    if save_file_name.strip_edges() == "":
+        print("Load failed. Empty save file name.")
+        return
+
+    var save_path: String = SaveManager.get_save_path_from_file_name(save_file_name)
+    var result: Dictionary = SaveManager.read_save_from_path(save_path)
+
+    if not bool(result.get("success", false)):
+        print(str(result.get("message", "Load failed.")))
+        return
+
+    var save_data_variant: Variant = result.get("data", {})
+
+    if typeof(save_data_variant) != TYPE_DICTIONARY:
+        print("Load failed. Save data was not a dictionary.")
+        return
+
+    var save_data: Dictionary = save_data_variant
+    apply_loaded_save_data(save_data)
+
+    print(str(result.get("message", "Loaded save.")))
 
 
 func apply_loaded_save_data(save_data: Dictionary) -> void:
@@ -545,6 +585,9 @@ func apply_loaded_save_data(save_data: Dictionary) -> void:
 
         if ui.has_method("set_build_ui_enabled"):
             ui.call("set_build_ui_enabled", true)
+            
+        if ui.has_method("hide_load_game_panel"):
+            ui.call("hide_load_game_panel")
 
     if world.has_method("deactivate"):
         world.call("deactivate")
@@ -589,7 +632,7 @@ func _on_main_menu_new_game_requested() -> void:
 
 
 func _on_main_menu_load_game_requested() -> void:
-    load_most_recent_game()
+    show_load_game_selection(false)
 
 
 func _on_main_menu_options_requested() -> void:
@@ -629,8 +672,15 @@ func _on_pause_save_requested() -> void:
 
 
 func _on_pause_load_requested() -> void:
-    load_most_recent_game()
+    show_load_game_selection(true)
 
 
 func _on_pause_return_to_main_requested() -> void:
     enter_main_menu_mode()
+    
+func _on_load_save_file_requested(save_file_name: String) -> void:
+    load_save_file(save_file_name)
+
+
+func _on_load_save_back_requested() -> void:
+    pass
