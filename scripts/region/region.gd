@@ -405,8 +405,7 @@ func get_dictionary_from_variant(value: Variant) -> Dictionary:
 
     var dictionary_value: Dictionary = value
     return dictionary_value
-
-
+    
 func get_save_safe_value(value: Variant) -> Variant:
     match typeof(value):
         TYPE_VECTOR2I:
@@ -451,7 +450,8 @@ func get_save_safe_value(value: Variant) -> Variant:
 
         _:
             return value
-            
+
+
 func restore_save_safe_value(value: Variant) -> Variant:
     if typeof(value) == TYPE_DICTIONARY:
         var source_dict: Dictionary = value
@@ -507,7 +507,7 @@ func _process(delta: float) -> void:
         return
 
     update_villager_manager(delta)
-    update_hunting_jobs()
+    update_hunting_jobs(delta)
     update_research(delta)
     update_wild_animal_manager(delta)
 
@@ -755,14 +755,13 @@ func update_villager_manager(delta: float) -> void:
 
     if villager_manager.has_tile_changes():
         queue_redraw()
-        
-func update_hunting_jobs() -> void:
+
+
+func update_hunting_jobs(delta: float) -> void:
     var reserved_hunts: Array = wild_animal_manager.get_reserved_hunts_ready_to_check()
 
     if reserved_hunts.is_empty():
         return
-
-    var delta: float = get_process_delta_time()
 
     for hunt_index in range(reserved_hunts.size()):
         var animal_data: Dictionary = reserved_hunts[hunt_index]
@@ -793,6 +792,17 @@ func update_hunting_jobs() -> void:
 
         if countdown_start_message != "":
             add_village_log_message(countdown_start_message)
+
+        var danger_tick_result: Dictionary = wild_animal_manager.update_hunt_danger_tick(
+            animal_instance_id,
+            delta
+        )
+
+        if bool(danger_tick_result.get("tick_due", false)):
+            handle_dangerous_hunt_tick(
+                animal_instance_id,
+                get_dictionary_from_variant(danger_tick_result.get("animal_data", {}))
+            )
 
         var countdown_result: Dictionary = wild_animal_manager.update_hunt_countdown(
             animal_instance_id,
@@ -832,6 +842,36 @@ func update_hunting_jobs() -> void:
         villager_manager.send_hunt_party_home(animal_instance_id)
         queue_redraw()
 
+
+func handle_dangerous_hunt_tick(
+    animal_instance_id: int,
+    animal_data: Dictionary
+) -> void:
+    if animal_data.is_empty():
+        return
+
+    var tick_result: Dictionary = villager_manager.apply_dangerous_hunt_tick(
+        animal_instance_id,
+        str(animal_data.get(RegionWildAnimalManager.KEY_NAME, "Wild Animal")),
+        animal_data.get(RegionWildAnimalManager.KEY_TILE, Vector2i(-1, -1)),
+        float(animal_data.get(RegionWildAnimalManager.KEY_INJURY_CHANCE, 0.0)),
+        int(animal_data.get(RegionWildAnimalManager.KEY_HUNT_DAMAGE, 0))
+    )
+
+    var tick_messages: Array = tick_result.get("messages", [])
+
+    if not tick_messages.is_empty():
+        add_village_log_messages(tick_messages)
+
+    if bool(tick_result.get("no_replacement_available", false)):
+        wild_animal_manager.add_time_to_hunt_countdown(
+            animal_instance_id,
+            CoreTuning.HUNT_NO_REPLACEMENT_TIME_PENALTY
+        )
+
+    if bool(tick_result.get("replacement_sent", false)):
+        queue_redraw()
+        
 func update_research(delta: float) -> void:
     research.update(
         delta,
@@ -1083,7 +1123,8 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
             return true
 
     return false
-    
+
+
 func try_select_build_age_from_mouse(mouse_screen_position: Vector2) -> bool:
     if not show_build_panel:
         return false
@@ -1298,8 +1339,7 @@ func craft_recipe(recipe_id: String) -> void:
         print_settlement_inventory()
 
     queue_redraw()
-
-
+    
 func try_assign_villager_from_assignment_panel(mouse_screen_position: Vector2) -> bool:
     if not show_assignment_panel:
         return false
@@ -1609,7 +1649,8 @@ func buy_research_plan(research_id: String) -> void:
 
     print_research_status()
     queue_redraw()
-    
+
+
 func try_start_hunt_at_hovered_animal() -> bool:
     if not simulation_paused:
         return false
@@ -1669,7 +1710,7 @@ func try_start_hunt_at_hovered_animal() -> bool:
 func try_start_villager_drag_or_select() -> void:
     if try_start_hunt_at_hovered_animal():
         return
-        
+
     if storage_selector_open:
         if try_select_storage_resource_from_mouse():
             return
@@ -1835,8 +1876,7 @@ func close_storage_selector() -> void:
     storage_selector_anchor_tile = Vector2i(-1, -1)
     storage_selector_options = []
     queue_redraw()
-
-
+    
 func try_open_assignment_panel_at_tile(tile_position: Vector2i) -> bool:
     if not is_tile_in_bounds(tile_position):
         return false
@@ -2302,6 +2342,12 @@ func draw_paused_villager_hover_panel() -> void:
     if is_dragging_villager:
         return
 
+    var grave_data: Dictionary = villager_manager.get_dead_villager_at_tile(hovered_tile)
+
+    if not grave_data.is_empty():
+        draw_grave_hover_panel(grave_data)
+        return
+
     var animal_data: Dictionary = wild_animal_manager.get_animal_at_tile(hovered_tile)
 
     if not animal_data.is_empty():
@@ -2325,7 +2371,15 @@ func draw_paused_villager_hover_panel() -> void:
         return
 
     draw_villager_hover_panel(villager_data)
-    
+
+
+func draw_grave_hover_panel(villager_data: Dictionary) -> void:
+    RegionDraw.draw_grave_hover_panel(
+        self,
+        villager_data
+    )
+
+
 func draw_wild_animal_hover_panel(animal_data: Dictionary) -> void:
     RegionDraw.draw_wild_animal_hover_panel(
         self,

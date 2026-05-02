@@ -16,6 +16,7 @@ const KEY_CAN_INJURE_HUNTERS: String = "can_injure_hunters"
 const KEY_CAN_KILL_HUNTERS: String = "can_kill_hunters"
 const KEY_INJURY_CHANCE: String = "injury_chance"
 const KEY_DEATH_CHANCE: String = "death_chance"
+const KEY_HUNT_DAMAGE: String = "hunt_damage"
 const KEY_ACTIVE: String = "active"
 const KEY_WANDER_TIMER: String = "wander_timer"
 const KEY_RESERVED_FOR_HUNT: String = "reserved_for_hunt"
@@ -23,6 +24,7 @@ const KEY_HUNTING_PARTY_ASSIGNED: String = "hunting_party_assigned"
 const KEY_HUNT_COUNTDOWN_STARTED: String = "hunt_countdown_started"
 const KEY_HUNT_TIMER: String = "hunt_timer"
 const KEY_HUNT_DURATION: String = "hunt_duration"
+const KEY_HUNT_DANGER_TICK_TIMER: String = "hunt_danger_tick_timer"
 
 const SAVE_TYPE_KEY: String = "__save_type"
 const SAVE_TYPE_VECTOR2I: String = "Vector2i"
@@ -126,12 +128,14 @@ func sanitize_loaded_animal_data(animal_data: Dictionary) -> void:
     animal_data[KEY_CAN_KILL_HUNTERS] = bool(animal_data.get(KEY_CAN_KILL_HUNTERS, base_data.get(RegionWildAnimalData.KEY_CAN_KILL_HUNTERS, false)))
     animal_data[KEY_INJURY_CHANCE] = float(animal_data.get(KEY_INJURY_CHANCE, base_data.get(RegionWildAnimalData.KEY_INJURY_CHANCE, 0.0)))
     animal_data[KEY_DEATH_CHANCE] = float(animal_data.get(KEY_DEATH_CHANCE, base_data.get(RegionWildAnimalData.KEY_DEATH_CHANCE, 0.0)))
+    animal_data[KEY_HUNT_DAMAGE] = max(0, int(animal_data.get(KEY_HUNT_DAMAGE, base_data.get(RegionWildAnimalData.KEY_HUNT_DAMAGE, 0))))
     animal_data[KEY_ACTIVE] = bool(animal_data.get(KEY_ACTIVE, true))
     animal_data[KEY_RESERVED_FOR_HUNT] = bool(animal_data.get(KEY_RESERVED_FOR_HUNT, false))
     animal_data[KEY_HUNTING_PARTY_ASSIGNED] = bool(animal_data.get(KEY_HUNTING_PARTY_ASSIGNED, false))
     animal_data[KEY_HUNT_COUNTDOWN_STARTED] = bool(animal_data.get(KEY_HUNT_COUNTDOWN_STARTED, false))
     animal_data[KEY_HUNT_TIMER] = max(0.0, float(animal_data.get(KEY_HUNT_TIMER, 0.0)))
     animal_data[KEY_HUNT_DURATION] = max(0.0, float(animal_data.get(KEY_HUNT_DURATION, 0.0)))
+    animal_data[KEY_HUNT_DANGER_TICK_TIMER] = max(0.0, float(animal_data.get(KEY_HUNT_DANGER_TICK_TIMER, CoreTuning.HUNT_DANGER_TICK_INTERVAL)))
     var tile_variant: Variant = animal_data.get(KEY_TILE, Vector2i(-1, -1))
 
     if typeof(tile_variant) == TYPE_VECTOR2I:
@@ -559,12 +563,14 @@ func add_animal_instance(
         KEY_CAN_KILL_HUNTERS: bool(animal_base_data.get(RegionWildAnimalData.KEY_CAN_KILL_HUNTERS, false)),
         KEY_INJURY_CHANCE: float(animal_base_data.get(RegionWildAnimalData.KEY_INJURY_CHANCE, 0.0)),
         KEY_DEATH_CHANCE: float(animal_base_data.get(RegionWildAnimalData.KEY_DEATH_CHANCE, 0.0)),
+        KEY_HUNT_DAMAGE: max(0, int(animal_base_data.get(RegionWildAnimalData.KEY_HUNT_DAMAGE, 0))),
         KEY_ACTIVE: true,
         KEY_RESERVED_FOR_HUNT: false,
         KEY_HUNTING_PARTY_ASSIGNED: false,
         KEY_HUNT_COUNTDOWN_STARTED: false,
         KEY_HUNT_TIMER: 0.0,
         KEY_HUNT_DURATION: 0.0,
+        KEY_HUNT_DANGER_TICK_TIMER: CoreTuning.HUNT_DANGER_TICK_INTERVAL,
         KEY_WANDER_TIMER: get_random_wander_interval(dangerous)
     }
 
@@ -702,6 +708,7 @@ func clear_hunt_reservation(animal_instance_id: int) -> void:
     animal_data[KEY_HUNT_COUNTDOWN_STARTED] = false
     animal_data[KEY_HUNT_TIMER] = 0.0
     animal_data[KEY_HUNT_DURATION] = 0.0
+    animal_data[KEY_HUNT_DANGER_TICK_TIMER] = CoreTuning.HUNT_DANGER_TICK_INTERVAL
     wild_animals[animal_index] = animal_data
     
 func start_hunt_countdown_if_needed(
@@ -729,11 +736,12 @@ func start_hunt_countdown_if_needed(
     var duration: float = get_hunt_duration_for_animal(
         animal_data,
         average_hunting_skill
-    )
+       )
 
     animal_data[KEY_HUNT_COUNTDOWN_STARTED] = true
     animal_data[KEY_HUNT_TIMER] = duration
     animal_data[KEY_HUNT_DURATION] = duration
+    animal_data[KEY_HUNT_DANGER_TICK_TIMER] = CoreTuning.HUNT_DANGER_TICK_INTERVAL
     wild_animals[animal_index] = animal_data
 
     return {
@@ -782,6 +790,82 @@ func update_hunt_countdown(
         "message": "",
         "remaining": hunt_timer
     }
+    
+func update_hunt_danger_tick(
+    animal_instance_id: int,
+    delta: float
+) -> Dictionary:
+    var animal_index: int = get_active_animal_index_by_instance_id(animal_instance_id)
+
+    if animal_index < 0:
+        return {
+            "tick_due": false,
+            "animal_data": {},
+            "message": "Hunting target is no longer available."
+        }
+
+    var animal_data: Dictionary = wild_animals[animal_index]
+
+    if not bool(animal_data.get(KEY_HUNT_COUNTDOWN_STARTED, false)):
+        return {
+            "tick_due": false,
+            "animal_data": animal_data.duplicate(true),
+            "message": ""
+        }
+
+    if not bool(animal_data.get(KEY_DANGEROUS, false)):
+        return {
+            "tick_due": false,
+            "animal_data": animal_data.duplicate(true),
+            "message": ""
+        }
+
+    if not bool(animal_data.get(KEY_CAN_INJURE_HUNTERS, false)):
+        return {
+            "tick_due": false,
+            "animal_data": animal_data.duplicate(true),
+            "message": ""
+        }
+
+    var tick_timer: float = float(animal_data.get(KEY_HUNT_DANGER_TICK_TIMER, CoreTuning.HUNT_DANGER_TICK_INTERVAL))
+    tick_timer -= delta
+
+    var tick_due: bool = false
+
+    if tick_timer <= 0.0:
+        tick_due = true
+        tick_timer = CoreTuning.HUNT_DANGER_TICK_INTERVAL
+
+    animal_data[KEY_HUNT_DANGER_TICK_TIMER] = tick_timer
+    wild_animals[animal_index] = animal_data
+
+    return {
+        "tick_due": tick_due,
+        "animal_data": animal_data.duplicate(true),
+        "message": ""
+    }
+
+
+func add_time_to_hunt_countdown(
+    animal_instance_id: int,
+    added_time: float
+) -> void:
+    var animal_index: int = get_active_animal_index_by_instance_id(animal_instance_id)
+
+    if animal_index < 0:
+        return
+
+    if added_time <= 0.0:
+        return
+
+    var animal_data: Dictionary = wild_animals[animal_index]
+    var current_timer: float = float(animal_data.get(KEY_HUNT_TIMER, 0.0))
+    var current_duration: float = float(animal_data.get(KEY_HUNT_DURATION, 0.0))
+
+    animal_data[KEY_HUNT_TIMER] = current_timer + added_time
+    animal_data[KEY_HUNT_DURATION] = current_duration + added_time
+
+    wild_animals[animal_index] = animal_data
 
 
 func get_hunt_duration_for_animal(
@@ -838,11 +922,6 @@ func resolve_hunt_for_animal_instance(animal_instance_id: int) -> Dictionary:
     var injury_occurred: bool = false
     var death_occurred: bool = false
 
-    if dangerous and bool(animal_data.get(KEY_CAN_INJURE_HUNTERS, false)):
-        injury_occurred = wander_rng.randf() <= float(animal_data.get(KEY_INJURY_CHANCE, 0.0))
-
-    if dangerous and bool(animal_data.get(KEY_CAN_KILL_HUNTERS, false)):
-        death_occurred = wander_rng.randf() <= float(animal_data.get(KEY_DEATH_CHANCE, 0.0))
 
     var yields: Dictionary = get_dictionary_from_variant(
         animal_data.get(KEY_YIELDS, {})
@@ -854,6 +933,7 @@ func resolve_hunt_for_animal_instance(animal_instance_id: int) -> Dictionary:
     animal_data[KEY_HUNT_COUNTDOWN_STARTED] = false
     animal_data[KEY_HUNT_TIMER] = 0.0
     animal_data[KEY_HUNT_DURATION] = 0.0
+    animal_data[KEY_HUNT_DANGER_TICK_TIMER] = CoreTuning.HUNT_DANGER_TICK_INTERVAL
     wild_animals[animal_index] = animal_data
 
     var message: String = "Hunters harvested " + animal_name + "."

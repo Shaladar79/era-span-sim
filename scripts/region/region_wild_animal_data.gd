@@ -40,6 +40,7 @@ const KEY_CAN_INJURE_HUNTERS: String = "can_injure_hunters"
 const KEY_CAN_KILL_HUNTERS: String = "can_kill_hunters"
 const KEY_INJURY_CHANCE: String = "injury_chance"
 const KEY_DEATH_CHANCE: String = "death_chance"
+const KEY_HUNT_DAMAGE: String = "hunt_damage"
 const KEY_YIELDS: String = "yields"
 const KEY_AGES: String = "ages"
 const KEY_TERRAIN_BIAS: String = "terrain_bias"
@@ -420,6 +421,7 @@ static func make_animal(
         KEY_CAN_KILL_HUNTERS: dangerous,
         KEY_INJURY_CHANCE: get_injury_chance_for_danger_level(danger_level),
         KEY_DEATH_CHANCE: get_death_chance_for_danger_level(danger_level),
+        KEY_HUNT_DAMAGE: get_hunt_damage_for_danger_level(danger_level),
         KEY_YIELDS: yields.duplicate(true),
         KEY_AGES: ages.duplicate(true),
         KEY_TERRAIN_BIAS: terrain_bias.duplicate(true),
@@ -450,6 +452,18 @@ static func get_death_chance_for_danger_level(danger_level: String) -> float:
             return StoneAgeTuning.EXTREME_DANGER_ANIMAL_BASE_DEATH_CHANCE
         _:
             return StoneAgeTuning.NORMAL_ANIMAL_BASE_DEATH_CHANCE
+     
+       
+static func get_hunt_damage_for_danger_level(danger_level: String) -> int:
+    match danger_level:
+        DANGER_MEDIUM:
+            return 2
+        DANGER_HIGH:
+            return 4
+        DANGER_EXTREME:
+            return 7
+        _:
+            return 0
 
 
 static func get_icon_color_type(dangerous: bool) -> String:

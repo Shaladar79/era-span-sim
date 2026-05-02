@@ -95,6 +95,12 @@ func draw_all(
         region_tile_size
     )
 
+    draw_grave_markers(
+        canvas,
+        villager_manager,
+        region_tile_size
+    )
+
     draw_villagers(
         canvas,
         villager_manager
@@ -671,6 +677,76 @@ func draw_star_marker(
             1.25
         )
 
+func draw_grave_markers(
+    canvas: CanvasItem,
+    villager_manager: VillagerManager,
+    region_tile_size: int
+) -> void:
+    var manager_villagers: Array = villager_manager.get_villagers()
+
+    for villager_index in range(manager_villagers.size()):
+        var villager_variant: Variant = manager_villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", VillagerManager.HEALTH_STATE_HEALTHY)) != VillagerManager.HEALTH_STATE_DEAD:
+            continue
+
+        var death_tile: Vector2i = villager_data.get("death_tile", Vector2i(-1, -1))
+
+        if death_tile.x < 0 or death_tile.y < 0:
+            continue
+
+        draw_grave_marker(
+            canvas,
+            death_tile,
+            region_tile_size
+        )
+
+
+func draw_grave_marker(
+    canvas: CanvasItem,
+    death_tile: Vector2i,
+    region_tile_size: int
+) -> void:
+    var center := Vector2(
+        death_tile.x * region_tile_size + region_tile_size / 2.0,
+        death_tile.y * region_tile_size + region_tile_size / 2.0
+    )
+
+    var outline_color := Color(0.08, 0.08, 0.08, 1.0)
+    var grave_color := Color(0.86, 0.86, 0.82, 1.0)
+
+    canvas.draw_line(
+        center + Vector2(0.0, -6.0),
+        center + Vector2(0.0, 6.0),
+        outline_color,
+        4.0
+    )
+
+    canvas.draw_line(
+        center + Vector2(-4.0, -2.0),
+        center + Vector2(4.0, -2.0),
+        outline_color,
+        4.0
+    )
+
+    canvas.draw_line(
+        center + Vector2(0.0, -6.0),
+        center + Vector2(0.0, 6.0),
+        grave_color,
+        2.0
+    )
+
+    canvas.draw_line(
+        center + Vector2(-4.0, -2.0),
+        center + Vector2(4.0, -2.0),
+        grave_color,
+        2.0
+    )
 
 func draw_villagers(
     canvas: CanvasItem,
@@ -685,6 +761,9 @@ func draw_villagers(
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", VillagerManager.HEALTH_STATE_HEALTHY)) == VillagerManager.HEALTH_STATE_DEAD:
+            continue
 
         draw_villager(
             canvas,

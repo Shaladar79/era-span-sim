@@ -237,6 +237,7 @@ func setup(
 
     rng.randomize()
 
+
 func get_save_data() -> Dictionary:
     return {
         SAVE_KEY_VILLAGERS: get_save_safe_value(villagers),
@@ -381,7 +382,7 @@ func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
 
     if not villager_data.has("current_work_task"):
         villager_data["current_work_task"] = ""
-        
+
     if not villager_data.has("hunting_animal_instance_id"):
         villager_data["hunting_animal_instance_id"] = 0
 
@@ -394,9 +395,17 @@ func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
     if not villager_data.has("hunting_phase"):
         villager_data["hunting_phase"] = HUNTING_PHASE_NONE
 
+    if not villager_data.has("death_tile"):
+        villager_data["death_tile"] = Vector2i(-1, -1)
+
+    if not villager_data.has("death_reason"):
+        villager_data["death_reason"] = ""
+
     recalculate_villager_level(villager_data)
     apply_slot_counts_for_role(villager_data)
-    refresh_role_stats_for_villager(villager_data)
+
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) != HEALTH_STATE_DEAD:
+        refresh_role_stats_for_villager(villager_data)
 
 
 func get_save_safe_value(value: Variant) -> Variant:
@@ -484,6 +493,7 @@ func restore_save_safe_value(value: Variant) -> Variant:
 
     return value
 
+
 func reset_and_spawn_starting_villagers() -> void:
     villagers.clear()
     next_villager_id = 1
@@ -540,7 +550,7 @@ func reset_and_spawn_starting_villagers() -> void:
     update_all_villager_speed_stats()
     update_all_villager_belonging_caps()
 
-    print("Starting Population: ", villagers.size())
+    print("Starting Population: ", get_population_count())
     print_villager_roster()
 
 
@@ -598,6 +608,10 @@ func update_all_villager_speed_stats() -> void:
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
         update_villager_speed_stat(villager_data)
         villagers[villager_index] = villager_data
 
@@ -700,6 +714,11 @@ func auto_assign_villager_housing(normal_housing_capacity: int) -> void:
 
         var villager_data: Dictionary = villager_variant
 
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            villager_data["is_housed"] = false
+            villagers[villager_index] = villager_data
+            continue
+
         if bool(villager_data.get("assignment_replaces_shelter", false)):
             villager_data["is_housed"] = true
             villagers[villager_index] = villager_data
@@ -725,6 +744,9 @@ func get_housed_villager_count() -> int:
 
         var villager_data: Dictionary = villager_variant
 
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
         if bool(villager_data.get("is_housed", false)):
             housed_count += 1
 
@@ -745,14 +767,13 @@ func spawn_new_villager_near_village_center() -> bool:
     var newest_name: String = str(newest_villager.get("name", "A villager"))
 
     add_event_message(
-        newest_name + " joined the village. Population: " + str(villagers.size())
+        newest_name + " joined the village. Population: " + str(get_population_count())
     )
 
     print_villager_summary(newest_villager)
 
     return true
-
-
+    
 func debug_add_villagers(
     requested_amount: int,
     normal_housing_capacity: int
@@ -895,7 +916,9 @@ func spawn_villager_at_tile(
         "weapon_slots": 0,
         "armor_slots": 0,
         "statuses": [],
-        "health_state": HEALTH_STATE_HEALTHY
+        "health_state": HEALTH_STATE_HEALTHY,
+        "death_tile": Vector2i(-1, -1),
+        "death_reason": ""
     }
 
     update_villager_speed_stat(villager_data)
@@ -963,6 +986,10 @@ func get_village_spawn_center() -> Vector2i:
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
         var villager_tile: Vector2i = villager_data.get(
             "tile",
             Vector2i(region_width / 2, region_height / 2)
@@ -983,7 +1010,7 @@ func get_village_spawn_center() -> Vector2i:
 
 func find_nearest_available_spawn_tile(origin_tile: Vector2i) -> Vector2i:
     if is_tile_in_bounds(origin_tile):
-        if is_tile_walkable_for_villager(origin_tile) and not is_villager_on_tile(origin_tile):
+        if is_tile_walkable_for_villager(origin_tile) and not is_living_villager_on_tile(origin_tile):
             return origin_tile
 
     for radius in range(1, 20):
@@ -997,7 +1024,7 @@ func find_nearest_available_spawn_tile(origin_tile: Vector2i) -> Vector2i:
                 if not is_tile_walkable_for_villager(tile_position):
                     continue
 
-                if is_villager_on_tile(tile_position):
+                if is_living_villager_on_tile(tile_position):
                     continue
 
                 return tile_position
@@ -1049,7 +1076,22 @@ func add_event_message(message: String) -> void:
 
 
 func get_population_count() -> int:
-    return villagers.size()
+    var living_count: int = 0
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
+        living_count += 1
+
+    return living_count
 
 
 func get_villagers() -> Array:
@@ -1150,6 +1192,11 @@ func assign_villager_to_building_assignment(
 
     var villager_data: Dictionary = villagers[villager_index]
     var villager_name: String = str(villager_data.get("name", "Villager"))
+
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+        result["message"] = villager_name + " is dead and cannot be assigned."
+        return result
+
     var current_role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
     var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
     var display_role: String = StoneAgeVillagerAssignmentData.get_role_display_name(assignment_role)
@@ -1179,7 +1226,7 @@ func assign_villager_to_building_assignment(
     villager_data["assignment_replaces_shelter"] = replaces_shelter
     villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
 
-# Building assignments override manual harvest-area assignments.
+    # Building assignments override manual harvest-area assignments.
     villager_data["assigned_harvest_center"] = NO_ASSIGNED_AREA
     villager_data["assigned_harvest_radius"] = 0
 
@@ -1237,6 +1284,10 @@ func clear_villager_building_assignment(villager_id: int) -> Dictionary:
     var villager_data: Dictionary = villagers[villager_index]
     var villager_name: String = str(villager_data.get("name", "Villager"))
 
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+        result["message"] = villager_name + " is dead."
+        return result
+
     villager_data["assigned_building_instance_id"] = 0
     villager_data["assigned_building_role"] = ""
     villager_data["assignment_replaces_shelter"] = false
@@ -1254,7 +1305,6 @@ func clear_villager_building_assignment(villager_id: int) -> Dictionary:
 
     if str(villager_data.get("state", VILLAGER_STATE_IDLE)) in [
         VILLAGER_STATE_THINKING,
-        
         VILLAGER_STATE_WAITING_AT_BUILDING,
         VILLAGER_STATE_PATROLLING
     ]:
@@ -1288,6 +1338,9 @@ func apply_role_specialization_to_villager(
 
 
 func refresh_role_stats_for_villager(villager_data: Dictionary) -> void:
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+        return
+
     var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
 
     recalculate_villager_level(villager_data)
@@ -1296,14 +1349,20 @@ func refresh_role_stats_for_villager(villager_data: Dictionary) -> void:
 
     if role == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
         villager_data["max_health"] = BASE_HEALTH + level * HUNTER_HEALTH_PER_LEVEL
-        villager_data["health"] = int(villager_data.get("max_health", BASE_HEALTH))
+        villager_data["health"] = min(
+            int(villager_data.get("health", villager_data["max_health"])),
+            int(villager_data["max_health"])
+        )
         villager_data["attack"] = HUNTER_BASE_ATTACK + level
         villager_data["defense"] = HUNTER_BASE_DEFENSE + level
         return
 
     if role == StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
         villager_data["max_health"] = BASE_HEALTH + level * WARRIOR_HEALTH_PER_LEVEL
-        villager_data["health"] = int(villager_data.get("max_health", BASE_HEALTH))
+        villager_data["health"] = min(
+            int(villager_data.get("health", villager_data["max_health"])),
+            int(villager_data["max_health"])
+        )
         villager_data["attack"] = WARRIOR_BASE_ATTACK + level
         villager_data["defense"] = WARRIOR_BASE_DEFENSE + level
         return
@@ -1362,10 +1421,10 @@ func get_skill_ids_for_role(role_id: String) -> Array:
 
         StoneAgeVillagerAssignmentData.ROLE_HUNTER:
             return [
-            SKILL_HUNTING,
-            SKILL_RANGED_WEAPONS,
-            SKILL_EVADE
-    ]
+                SKILL_HUNTING,
+                SKILL_RANGED_WEAPONS,
+                SKILL_EVADE
+            ]
 
         StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
             return [
@@ -1427,6 +1486,10 @@ func set_villager_assigned_work_anchor(
         return false
 
     var villager_data: Dictionary = villagers[villager_index]
+
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+        return false
+
     villager_data["assigned_work_anchor_tile"] = anchor_tile
     villager_data["assigned_work_radius"] = max(0, work_radius)
     villagers[villager_index] = villager_data
@@ -1445,6 +1508,9 @@ func get_normal_shelter_demand_count() -> int:
 
         var villager_data: Dictionary = villager_variant
 
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
         if bool(villager_data.get("assignment_replaces_shelter", false)):
             continue
 
@@ -1461,6 +1527,10 @@ func get_villager_at_world_position(world_position: Vector2, hit_radius: float =
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
         var villager_id: int = int(villager_data.get("id", 0))
         var villager_position: Vector2 = villager_data.get("world_position", Vector2.ZERO)
 
@@ -1478,9 +1548,36 @@ func get_villager_data_at_world_position(world_position: Vector2, hit_radius: fl
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
         var villager_position: Vector2 = villager_data.get("world_position", Vector2.ZERO)
 
         if villager_position.distance_to(world_position) <= hit_radius:
+            return villager_data.duplicate(true)
+
+    return {}
+
+
+func get_dead_villager_at_tile(tile_position: Vector2i) -> Dictionary:
+    if not is_tile_in_bounds(tile_position):
+        return {}
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) != HEALTH_STATE_DEAD:
+            continue
+
+        var death_tile: Vector2i = villager_data.get("death_tile", Vector2i(-1, -1))
+
+        if death_tile == tile_position:
             return villager_data.duplicate(true)
 
     return {}
@@ -1503,6 +1600,10 @@ func assign_harvest_area(
             continue
 
         var villager_name: String = str(villager_data.get("name", "Villager"))
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            add_event_message(villager_name + " is dead and cannot be assigned a harvest area.")
+            return
 
         if int(villager_data.get("assigned_building_instance_id", 0)) > 0:
             add_event_message(
@@ -1553,6 +1654,9 @@ func clear_harvest_area_assignment(villager_id: int) -> void:
 
         if int(villager_data.get("id", 0)) != villager_id:
             continue
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            return
 
         villager_data["assigned_harvest_center"] = NO_ASSIGNED_AREA
         villager_data["assigned_harvest_radius"] = 0
@@ -1626,9 +1730,17 @@ func process_villager(villager_index: int, delta: float, inventory: RegionInvent
                 VILLAGER_STATE_PATROLLING
             )
 
+        VILLAGER_STATE_MOVING_TO_HUNT:
+            process_hunting_villager(villager_data, delta)
+
+        VILLAGER_STATE_HUNTING:
+            process_hunting_villager(villager_data, delta)
+
+        VILLAGER_STATE_RETURNING_FROM_HUNT:
+            process_hunting_villager(villager_data, delta)
+
     villagers[villager_index] = villager_data
-
-
+    
 func process_unavailable_villager(villager_data: Dictionary) -> void:
     villager_data["state"] = VILLAGER_STATE_IDLE
     villager_data["current_work_task"] = "unavailable"
@@ -1644,12 +1756,6 @@ func process_assigned_role_behavior(
     delta: float,
     inventory: RegionInventory
 ) -> bool:
-    var assigned_harvest_center: Vector2i = villager_data.get("assigned_harvest_center", NO_ASSIGNED_AREA)
-    var assigned_harvest_radius: int = int(villager_data.get("assigned_harvest_radius", 0))
-
-    if is_tile_in_bounds(assigned_harvest_center) and assigned_harvest_radius > 0:
-        return false
-
     var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
 
     if assigned_building_instance_id <= 0:
@@ -1666,6 +1772,12 @@ func process_assigned_role_behavior(
         if hunting_phase != HUNTING_PHASE_NONE:
             process_hunting_villager(villager_data, delta)
             return true
+
+    var assigned_harvest_center: Vector2i = villager_data.get("assigned_harvest_center", NO_ASSIGNED_AREA)
+    var assigned_harvest_radius: int = int(villager_data.get("assigned_harvest_radius", 0))
+
+    if is_tile_in_bounds(assigned_harvest_center) and assigned_harvest_radius > 0:
+        return false
 
     match role:
         StoneAgeVillagerAssignmentData.ROLE_THINKER:
@@ -1728,7 +1840,38 @@ func process_assigned_role_behavior(
 
     return false
     
+func clear_returning_hunters_for_new_hunt() -> void:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if is_villager_unavailable_for_work(villager_data):
+            continue
+
+        var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+
+        if role != StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+            continue
+
+        var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+        if hunting_phase != HUNTING_PHASE_RETURNING:
+            continue
+
+        clear_hunting_fields_for_villager(villager_data)
+        villager_data["state"] = VILLAGER_STATE_PATROLLING
+        villager_data["current_work_task"] = "hunting_placeholder"
+
+        villagers[villager_index] = villager_data
+
+
 func get_available_hunters_for_hunt(required_count: int) -> Array:
+    clear_returning_hunters_for_new_hunt()
+
     var available_hunters: Array = []
 
     if required_count <= 0:
@@ -1774,6 +1917,8 @@ func get_available_hunters_for_hunt(required_count: int) -> Array:
 
 
 func get_available_hunter_count() -> int:
+    clear_returning_hunters_for_new_hunt()
+
     var available_count: int = 0
 
     for villager_index in range(villagers.size()):
@@ -1875,6 +2020,8 @@ func assign_hunters_to_animal_hunt(
         villager_data["current_work_task"] = "traveling_to_hunt"
         villager_data["target_tile"] = hunt_position
         villager_data["harvest_tile"] = Vector2i(-1, -1)
+        villager_data["assigned_harvest_center"] = NO_ASSIGNED_AREA
+        villager_data["assigned_harvest_radius"] = 0
         villager_data["move_timer"] = 0.0
         villager_data["harvest_timer"] = 0.0
 
@@ -1902,7 +2049,8 @@ func assign_hunters_to_animal_hunt(
     result["message"] = "Hunters sent: " + ", ".join(assigned_names) + "."
 
     return result
-    
+
+
 func find_hunt_position_for_hunter(
     animal_tile: Vector2i,
     hunter_current_tile: Vector2i,
@@ -1925,7 +2073,7 @@ func find_hunt_position_for_hunter(
         if is_hunt_position_reserved(candidate_tile, reserved_hunt_positions):
             continue
 
-        if is_villager_on_tile(candidate_tile) and candidate_tile != hunter_current_tile:
+        if is_living_villager_on_tile(candidate_tile) and candidate_tile != hunter_current_tile:
             continue
 
         var distance: int = abs(candidate_tile.x - hunter_current_tile.x) + abs(candidate_tile.y - hunter_current_tile.y)
@@ -1991,6 +2139,9 @@ func clear_hunting_assignment_by_villager_id(villager_id: int) -> void:
         return
 
     var villager_data: Dictionary = villagers[villager_index]
+
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+        return
 
     clear_hunting_fields_for_villager(villager_data)
 
@@ -2073,7 +2224,7 @@ func process_hunter_travel_to_animal(
         next_tile = get_next_open_step_toward_tile(current_tile, target_tile)
 
     if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
-        if not is_villager_on_tile(next_tile) or next_tile == target_tile:
+        if not is_living_villager_on_tile(next_tile) or next_tile == target_tile:
             villager_data["tile"] = next_tile
             villager_data["world_position"] = tile_to_world_center(next_tile)
             villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
@@ -2114,10 +2265,11 @@ func process_hunter_returning_from_hunt(
     var next_tile: Vector2i = get_next_step_toward_tile(current_tile, return_tile)
 
     if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
-        villager_data["tile"] = next_tile
-        villager_data["world_position"] = tile_to_world_center(next_tile)
-        villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
-        return
+        if not is_living_villager_on_tile(next_tile) or next_tile == return_tile:
+            villager_data["tile"] = next_tile
+            villager_data["world_position"] = tile_to_world_center(next_tile)
+            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+            return
 
     villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
 
@@ -2136,6 +2288,9 @@ func get_hunt_status_for_animal(
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if is_villager_unavailable_for_work(villager_data):
+            continue
 
         if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
             continue
@@ -2156,7 +2311,8 @@ func get_hunt_status_for_animal(
         "required_hunters": required_hunters,
         "all_arrived": assigned_count >= required_hunters and arrived_count >= required_hunters
     }
-    
+
+
 func get_average_hunting_skill_for_animal(animal_instance_id: int) -> float:
     if animal_instance_id <= 0:
         return 0.0
@@ -2205,6 +2361,9 @@ func send_hunt_party_home(animal_instance_id: int) -> void:
 
         var villager_data: Dictionary = villager_variant
 
+        if is_villager_unavailable_for_work(villager_data):
+            continue
+
         if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
             continue
 
@@ -2220,12 +2379,184 @@ func send_hunt_party_home(animal_instance_id: int) -> void:
 
 
 func apply_hunting_result_to_party(
-    animal_instance_id: int,
-    injury_occurred: bool,
-    death_occurred: bool
+    _animal_instance_id: int,
+    _injury_occurred: bool,
+    _death_occurred: bool
 ) -> Array:
-    var result_messages: Array = []
+    return []
+
+
+func apply_dangerous_hunt_tick(
+    animal_instance_id: int,
+    animal_name: String,
+    animal_tile: Vector2i,
+    base_injury_chance: float,
+    animal_damage: int
+) -> Dictionary:
+    var result: Dictionary = {
+        "messages": [],
+        "replacement_sent": false,
+        "no_replacement_available": false
+    }
+
+    if animal_instance_id <= 0:
+        return result
+
+    var active_hunter_indexes: Array = get_active_hunter_indexes_for_animal(animal_instance_id)
+
+    if active_hunter_indexes.is_empty():
+        result["no_replacement_available"] = true
+        return result
+
+    var target_hunter_index: int = int(active_hunter_indexes[rng.randi_range(0, active_hunter_indexes.size() - 1)])
+    var hunter_data: Dictionary = villagers[target_hunter_index]
+    var hunter_name: String = str(hunter_data.get("name", "Hunter"))
+    var evade_level: int = get_villager_skill_level(hunter_data, SKILL_EVADE)
+
+    var final_injury_chance: float = max(
+        CoreTuning.HUNT_MIN_INJURY_CHANCE,
+        base_injury_chance - float(evade_level) * CoreTuning.HUNT_EVADE_INJURY_CHANCE_REDUCTION_PER_LEVEL
+    )
+
+    if rng.randf() > final_injury_chance:
+        return result
+
+    var hunter_defense: int = int(hunter_data.get("defense", 0))
+    var damage: int = max(
+        CoreTuning.HUNT_MIN_DAMAGE,
+        animal_damage - hunter_defense
+    )
+
+    var new_health: int = int(hunter_data.get("health", BASE_HEALTH)) - damage
+
+    if new_health <= 0:
+        var death_message: String = mark_villager_dead(
+            target_hunter_index,
+            "Killed by " + animal_name + " during a hunt."
+        )
+
+        if death_message != "":
+            result["messages"].append(death_message)
+
+        var replacement_result: Dictionary = send_replacement_hunter_to_animal_hunt(
+            animal_instance_id,
+            animal_tile
+        )
+
+        if bool(replacement_result.get("success", false)):
+            result["replacement_sent"] = true
+            result["messages"].append(str(replacement_result.get("message", "Replacement Hunter sent.")))
+        else:
+            result["no_replacement_available"] = true
+            result["messages"].append("No replacement Hunter was available. Hunt countdown extended.")
+
+        return result
+
+    hunter_data["health"] = new_health
+    hunter_data["health_state"] = HEALTH_STATE_WEAKENED
+    villagers[target_hunter_index] = hunter_data
+
+    result["messages"].append(
+        hunter_name
+        + " was injured by "
+        + animal_name
+        + " during the hunt for "
+        + str(damage)
+        + " damage."
+    )
+
+    return result
+
+
+func get_active_hunter_indexes_for_animal(animal_instance_id: int) -> Array:
     var hunter_indexes: Array = []
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if is_villager_unavailable_for_work(villager_data):
+            continue
+
+        if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
+            continue
+
+        var hunting_phase: String = str(villager_data.get("hunting_phase", HUNTING_PHASE_NONE))
+
+        if hunting_phase == HUNTING_PHASE_NONE:
+            continue
+
+        hunter_indexes.append(villager_index)
+
+    return hunter_indexes
+
+
+func send_replacement_hunter_to_animal_hunt(
+    animal_instance_id: int,
+    animal_tile: Vector2i
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    var available_hunters: Array = get_available_hunters_for_hunt(1)
+
+    if available_hunters.is_empty():
+        result["message"] = "No replacement Hunter available."
+        return result
+
+    var reserved_hunt_positions: Array = get_reserved_hunt_positions_for_animal(animal_instance_id)
+    var hunter_data: Dictionary = available_hunters[0]
+    var hunter_id: int = int(hunter_data.get("id", 0))
+    var villager_index: int = get_villager_index_by_id(hunter_id)
+
+    if villager_index < 0:
+        result["message"] = "Replacement Hunter could not be found."
+        return result
+
+    var villager_data: Dictionary = villagers[villager_index]
+    var current_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
+
+    var hunt_position: Vector2i = find_hunt_position_for_hunter(
+        animal_tile,
+        current_tile,
+        reserved_hunt_positions
+    )
+
+    if not is_tile_in_bounds(hunt_position):
+        result["message"] = "Replacement Hunter could not find an open hunt position."
+        return result
+
+    var return_tile: Vector2i = villager_data.get("assigned_work_anchor_tile", NO_ASSIGNED_AREA)
+
+    villager_data["hunting_animal_instance_id"] = animal_instance_id
+    villager_data["hunting_target_tile"] = hunt_position
+    villager_data["hunting_return_tile"] = return_tile
+    villager_data["hunting_phase"] = HUNTING_PHASE_TRAVEL_TO_ANIMAL
+    villager_data["state"] = VILLAGER_STATE_MOVING_TO_HUNT
+    villager_data["current_work_task"] = "traveling_to_hunt"
+    villager_data["target_tile"] = hunt_position
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+    villager_data["assigned_harvest_center"] = NO_ASSIGNED_AREA
+    villager_data["assigned_harvest_radius"] = 0
+    villager_data["move_timer"] = 0.0
+    villager_data["harvest_timer"] = 0.0
+
+    villagers[villager_index] = villager_data
+
+    result["success"] = true
+    result["message"] = str(villager_data.get("name", "Hunter")) + " was sent as a replacement Hunter."
+
+    return result
+
+
+func get_reserved_hunt_positions_for_animal(animal_instance_id: int) -> Array:
+    var reserved_positions: Array = []
 
     for villager_index in range(villagers.size()):
         var villager_variant: Variant = villagers[villager_index]
@@ -2238,36 +2569,63 @@ func apply_hunting_result_to_party(
         if int(villager_data.get("hunting_animal_instance_id", 0)) != animal_instance_id:
             continue
 
-        hunter_indexes.append(villager_index)
+        var target_tile: Vector2i = villager_data.get("hunting_target_tile", Vector2i(-1, -1))
 
-    if hunter_indexes.is_empty():
-        return result_messages
+        if is_tile_in_bounds(target_tile):
+            reserved_positions.append(target_tile)
 
-    if injury_occurred:
-        var injured_index: int = int(hunter_indexes[rng.randi_range(0, hunter_indexes.size() - 1)])
-        var injured_villager: Dictionary = villagers[injured_index]
-        var injured_name: String = str(injured_villager.get("name", "Hunter"))
+    return reserved_positions
 
-        injured_villager["health"] = max(1, int(injured_villager.get("health", BASE_HEALTH)) - 1)
-        injured_villager["health_state"] = HEALTH_STATE_WEAKENED
-        villagers[injured_index] = injured_villager
 
-        result_messages.append(injured_name + " was injured during the hunt.")
+func mark_villager_dead(
+    villager_index: int,
+    death_reason: String = ""
+) -> String:
+    if villager_index < 0 or villager_index >= villagers.size():
+        return ""
 
-    if death_occurred:
-        var dead_index: int = int(hunter_indexes[rng.randi_range(0, hunter_indexes.size() - 1)])
-        var dead_villager: Dictionary = villagers[dead_index]
-        var dead_name: String = str(dead_villager.get("name", "Hunter"))
+    var villager_variant: Variant = villagers[villager_index]
 
-        dead_villager["health"] = 0
-        dead_villager["health_state"] = HEALTH_STATE_DEAD
-        dead_villager["state"] = VILLAGER_STATE_IDLE
-        dead_villager["current_work_task"] = "dead"
-        villagers[dead_index] = dead_villager
+    if typeof(villager_variant) != TYPE_DICTIONARY:
+        return ""
 
-        result_messages.append(dead_name + " was killed during the hunt.")
+    var villager_data: Dictionary = villager_variant
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var death_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
 
-    return result_messages
+    villager_data["health"] = 0
+    villager_data["health_state"] = HEALTH_STATE_DEAD
+    villager_data["death_tile"] = death_tile
+    villager_data["death_reason"] = death_reason
+    villager_data["is_housed"] = false
+
+    villager_data["assigned_building_instance_id"] = 0
+    villager_data["assigned_building_role"] = ""
+    villager_data["assignment_replaces_shelter"] = false
+    villager_data["assigned_work_anchor_tile"] = NO_ASSIGNED_AREA
+    villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
+
+    villager_data["assigned_harvest_center"] = NO_ASSIGNED_AREA
+    villager_data["assigned_harvest_radius"] = 0
+
+    villager_data["hunting_animal_instance_id"] = 0
+    villager_data["hunting_target_tile"] = Vector2i(-1, -1)
+    villager_data["hunting_return_tile"] = Vector2i(-1, -1)
+    villager_data["hunting_phase"] = HUNTING_PHASE_NONE
+
+    villager_data["target_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+    villager_data["move_timer"] = 0.0
+    villager_data["harvest_timer"] = 0.0
+    villager_data["current_work_task"] = "dead"
+    villager_data["state"] = VILLAGER_STATE_IDLE
+
+    villagers[villager_index] = villager_data
+
+    if death_reason == "":
+        return villager_name + " died."
+
+    return villager_name + " died. " + death_reason
 
 
 func clear_hunting_fields_for_villager(villager_data: Dictionary) -> void:
@@ -2308,6 +2666,7 @@ func process_thinking_villager(
         "thinking",
         VILLAGER_STATE_THINKING
     )
+
 
 func process_assigned_building_wander(
     villager_data: Dictionary,
@@ -2353,10 +2712,11 @@ func process_assigned_building_wander(
         var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
 
         if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
-            villager_data["tile"] = next_tile
-            villager_data["world_position"] = tile_to_world_center(next_tile)
-            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
-            return
+            if not is_living_villager_on_tile(next_tile) or next_tile == target_tile:
+                villager_data["tile"] = next_tile
+                villager_data["world_position"] = tile_to_world_center(next_tile)
+                villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+                return
 
         villager_data["target_tile"] = Vector2i(-1, -1)
         villager_data["move_timer"] = 0.0
@@ -2427,7 +2787,7 @@ func find_nearest_walkable_tile_in_area(
             if not is_tile_walkable_for_villager(tile_position):
                 continue
 
-            if is_villager_on_tile(tile_position) and tile_position != origin_tile:
+            if is_living_villager_on_tile(tile_position) and tile_position != origin_tile:
                 continue
 
             var distance_from_origin: int = abs(tile_position.x - origin_tile.x) + abs(tile_position.y - origin_tile.y)
@@ -2460,7 +2820,7 @@ func find_random_walkable_tile_in_area(
             if not is_tile_walkable_for_villager(tile_position):
                 continue
 
-            if is_villager_on_tile(tile_position):
+            if is_living_villager_on_tile(tile_position):
                 continue
 
             candidates.append(tile_position)
@@ -2546,13 +2906,15 @@ func process_moving_villager(
     var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
 
     if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
-        villager_data["tile"] = next_tile
-        villager_data["world_position"] = tile_to_world_center(next_tile)
-        villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
-    else:
-        villager_data["state"] = VILLAGER_STATE_IDLE
-        villager_data["target_tile"] = Vector2i(-1, -1)
-        villager_data["harvest_tile"] = Vector2i(-1, -1)
+        if not is_living_villager_on_tile(next_tile) or next_tile == target_tile:
+            villager_data["tile"] = next_tile
+            villager_data["world_position"] = tile_to_world_center(next_tile)
+            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+            return
+
+    villager_data["state"] = VILLAGER_STATE_IDLE
+    villager_data["target_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
 
 
 func process_harvesting_villager(
@@ -2827,6 +3189,10 @@ func get_resource_yield_multiplier(resource_id: String) -> float:
 
 
 func is_villager_on_tile(tile_position: Vector2i) -> bool:
+    return is_living_villager_on_tile(tile_position)
+
+
+func is_living_villager_on_tile(tile_position: Vector2i) -> bool:
     for villager_index in range(villagers.size()):
         var villager_variant: Variant = villagers[villager_index]
 
@@ -2834,6 +3200,10 @@ func is_villager_on_tile(tile_position: Vector2i) -> bool:
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
         var villager_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
 
         if villager_tile == tile_position:
@@ -2870,8 +3240,10 @@ func is_tile_walkable_for_villager(tile_position: Vector2i) -> bool:
     if terrain == terrain_water:
         return false
 
+    # Villagers can walk through occupied building tiles.
+    # Building placement still uses occupancy rules elsewhere.
     if bool(tile_data.get("occupied", false)):
-        return false
+        return true
 
     if bool(tile_data.get("walkable", false)):
         return true
@@ -3004,6 +3376,10 @@ func is_resource_tile_reserved(tile_position: Vector2i, except_villager_id: int)
             continue
 
         var villager_data: Dictionary = villager_variant
+
+        if is_villager_unavailable_for_work(villager_data):
+            continue
+
         var villager_id: int = int(villager_data.get("id", 0))
 
         if villager_id == except_villager_id:
@@ -3051,7 +3427,8 @@ func get_next_step_toward_tile(from_tile: Vector2i, to_tile: Vector2i) -> Vector
             return secondary_step
 
     return from_tile
-    
+
+
 func get_next_open_step_toward_tile(
     from_tile: Vector2i,
     to_tile: Vector2i
@@ -3079,7 +3456,7 @@ func get_next_open_step_toward_tile(
         if not is_tile_walkable_for_villager(candidate_tile):
             continue
 
-        if is_villager_on_tile(candidate_tile) and candidate_tile != to_tile:
+        if is_living_villager_on_tile(candidate_tile) and candidate_tile != to_tile:
             continue
 
         var candidate_distance: int = abs(to_tile.x - candidate_tile.x) + abs(to_tile.y - candidate_tile.y)
@@ -3202,6 +3579,7 @@ func print_villager_summary(villager_data: Dictionary) -> void:
     var assigned_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assigned_role)
     var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
     var current_work_task: String = str(villager_data.get("current_work_task", ""))
+    var health_state: String = str(villager_data.get("health_state", HEALTH_STATE_HEALTHY))
     var attack_text: String = "-"
 
     if villager_data.has("attack"):
@@ -3218,7 +3596,9 @@ func print_villager_summary(villager_data: Dictionary) -> void:
         " (",
         gender,
         ") ",
-        "Level ",
+        "State ",
+        health_state,
+        ", Level ",
         level,
         ", Speed ",
         speed,

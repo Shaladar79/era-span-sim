@@ -1491,6 +1491,74 @@ static func draw_wild_animal_hover_panel(
         animal_data,
         panel_screen_rect
     )
+    
+static func draw_grave_hover_panel(
+    canvas: CanvasItem,
+    villager_data: Dictionary
+) -> void:
+    var viewport_size: Vector2 = canvas.get_viewport().get_visible_rect().size
+
+    var panel_width: float = 260.0
+    var panel_height: float = 88.0
+    var panel_position := Vector2(
+        viewport_size.x - panel_width - 12.0,
+        176.0
+    )
+
+    var panel_rect := Rect2(
+        panel_position,
+        Vector2(panel_width, panel_height)
+    )
+
+    canvas.draw_rect(
+        panel_rect,
+        Color(0.08, 0.08, 0.08, 0.88),
+        true
+    )
+
+    canvas.draw_rect(
+        panel_rect,
+        Color(0.75, 0.75, 0.75, 1.0),
+        false,
+        2.0
+    )
+
+    var villager_name: String = str(villager_data.get("name", "Unknown Villager"))
+    var death_reason: String = str(villager_data.get("death_reason", ""))
+
+    var text_x: float = panel_position.x + 10.0
+    var text_y: float = panel_position.y + 22.0
+
+    canvas.draw_string(
+        ThemeDB.fallback_font,
+        Vector2(text_x, text_y),
+        "Grave Marker",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1.0,
+        16,
+        Color.WHITE
+    )
+
+    canvas.draw_string(
+        ThemeDB.fallback_font,
+        Vector2(text_x, text_y + 24.0),
+        "Here lies: " + villager_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1.0,
+        14,
+        Color.WHITE
+    )
+
+    if death_reason != "":
+        canvas.draw_string(
+            ThemeDB.fallback_font,
+            Vector2(text_x, text_y + 46.0),
+            death_reason,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1.0,
+            12,
+            Color(0.85, 0.85, 0.85, 1.0)
+        )
 
 
 static func draw_wild_animal_hover_panel_text(
