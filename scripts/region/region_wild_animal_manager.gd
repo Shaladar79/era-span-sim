@@ -86,6 +86,19 @@ func setup(
 
     if wander_rng.seed == 0:
         wander_rng.randomize()
+        
+func get_event_messages() -> Array:
+    var messages: Array = event_messages_this_frame.duplicate(true)
+    event_messages_this_frame.clear()
+    return messages
+
+
+func add_event_message(message: String) -> void:
+    if message == "":
+        return
+
+    event_messages_this_frame.append(message)
+    print(message)
 
 
 func reset() -> void:
@@ -230,7 +243,11 @@ func spawn_stone_age_animals(
     region_seed: int,
     campfire_tiles: Array = []
 ) -> void:
-    reset()
+    wild_animals.clear()
+    next_instance_id = 1
+    pending_respawns.clear()
+    respawn_check_timer = 0.0
+    event_messages_this_frame.clear()
 
     var rng := RandomNumberGenerator.new()
     rng.seed = region_seed + 94031
@@ -622,6 +639,7 @@ func add_animal_instance(
         KEY_INSTANCE_ID: next_instance_id,
         KEY_ANIMAL_ID: str(animal_base_data.get(RegionWildAnimalData.KEY_ID, "")),
         KEY_NAME: str(animal_base_data.get(RegionWildAnimalData.KEY_NAME, "Animal")),
+        KEY_SPECIES: str(animal_base_data.get(RegionWildAnimalData.KEY_SPECIES, "")),
         KEY_TILE: tile,
         KEY_DANGEROUS: dangerous,
         KEY_DANGER_LEVEL: str(animal_base_data.get(RegionWildAnimalData.KEY_DANGER_LEVEL, RegionWildAnimalData.DANGER_NONE)),
@@ -632,6 +650,14 @@ func add_animal_instance(
         KEY_INJURY_CHANCE: float(animal_base_data.get(RegionWildAnimalData.KEY_INJURY_CHANCE, 0.0)),
         KEY_DEATH_CHANCE: float(animal_base_data.get(RegionWildAnimalData.KEY_DEATH_CHANCE, 0.0)),
         KEY_HUNT_DAMAGE: max(0, int(animal_base_data.get(RegionWildAnimalData.KEY_HUNT_DAMAGE, 0))),
+        KEY_HUNT_TIME_MODIFIER: float(animal_base_data.get(RegionWildAnimalData.KEY_HUNT_TIME_MODIFIER, 0.0)),
+        KEY_CAN_RESPAWN: bool(animal_base_data.get(RegionWildAnimalData.KEY_CAN_RESPAWN, true)),
+        KEY_RESPAWN_TIME: max(0.0, float(animal_base_data.get(RegionWildAnimalData.KEY_RESPAWN_TIME, CoreTuning.ANIMAL_RESPAWN_DEFAULT_TIME))),
+        KEY_MAX_ACTIVE: max(0, int(animal_base_data.get(RegionWildAnimalData.KEY_MAX_ACTIVE, 0))),
+        KEY_IS_UNIQUE: bool(animal_base_data.get(RegionWildAnimalData.KEY_IS_UNIQUE, false)),
+        KEY_UNIQUE_ID: str(animal_base_data.get(RegionWildAnimalData.KEY_UNIQUE_ID, "")),
+        KEY_UNIQUE_REPEATABLE: bool(animal_base_data.get(RegionWildAnimalData.KEY_UNIQUE_REPEATABLE, false)),
+        KEY_UNIQUE_MAX_SPAWNS: max(0, int(animal_base_data.get(RegionWildAnimalData.KEY_UNIQUE_MAX_SPAWNS, 0))),
         KEY_ACTIVE: true,
         KEY_RESERVED_FOR_HUNT: false,
         KEY_HUNTING_PARTY_ASSIGNED: false,
@@ -941,25 +967,12 @@ func get_hunt_duration_for_animal(
     average_hunting_skill: float
 ) -> float:
     var required_hunters: int = int(animal_data.get(KEY_REQUIRED_HUNTERS, 1))
-    var dangerous: bool = bool(animal_data.get(KEY_DANGEROUS, false))
-    var danger_level: String = str(
-        animal_data.get(KEY_DANGER_LEVEL, RegionWildAnimalData.DANGER_NONE)
-    ).to_lower()
-
-    var danger_modifier: float = CoreTuning.HUNT_NORMAL_DURATION_MODIFIER
-
-    if dangerous:
-        danger_modifier = CoreTuning.HUNT_DANGEROUS_DURATION_MODIFIER
-
-    if danger_level == "high":
-        danger_modifier = CoreTuning.HUNT_HIGH_DANGER_DURATION_MODIFIER
-    elif danger_level == "extreme":
-        danger_modifier = CoreTuning.HUNT_EXTREME_DANGER_DURATION_MODIFIER
+    var hunt_time_modifier: float = float(animal_data.get(KEY_HUNT_TIME_MODIFIER, 0.0))
 
     var raw_duration: float = (
         CoreTuning.HUNT_BASE_DURATION
         + float(required_hunters) * CoreTuning.HUNT_REQUIRED_HUNTER_DURATION_BONUS
-        + danger_modifier
+        + hunt_time_modifier
     )
 
     var skill_reduction: float = max(0.0, average_hunting_skill) * CoreTuning.HUNTING_SKILL_DURATION_REDUCTION_PER_LEVEL
@@ -1010,14 +1023,291 @@ func resolve_hunt_for_animal_instance(animal_instance_id: int) -> Dictionary:
         message = "Hunters defeated " + animal_name + "."
 
     return {
-        "success": true,
-        "message": message,
-        "yields": yields,
-        "animal_name": animal_name,
-        "dangerous": dangerous,
-        "injury_occurred": injury_occurred,
-        "death_occurred": death_occurred
+    "success": true,
+    "message": message,
+    "yields": yields,
+    "animal_id": str(animal_data.get(KEY_ANIMAL_ID, "")),
+    "animal_name": animal_name,
+    "species": str(animal_data.get(KEY_SPECIES, "")),
+    "dangerous": dangerous,
+    "is_unique": bool(animal_data.get(KEY_IS_UNIQUE, false)),
+    "can_respawn": bool(animal_data.get(KEY_CAN_RESPAWN, false)),
+    "respawn_time": float(animal_data.get(KEY_RESPAWN_TIME, CoreTuning.ANIMAL_RESPAWN_DEFAULT_TIME)),
+    "injury_occurred": injury_occurred,
+    "death_occurred": death_occurred
+}
+    
+func record_animal_kill_from_hunt_result(hunt_result: Dictionary) -> Dictionary:
+    var result: Dictionary = {
+        "messages": []
     }
+
+    var animal_id: String = str(hunt_result.get("animal_id", ""))
+    var animal_name: String = str(hunt_result.get("animal_name", "Wild Animal"))
+
+    if animal_id == "":
+        return result
+
+    increment_animal_kill_count(animal_id)
+
+    var kill_count: int = get_animal_kill_count(animal_id)
+
+    result["messages"].append(
+        animal_name
+        + " kill count: "
+        + str(kill_count)
+        + "."
+    )
+
+    var respawn_message: String = schedule_respawn_from_hunt_result(hunt_result)
+
+    if respawn_message != "":
+        result["messages"].append(respawn_message)
+
+    var unique_messages: Array = check_unique_animal_triggers()
+
+    for message_index in range(unique_messages.size()):
+        result["messages"].append(str(unique_messages[message_index]))
+
+    return result
+
+
+func increment_animal_kill_count(animal_id: String) -> void:
+    if animal_id == "":
+        return
+
+    animal_kill_counts[animal_id] = int(animal_kill_counts.get(animal_id, 0)) + 1
+
+
+func get_animal_kill_count(animal_id: String) -> int:
+    return int(animal_kill_counts.get(animal_id, 0))
+
+
+func get_all_animal_kill_counts() -> Dictionary:
+    return animal_kill_counts.duplicate(true)
+
+
+func schedule_respawn_from_hunt_result(hunt_result: Dictionary) -> String:
+    var animal_id: String = str(hunt_result.get("animal_id", ""))
+
+    if animal_id == "":
+        return ""
+
+    var can_respawn: bool = bool(hunt_result.get("can_respawn", false))
+
+    if not can_respawn:
+        return ""
+
+    var respawn_time: float = max(
+        0.0,
+        float(hunt_result.get("respawn_time", CoreTuning.ANIMAL_RESPAWN_DEFAULT_TIME))
+    )
+
+    if respawn_time <= 0.0:
+        return ""
+
+    pending_respawns.append({
+        KEY_RESPAWN_ANIMAL_ID: animal_id,
+        KEY_RESPAWN_TIMER: respawn_time,
+        KEY_RESPAWN_IS_UNIQUE: bool(hunt_result.get("is_unique", false))
+    })
+
+    return str(hunt_result.get("animal_name", "Animal")) + " may return to the region later."
+
+
+func update_respawns(
+    delta: float,
+    campfire_tiles: Array
+) -> bool:
+    if pending_respawns.is_empty():
+        return false
+
+    respawn_check_timer -= delta
+
+    if respawn_check_timer > 0.0:
+        return false
+
+    respawn_check_timer = CoreTuning.ANIMAL_RESPAWN_CHECK_INTERVAL
+
+    var did_spawn: bool = false
+    var remaining_respawns: Array = []
+
+    var rng := RandomNumberGenerator.new()
+    rng.randomize()
+
+    for respawn_index in range(pending_respawns.size()):
+        var respawn_variant: Variant = pending_respawns[respawn_index]
+
+        if typeof(respawn_variant) != TYPE_DICTIONARY:
+            continue
+
+        var respawn_data: Dictionary = respawn_variant
+        var timer: float = float(respawn_data.get(KEY_RESPAWN_TIMER, 0.0))
+        timer -= CoreTuning.ANIMAL_RESPAWN_CHECK_INTERVAL
+
+        if timer > 0.0:
+            respawn_data[KEY_RESPAWN_TIMER] = timer
+            remaining_respawns.append(respawn_data)
+            continue
+
+        var animal_id: String = str(respawn_data.get(KEY_RESPAWN_ANIMAL_ID, ""))
+        var animal_base_data: Dictionary = RegionWildAnimalData.get_animal(animal_id)
+
+        if animal_base_data.is_empty():
+            continue
+
+        if not can_spawn_more_of_animal(animal_id, animal_base_data):
+            respawn_data[KEY_RESPAWN_TIMER] = CoreTuning.ANIMAL_RESPAWN_CHECK_INTERVAL
+            remaining_respawns.append(respawn_data)
+            continue
+
+        var spawn_tile: Vector2i = find_spawn_tile_for_animal(
+            animal_base_data,
+            rng,
+            campfire_tiles
+        )
+
+        if not is_tile_in_bounds(spawn_tile):
+            respawn_data[KEY_RESPAWN_TIMER] = CoreTuning.ANIMAL_RESPAWN_CHECK_INTERVAL
+            remaining_respawns.append(respawn_data)
+            continue
+
+        add_animal_instance(animal_base_data, spawn_tile)
+        did_spawn = true
+
+        add_event_message(
+            str(animal_base_data.get(RegionWildAnimalData.KEY_NAME, animal_id))
+            + " has returned to the region."
+        )
+
+    pending_respawns = remaining_respawns
+
+    return did_spawn
+
+
+func can_spawn_more_of_animal(
+    animal_id: String,
+    animal_base_data: Dictionary
+) -> bool:
+    var max_active: int = max(
+        0,
+        int(animal_base_data.get(RegionWildAnimalData.KEY_MAX_ACTIVE, 0))
+    )
+
+    if max_active <= 0:
+        return true
+
+    var active_count: int = 0
+
+    for animal_index in range(wild_animals.size()):
+        var animal_data: Dictionary = wild_animals[animal_index]
+
+        if not bool(animal_data.get(KEY_ACTIVE, true)):
+            continue
+
+        if str(animal_data.get(KEY_ANIMAL_ID, "")) == animal_id:
+            active_count += 1
+
+    return active_count < max_active
+    
+func check_unique_animal_triggers() -> Array:
+    var messages: Array = []
+    var unique_animals: Array = RegionWildAnimalData.get_unique_animals_for_age(
+        RegionWildAnimalData.AGE_STONE
+    )
+
+    for unique_index in range(unique_animals.size()):
+        var unique_animal_data: Dictionary = unique_animals[unique_index]
+
+        if should_spawn_unique_animal(unique_animal_data):
+            var spawn_message: String = try_spawn_unique_animal(unique_animal_data)
+
+            if spawn_message != "":
+                messages.append(spawn_message)
+
+    return messages
+
+
+func should_spawn_unique_animal(unique_animal_data: Dictionary) -> bool:
+    var unique_id: String = str(unique_animal_data.get(RegionWildAnimalData.KEY_UNIQUE_ID, ""))
+
+    if unique_id == "":
+        return false
+
+    var trigger_data: Dictionary = get_dictionary_from_variant(
+        unique_animal_data.get(RegionWildAnimalData.KEY_SPAWN_TRIGGER, {})
+    )
+
+    if trigger_data.is_empty():
+        return false
+
+    var trigger_type: String = str(trigger_data.get(RegionWildAnimalData.KEY_TRIGGER_TYPE, ""))
+
+    if trigger_type != RegionWildAnimalData.TRIGGER_TYPE_KILL_COUNT:
+        return false
+
+    var trigger_animal_id: String = str(trigger_data.get(RegionWildAnimalData.KEY_TRIGGER_ANIMAL_ID, ""))
+    var trigger_count: int = max(1, int(trigger_data.get(RegionWildAnimalData.KEY_TRIGGER_COUNT, 1)))
+    var repeat_interval: int = max(0, int(trigger_data.get(RegionWildAnimalData.KEY_TRIGGER_REPEAT_INTERVAL, 0)))
+    var current_kill_count: int = get_animal_kill_count(trigger_animal_id)
+
+    if current_kill_count < trigger_count:
+        return false
+
+    var spawn_count: int = int(unique_spawn_counts.get(unique_id, 0))
+    var unique_repeatable: bool = bool(unique_animal_data.get(RegionWildAnimalData.KEY_UNIQUE_REPEATABLE, false))
+    var unique_max_spawns: int = max(0, int(unique_animal_data.get(RegionWildAnimalData.KEY_UNIQUE_MAX_SPAWNS, 0)))
+
+    if unique_max_spawns > 0 and spawn_count >= unique_max_spawns:
+        return false
+
+    if not unique_repeatable:
+        return spawn_count <= 0
+
+    var last_trigger_count: int = int(unique_last_trigger_counts.get(unique_id, 0))
+
+    if last_trigger_count <= 0:
+        return true
+
+    if repeat_interval <= 0:
+        return false
+
+    return current_kill_count >= last_trigger_count + repeat_interval
+
+
+func try_spawn_unique_animal(unique_animal_data: Dictionary) -> String:
+    var unique_id: String = str(unique_animal_data.get(RegionWildAnimalData.KEY_UNIQUE_ID, ""))
+
+    if unique_id == "":
+        return ""
+
+    var rng := RandomNumberGenerator.new()
+    rng.randomize()
+
+    var spawn_tile: Vector2i = find_spawn_tile_for_animal(
+        unique_animal_data,
+        rng,
+        []
+    )
+
+    if not is_tile_in_bounds(spawn_tile):
+        return ""
+
+    add_animal_instance(unique_animal_data, spawn_tile)
+
+    var spawn_count: int = int(unique_spawn_counts.get(unique_id, 0)) + 1
+    unique_spawn_counts[unique_id] = spawn_count
+
+    var trigger_data: Dictionary = get_dictionary_from_variant(
+        unique_animal_data.get(RegionWildAnimalData.KEY_SPAWN_TRIGGER, {})
+    )
+
+    var trigger_animal_id: String = str(trigger_data.get(RegionWildAnimalData.KEY_TRIGGER_ANIMAL_ID, ""))
+    var current_kill_count: int = get_animal_kill_count(trigger_animal_id)
+
+    unique_last_trigger_counts[unique_id] = current_kill_count
+
+    return str(unique_animal_data.get(RegionWildAnimalData.KEY_NAME, "Unique Animal")) + " has appeared in the region."
 
 
 func get_active_animal_index_at_tile(tile: Vector2i) -> int:
