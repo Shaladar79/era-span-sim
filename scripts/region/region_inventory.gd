@@ -18,7 +18,10 @@ func reset() -> void:
         "Mushrooms": 0,
         "Reeds": 0,
         "Clay": 0,
-        "Fish": 0
+        "Fish": 0,
+        "Meat": 0,
+        "Hide": 0,
+        "Bone": 0
     }
 
     storage_bonus_caps = {}

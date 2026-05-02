@@ -2,6 +2,7 @@ extends RefCounted
 class_name RegionDebugPanel
 
 const ACTION_MAX_RESOURCES: String = "max_resources"
+const ACTION_ADD_ANIMAL_RESOURCES: String = "add_animal_resources"
 const ACTION_ADD_RESEARCH_10: String = "add_research_10"
 const ACTION_ADD_RESEARCH_50: String = "add_research_50"
 const ACTION_ADD_RESEARCH_100: String = "add_research_100"
@@ -12,6 +13,8 @@ const ACTION_CLOSE: String = "close"
 
 const DEBUG_PANEL_TITLE: String = "Debug Tools"
 
+const TEST_ANIMAL_RESOURCE_AMOUNT: int = 25
+
 const TEST_RESOURCE_NAMES: Array[String] = [
     "Wood",
     "Stone",
@@ -21,7 +24,16 @@ const TEST_RESOURCE_NAMES: Array[String] = [
     "Mushrooms",
     "Reeds",
     "Clay",
-    "Fish"
+    "Fish",
+    "Meat",
+    "Hide",
+    "Bone"
+]
+
+const TEST_ANIMAL_RESOURCE_NAMES: Array[String] = [
+    "Meat",
+    "Hide",
+    "Bone"
 ]
 
 
@@ -30,6 +42,10 @@ static func get_actions() -> Array:
         {
             "id": ACTION_MAX_RESOURCES,
             "label": "Max Resources"
+        },
+        {
+            "id": ACTION_ADD_ANIMAL_RESOURCES,
+            "label": "+Animal Resources"
         },
         {
             "id": ACTION_ADD_RESEARCH_10,
@@ -118,6 +134,10 @@ static func is_research_action(action_id: String) -> bool:
 
 static func is_villager_action(action_id: String) -> bool:
     return get_villager_amount_for_action(action_id) > 0
+
+
+static func is_animal_resource_action(action_id: String) -> bool:
+    return action_id == ACTION_ADD_ANIMAL_RESOURCES
 
 
 static func get_test_item_outputs() -> Array:
@@ -282,6 +302,22 @@ static func max_resources(inventory: RegionInventory) -> int:
 
         inventory.set_amount(resource_name, resource_cap)
         changed_count += 1
+
+    return changed_count
+
+
+static func add_animal_resources(inventory: RegionInventory) -> int:
+    var changed_count: int = 0
+
+    for resource_index in range(TEST_ANIMAL_RESOURCE_NAMES.size()):
+        var resource_name: String = str(TEST_ANIMAL_RESOURCE_NAMES[resource_index])
+        var accepted_amount: int = inventory.add_resource(
+            resource_name,
+            TEST_ANIMAL_RESOURCE_AMOUNT
+        )
+
+        if accepted_amount > 0:
+            changed_count += 1
 
     return changed_count
 

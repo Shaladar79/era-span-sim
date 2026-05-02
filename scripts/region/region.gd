@@ -137,6 +137,7 @@ func set_region_name(new_region_name: String) -> void:
 func get_region_name() -> String:
     return region_name
 
+
 func get_save_data() -> Dictionary:
     return {
         SAVE_KEY_REGION_NAME: region_name,
@@ -416,6 +417,7 @@ func restore_save_safe_value(value: Variant) -> Variant:
         return restored_array
 
     return value
+
 
 func get_map_center() -> Vector2:
     return Vector2(
@@ -1039,6 +1041,11 @@ func execute_debug_action(action_id: String) -> void:
     if action_id == RegionDebugPanel.ACTION_MAX_RESOURCES:
         var changed_count: int = RegionDebugPanel.max_resources(inventory)
         add_village_log_message("Debug: maxed " + str(changed_count) + " resources.")
+        print_settlement_inventory()
+
+    elif RegionDebugPanel.is_animal_resource_action(action_id):
+        var changed_count: int = RegionDebugPanel.add_animal_resources(inventory)
+        add_village_log_message("Debug: added animal resources to " + str(changed_count) + " storage stacks.")
         print_settlement_inventory()
 
     elif RegionDebugPanel.is_research_action(action_id):
