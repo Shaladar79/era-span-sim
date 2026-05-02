@@ -3,6 +3,13 @@ class_name RegionResearch
 
 const RESEARCH_TICK_INTERVAL: float = 60.0
 
+const SAVE_KEY_RESEARCH_POINTS: String = "research_points"
+const SAVE_KEY_RESEARCH_TIMER: String = "research_timer"
+const SAVE_KEY_LEARNED_RESEARCH: String = "learned_research"
+const SAVE_KEY_UNLOCKED_RECIPES: String = "unlocked_recipes"
+const SAVE_KEY_UNLOCKED_BUILDINGS: String = "unlocked_buildings"
+const SAVE_KEY_GLOBAL_BONUSES: String = "global_bonuses"
+
 var research_points: int = 0
 var research_timer: float = 0.0
 
@@ -19,6 +26,70 @@ func reset() -> void:
     unlocked_recipes.clear()
     unlocked_buildings.clear()
     global_bonuses.clear()
+
+
+func get_save_data() -> Dictionary:
+    return {
+        SAVE_KEY_RESEARCH_POINTS: research_points,
+        SAVE_KEY_RESEARCH_TIMER: research_timer,
+        SAVE_KEY_LEARNED_RESEARCH: learned_research.duplicate(true),
+        SAVE_KEY_UNLOCKED_RECIPES: unlocked_recipes.duplicate(true),
+        SAVE_KEY_UNLOCKED_BUILDINGS: unlocked_buildings.duplicate(true),
+        SAVE_KEY_GLOBAL_BONUSES: global_bonuses.duplicate(true)
+    }
+
+
+func load_save_data(save_data: Dictionary) -> void:
+    reset()
+
+    if save_data.is_empty():
+        return
+
+    research_points = max(0, int(save_data.get(SAVE_KEY_RESEARCH_POINTS, 0)))
+    research_timer = max(0.0, float(save_data.get(SAVE_KEY_RESEARCH_TIMER, 0.0)))
+
+    var saved_learned_research: Variant = save_data.get(SAVE_KEY_LEARNED_RESEARCH, [])
+    var saved_unlocked_recipes: Variant = save_data.get(SAVE_KEY_UNLOCKED_RECIPES, [])
+    var saved_unlocked_buildings: Variant = save_data.get(SAVE_KEY_UNLOCKED_BUILDINGS, [])
+    var saved_global_bonuses: Variant = save_data.get(SAVE_KEY_GLOBAL_BONUSES, {})
+
+    learned_research = get_unique_string_array(saved_learned_research)
+    unlocked_recipes = get_unique_string_array(saved_unlocked_recipes)
+    unlocked_buildings = get_unique_string_array(saved_unlocked_buildings)
+
+    if typeof(saved_global_bonuses) == TYPE_DICTIONARY:
+        var bonus_dict: Dictionary = saved_global_bonuses
+        var bonus_ids: Array = bonus_dict.keys()
+
+        for bonus_index in range(bonus_ids.size()):
+            var bonus_id: String = str(bonus_ids[bonus_index])
+
+            if bonus_id == "":
+                continue
+
+            global_bonuses[bonus_id] = float(bonus_dict.get(bonus_id, 0.0))
+
+
+func get_unique_string_array(value: Variant) -> Array:
+    var output: Array = []
+
+    if typeof(value) != TYPE_ARRAY:
+        return output
+
+    var input_array: Array = value
+
+    for value_index in range(input_array.size()):
+        var entry: String = str(input_array[value_index])
+
+        if entry == "":
+            continue
+
+        if output.has(entry):
+            continue
+
+        output.append(entry)
+
+    return output
 
 
 func update(

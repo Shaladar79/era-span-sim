@@ -220,3 +220,54 @@ static func list_save_files() -> Array:
     save_files.sort()
 
     return save_files
+    
+static func get_save_path_from_file_name(file_name: String) -> String:
+    return SAVE_DIRECTORY + "/" + file_name
+
+
+static func get_save_modified_time(save_path: String) -> int:
+    if not FileAccess.file_exists(save_path):
+        return 0
+
+    return int(FileAccess.get_modified_time(save_path))
+
+
+static func list_save_file_infos() -> Array:
+    ensure_save_directory_exists()
+
+    var save_file_infos: Array = []
+    var save_files: Array = list_save_files()
+
+    for file_index in range(save_files.size()):
+        var file_name: String = str(save_files[file_index])
+        var save_path: String = get_save_path_from_file_name(file_name)
+
+        save_file_infos.append({
+            "file_name": file_name,
+            "path": save_path,
+            "modified_time": get_save_modified_time(save_path)
+        })
+
+    save_file_infos.sort_custom(_sort_save_infos_newest_first)
+
+    return save_file_infos
+
+
+static func _sort_save_infos_newest_first(a: Dictionary, b: Dictionary) -> bool:
+    return int(a.get("modified_time", 0)) > int(b.get("modified_time", 0))
+
+
+static func read_most_recent_save() -> Dictionary:
+    var save_file_infos: Array = list_save_file_infos()
+
+    if save_file_infos.is_empty():
+        return {
+            "success": false,
+            "path": "",
+            "message": "No save files found."
+        }
+
+    var newest_save: Dictionary = save_file_infos[0]
+    var save_path: String = str(newest_save.get("path", ""))
+
+    return read_save_from_path(save_path)

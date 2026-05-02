@@ -414,31 +414,21 @@ func build_current_world_save_data() -> Dictionary:
 
 
 func build_current_region_save_data() -> Dictionary:
-    var region_seed: int = 0
-    var source_world_seed: int = 0
-    var source_selection_origin: Vector2i = Vector2i(-1, -1)
-    var source_world_resource_totals: Dictionary = {}
-    var source_world_tiles: Array = []
-    var simulation_paused: bool = true
+    if region != null and region.has_method("get_save_data"):
+        var region_save_data: Variant = region.call("get_save_data")
 
-    if region != null:
-        region_seed = int(region.get("region_seed"))
-        source_world_seed = int(region.get("source_world_seed"))
-        source_selection_origin = region.get("source_selection_origin")
-        source_world_resource_totals = region.get("source_world_resource_totals").duplicate(true)
-        source_world_tiles = region.get("source_world_tiles").duplicate(true)
-        simulation_paused = bool(region.get("simulation_paused"))
+        if typeof(region_save_data) == TYPE_DICTIONARY:
+            return region_save_data
 
     return {
         "region_name": get_current_region_name(),
-        "region_seed": region_seed,
-        "source_world_seed": source_world_seed,
-        "source_selection_origin": vector2i_to_save_dict(source_selection_origin),
-        "source_world_resource_totals": source_world_resource_totals,
-        "source_world_tiles": source_world_tiles,
-        "simulation_paused": simulation_paused
+        "region_seed": 0,
+        "source_world_seed": 0,
+        "source_selection_origin": vector2i_to_save_dict(Vector2i(-1, -1)),
+        "source_world_resource_totals": {},
+        "source_world_tiles": [],
+        "simulation_paused": true
     }
-
 
 func vector2i_to_save_dict(value: Vector2i) -> Dictionary:
     return {
@@ -461,6 +451,78 @@ func save_current_game() -> void:
     if region != null and region.has_method("add_village_log_message"):
         region.call("add_village_log_message", message)
 
+func load_most_recent_game() -> void:
+    var result: Dictionary = SaveManager.read_most_recent_save()
+
+    if not bool(result.get("success", false)):
+        print(str(result.get("message", "Load failed.")))
+        return
+
+    var save_data_variant: Variant = result.get("data", {})
+
+    if typeof(save_data_variant) != TYPE_DICTIONARY:
+        print("Load failed. Save data was not a dictionary.")
+        return
+
+    var save_data: Dictionary = save_data_variant
+    apply_loaded_save_data(save_data)
+
+    print(str(result.get("message", "Loaded save.")))
+
+
+func apply_loaded_save_data(save_data: Dictionary) -> void:
+    var region_data_variant: Variant = save_data.get(SaveManager.KEY_REGION_DATA, {})
+
+    if typeof(region_data_variant) != TYPE_DICTIONARY:
+        print("Load failed. Save had no valid region_data.")
+        return
+
+    var region_data: Dictionary = region_data_variant
+
+    get_tree().paused = false
+    game_mode = GAME_MODE_REGION
+    previous_game_mode = GAME_MODE_REGION
+
+    world.visible = false
+    region.visible = true
+
+    clear_pending_region_selection()
+
+    if ui != null:
+        if ui.has_method("hide_main_menu"):
+            ui.call("hide_main_menu")
+
+        if ui.has_method("hide_world_preview_panel"):
+            ui.call("hide_world_preview_panel")
+
+        if ui.has_method("hide_region_start_panel"):
+            ui.call("hide_region_start_panel")
+
+        if ui.has_method("hide_pause_menu"):
+            ui.call("hide_pause_menu")
+
+        if ui.has_method("set_build_ui_enabled"):
+            ui.call("set_build_ui_enabled", true)
+
+    if world.has_method("deactivate"):
+        world.call("deactivate")
+
+    if region.has_method("activate"):
+        region.call("activate")
+
+    if region.has_method("load_save_data"):
+        region.call("load_save_data", region_data)
+    else:
+        print("Load failed. Region does not have load_save_data().")
+        return
+
+    current_region_name = get_current_region_name()
+
+    if region.has_method("get_map_center"):
+        main_camera.position = region.call("get_map_center")
+
+    print("Loaded game: " + current_region_name)
+    
 
 func _on_world_region_requested(
     selected_world_tiles: Array,
@@ -485,7 +547,7 @@ func _on_main_menu_new_game_requested() -> void:
 
 
 func _on_main_menu_load_game_requested() -> void:
-    print("Load Game requested. Save/load system is not implemented yet.")
+    load_most_recent_game()
 
 
 func _on_main_menu_options_requested() -> void:
@@ -525,7 +587,7 @@ func _on_pause_save_requested() -> void:
 
 
 func _on_pause_load_requested() -> void:
-    print("Load Game requested from pause menu. Save/load system is not implemented yet.")
+    load_most_recent_game()
 
 
 func _on_pause_return_to_main_requested() -> void:

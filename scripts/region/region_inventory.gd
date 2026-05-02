@@ -1,6 +1,9 @@
 extends RefCounted
 class_name RegionInventory
 
+const SAVE_KEY_RESOURCES: String = "resources"
+const SAVE_KEY_STORAGE_BONUS_CAPS: String = "storage_bonus_caps"
+
 var resources: Dictionary = {}
 var storage_bonus_caps: Dictionary = {}
 
@@ -19,6 +22,64 @@ func reset() -> void:
     }
 
     storage_bonus_caps = {}
+
+
+func get_save_data() -> Dictionary:
+    return {
+        SAVE_KEY_RESOURCES: resources.duplicate(true),
+        SAVE_KEY_STORAGE_BONUS_CAPS: storage_bonus_caps.duplicate(true)
+    }
+
+
+func load_save_data(save_data: Dictionary) -> void:
+    reset()
+
+    if save_data.is_empty():
+        return
+
+    var saved_resources_variant: Variant = save_data.get(SAVE_KEY_RESOURCES, {})
+    var saved_storage_bonus_caps_variant: Variant = save_data.get(SAVE_KEY_STORAGE_BONUS_CAPS, {})
+
+    if typeof(saved_resources_variant) == TYPE_DICTIONARY:
+        var saved_resources: Dictionary = saved_resources_variant
+        var saved_resource_names: Array = saved_resources.keys()
+
+        for resource_index in range(saved_resource_names.size()):
+            var resource_name: String = str(saved_resource_names[resource_index])
+            var amount: int = int(saved_resources.get(resource_name, 0))
+
+            if not resources.has(resource_name):
+                resources[resource_name] = 0
+
+            resources[resource_name] = max(0, amount)
+
+    if typeof(saved_storage_bonus_caps_variant) == TYPE_DICTIONARY:
+        var saved_storage_bonus_caps: Dictionary = saved_storage_bonus_caps_variant
+        var saved_cap_names: Array = saved_storage_bonus_caps.keys()
+
+        for cap_index in range(saved_cap_names.size()):
+            var resource_name: String = str(saved_cap_names[cap_index])
+            var bonus_cap: int = int(saved_storage_bonus_caps.get(resource_name, 0))
+
+            if bonus_cap <= 0:
+                continue
+
+            storage_bonus_caps[resource_name] = bonus_cap
+
+            if not resources.has(resource_name):
+                resources[resource_name] = 0
+
+    clamp_all_resources_to_caps()
+
+
+func clamp_all_resources_to_caps() -> void:
+    var resource_names: Array = resources.keys()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name: String = str(resource_names[resource_index])
+        var amount: int = int(resources.get(resource_name, 0))
+
+        resources[resource_name] = clampi(amount, 0, get_resource_cap(resource_name))
 
 
 func add_resources(harvested_resources: Dictionary) -> void:

@@ -3,6 +3,22 @@ class_name RegionBuildingManager
 
 const BUILD_MODE_NONE: String = "none"
 
+const SAVE_KEY_CURRENT_BUILD_MODE: String = "current_build_mode"
+const SAVE_KEY_CURRENT_BUILDING_ID: String = "current_building_id"
+const SAVE_KEY_REGION_BUILDINGS: String = "region_buildings"
+const SAVE_KEY_NEXT_BUILDING_INSTANCE_ID: String = "next_building_instance_id"
+const SAVE_KEY_HAS_CHIEFTAIN: String = "has_chieftain"
+const SAVE_KEY_CHIEFTAIN_DATA: String = "chieftain_data"
+const SAVE_KEY_HAS_WARLEADER: String = "has_warleader"
+const SAVE_KEY_WARLEADER_DATA: String = "warleader_data"
+const SAVE_KEY_HAS_SPIRITUAL_LEADER: String = "has_spiritual_leader"
+const SAVE_KEY_SPIRITUAL_LEADER_DATA: String = "spiritual_leader_data"
+const SAVE_KEY_HERO_PLACEHOLDERS: String = "hero_placeholders"
+
+const SAVE_TYPE_KEY: String = "__save_type"
+const SAVE_TYPE_VECTOR2I: String = "Vector2i"
+const SAVE_TYPE_COLOR: String = "Color"
+
 var region_tiles: Array = []
 var region_width: int = 0
 var region_height: int = 0
@@ -55,6 +71,240 @@ func clear_buildings() -> void:
             tile_data["occupied"] = false
             tile_data.erase("building_id")
             tile_data.erase("building_instance_id")
+
+
+func get_save_data() -> Dictionary:
+    return {
+        SAVE_KEY_CURRENT_BUILD_MODE: current_build_mode,
+        SAVE_KEY_CURRENT_BUILDING_ID: current_building_id,
+        SAVE_KEY_REGION_BUILDINGS: get_save_safe_value(region_buildings),
+        SAVE_KEY_NEXT_BUILDING_INSTANCE_ID: next_building_instance_id,
+        SAVE_KEY_HAS_CHIEFTAIN: has_chieftain,
+        SAVE_KEY_CHIEFTAIN_DATA: get_save_safe_value(chieftain_data),
+        SAVE_KEY_HAS_WARLEADER: has_warleader,
+        SAVE_KEY_WARLEADER_DATA: get_save_safe_value(warleader_data),
+        SAVE_KEY_HAS_SPIRITUAL_LEADER: has_spiritual_leader,
+        SAVE_KEY_SPIRITUAL_LEADER_DATA: get_save_safe_value(spiritual_leader_data),
+        SAVE_KEY_HERO_PLACEHOLDERS: get_save_safe_value(hero_placeholders)
+    }
+
+
+func load_save_data(save_data: Dictionary) -> void:
+    clear_buildings()
+
+    current_build_mode = BUILD_MODE_NONE
+    current_building_id = ""
+
+    if save_data.is_empty():
+        return
+
+    current_build_mode = str(save_data.get(SAVE_KEY_CURRENT_BUILD_MODE, BUILD_MODE_NONE))
+    current_building_id = str(save_data.get(SAVE_KEY_CURRENT_BUILDING_ID, ""))
+
+    if current_build_mode == "":
+        current_build_mode = BUILD_MODE_NONE
+
+    if current_build_mode == BUILD_MODE_NONE:
+        current_building_id = ""
+
+    next_building_instance_id = max(1, int(save_data.get(SAVE_KEY_NEXT_BUILDING_INSTANCE_ID, 1)))
+
+    var saved_buildings_variant: Variant = save_data.get(SAVE_KEY_REGION_BUILDINGS, [])
+    var restored_buildings_variant: Variant = restore_save_safe_value(saved_buildings_variant)
+
+    if typeof(restored_buildings_variant) == TYPE_ARRAY:
+        var restored_buildings: Array = restored_buildings_variant
+
+        for building_index in range(restored_buildings.size()):
+            var building_variant: Variant = restored_buildings[building_index]
+
+            if typeof(building_variant) != TYPE_DICTIONARY:
+                continue
+
+            var building_data: Dictionary = building_variant
+            var instance_id: int = int(building_data.get("instance_id", 0))
+
+            if instance_id <= 0:
+                continue
+
+            region_buildings.append(building_data)
+
+            if instance_id >= next_building_instance_id:
+                next_building_instance_id = instance_id + 1
+
+    has_chieftain = bool(save_data.get(SAVE_KEY_HAS_CHIEFTAIN, false))
+    has_warleader = bool(save_data.get(SAVE_KEY_HAS_WARLEADER, false))
+    has_spiritual_leader = bool(save_data.get(SAVE_KEY_HAS_SPIRITUAL_LEADER, false))
+
+    var restored_chieftain_variant: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_CHIEFTAIN_DATA, {})
+    )
+
+    if typeof(restored_chieftain_variant) == TYPE_DICTIONARY:
+        chieftain_data = restored_chieftain_variant
+    else:
+        chieftain_data = {}
+
+    var restored_warleader_variant: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_WARLEADER_DATA, {})
+    )
+
+    if typeof(restored_warleader_variant) == TYPE_DICTIONARY:
+        warleader_data = restored_warleader_variant
+    else:
+        warleader_data = {}
+
+    var restored_spiritual_leader_variant: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_SPIRITUAL_LEADER_DATA, {})
+    )
+
+    if typeof(restored_spiritual_leader_variant) == TYPE_DICTIONARY:
+        spiritual_leader_data = restored_spiritual_leader_variant
+    else:
+        spiritual_leader_data = {}
+
+    var restored_hero_placeholders_variant: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_HERO_PLACEHOLDERS, {})
+    )
+
+    if typeof(restored_hero_placeholders_variant) == TYPE_DICTIONARY:
+        hero_placeholders = restored_hero_placeholders_variant
+    else:
+        hero_placeholders = {}
+
+    rebuild_occupied_tiles_from_buildings()
+
+
+func rebuild_occupied_tiles_from_buildings() -> void:
+    if region_tiles.is_empty():
+        return
+
+    for y in range(region_height):
+        for x in range(region_width):
+            var tile_data: Dictionary = region_tiles[y][x]
+            tile_data["occupied"] = false
+            tile_data.erase("building_id")
+            tile_data.erase("building_instance_id")
+            region_tiles[y][x] = tile_data
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", ""))
+        var building_instance_id: int = int(building_data.get("instance_id", 0))
+        var tile_x: int = int(building_data.get("x", 0))
+        var tile_y: int = int(building_data.get("y", 0))
+        var footprint_width: int = int(building_data.get("width", 1))
+        var footprint_height: int = int(building_data.get("height", 1))
+
+        for y_offset in range(footprint_height):
+            for x_offset in range(footprint_width):
+                var tile_position := Vector2i(
+                    tile_x + x_offset,
+                    tile_y + y_offset
+                )
+
+                if not is_tile_in_bounds(tile_position):
+                    continue
+
+                var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
+                tile_data["occupied"] = true
+                tile_data["building_id"] = building_id
+                tile_data["building_instance_id"] = building_instance_id
+                region_tiles[tile_position.y][tile_position.x] = tile_data
+
+
+func get_save_safe_value(value: Variant) -> Variant:
+    match typeof(value):
+        TYPE_VECTOR2I:
+            var vector_value: Vector2i = value
+
+            return {
+                SAVE_TYPE_KEY: SAVE_TYPE_VECTOR2I,
+                "x": vector_value.x,
+                "y": vector_value.y
+            }
+
+        TYPE_COLOR:
+            var color_value: Color = value
+
+            return {
+                SAVE_TYPE_KEY: SAVE_TYPE_COLOR,
+                "r": color_value.r,
+                "g": color_value.g,
+                "b": color_value.b,
+                "a": color_value.a
+            }
+
+        TYPE_DICTIONARY:
+            var source_dict: Dictionary = value
+            var output_dict: Dictionary = {}
+            var keys: Array = source_dict.keys()
+
+            for key_index in range(keys.size()):
+                var key_variant: Variant = keys[key_index]
+                var key_string: String = str(key_variant)
+
+                output_dict[key_string] = get_save_safe_value(source_dict.get(key_variant))
+
+            return output_dict
+
+        TYPE_ARRAY:
+            var source_array: Array = value
+            var output_array: Array = []
+
+            for value_index in range(source_array.size()):
+                output_array.append(get_save_safe_value(source_array[value_index]))
+
+            return output_array
+
+        _:
+            return value
+
+
+func restore_save_safe_value(value: Variant) -> Variant:
+    if typeof(value) == TYPE_DICTIONARY:
+        var source_dict: Dictionary = value
+
+        if str(source_dict.get(SAVE_TYPE_KEY, "")) == SAVE_TYPE_VECTOR2I:
+            return Vector2i(
+                int(source_dict.get("x", 0)),
+                int(source_dict.get("y", 0))
+            )
+
+        if str(source_dict.get(SAVE_TYPE_KEY, "")) == SAVE_TYPE_COLOR:
+            return Color(
+                float(source_dict.get("r", 1.0)),
+                float(source_dict.get("g", 1.0)),
+                float(source_dict.get("b", 1.0)),
+                float(source_dict.get("a", 1.0))
+            )
+
+        var restored_dict: Dictionary = {}
+        var keys: Array = source_dict.keys()
+
+        for key_index in range(keys.size()):
+            var key_variant: Variant = keys[key_index]
+            var key_string: String = str(key_variant)
+
+            restored_dict[key_string] = restore_save_safe_value(source_dict.get(key_variant))
+
+        return restored_dict
+
+    if typeof(value) == TYPE_ARRAY:
+        var source_array: Array = value
+        var restored_array: Array = []
+
+        for value_index in range(source_array.size()):
+            restored_array.append(restore_save_safe_value(source_array[value_index]))
+
+        return restored_array
+
+    return value
 
 
 func get_buildings() -> Array:

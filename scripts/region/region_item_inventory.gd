@@ -9,11 +9,62 @@ const CATEGORY_MATERIAL: String = "Material"
 const CATEGORY_MISC: String = "Misc"
 const CATEGORY_ARMOR: String = "Armor"
 
+const SAVE_KEY_ITEMS: String = "items"
+
 var items: Dictionary = {}
 
 
 func reset() -> void:
     items.clear()
+
+
+func get_save_data() -> Dictionary:
+    return {
+        SAVE_KEY_ITEMS: items.duplicate(true)
+    }
+
+
+func load_save_data(save_data: Dictionary) -> void:
+    reset()
+
+    if save_data.is_empty():
+        return
+
+    var saved_items_variant: Variant = save_data.get(SAVE_KEY_ITEMS, {})
+
+    if typeof(saved_items_variant) != TYPE_DICTIONARY:
+        return
+
+    var saved_items: Dictionary = saved_items_variant
+    var item_ids: Array = saved_items.keys()
+
+    for item_index in range(item_ids.size()):
+        var item_id: String = str(item_ids[item_index])
+        var item_variant: Variant = saved_items.get(item_id, {})
+
+        if item_id == "":
+            continue
+
+        if typeof(item_variant) != TYPE_DICTIONARY:
+            continue
+
+        var item_data: Dictionary = item_variant.duplicate(true)
+        var amount: int = int(item_data.get("amount", 0))
+
+        if amount <= 0:
+            continue
+
+        item_data["id"] = str(item_data.get("id", item_id))
+
+        if str(item_data.get("id", "")) == "":
+            item_data["id"] = item_id
+
+        item_data["name"] = str(item_data.get("name", item_id))
+        item_data["amount"] = amount
+        item_data["category"] = str(item_data.get("category", CATEGORY_MISC))
+        item_data["description"] = str(item_data.get("description", ""))
+
+        items[item_id] = item_data
 
 
 func add_item(

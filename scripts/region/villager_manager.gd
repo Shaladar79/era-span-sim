@@ -18,6 +18,18 @@ const DEFAULT_HARVEST_DURATION: float = CoreTuning.DEFAULT_HARVEST_DURATION
 const NO_ASSIGNED_AREA: Vector2i = Vector2i(-1, -1)
 const DEFAULT_ASSIGNED_WORK_RADIUS: int = CoreTuning.DEFAULT_ASSIGNED_WORK_RADIUS
 
+const SAVE_KEY_VILLAGERS: String = "villagers"
+const SAVE_KEY_NEXT_VILLAGER_ID: String = "next_villager_id"
+const SAVE_KEY_POPULATION_GROWTH_TIMER: String = "population_growth_timer"
+const SAVE_KEY_HARVEST_SPEED_MULTIPLIER: String = "harvest_speed_multiplier"
+const SAVE_KEY_HARVEST_YIELD_MULTIPLIER: String = "harvest_yield_multiplier"
+const SAVE_KEY_GLOBAL_MOVEMENT_SPEED_BONUS: String = "global_movement_speed_bonus"
+const SAVE_KEY_GLOBAL_BELONGING_SLOT_BONUS: String = "global_belonging_slot_bonus"
+
+const SAVE_TYPE_KEY: String = "__save_type"
+const SAVE_TYPE_VECTOR2I: String = "Vector2i"
+const SAVE_TYPE_VECTOR2: String = "Vector2"
+
 const HEALTH_STATE_HEALTHY: String = "healthy"
 const HEALTH_STATE_SICK: String = "sick"
 const HEALTH_STATE_WEAKENED: String = "weakened"
@@ -214,6 +226,240 @@ func setup(
 
     rng.randomize()
 
+func get_save_data() -> Dictionary:
+    return {
+        SAVE_KEY_VILLAGERS: get_save_safe_value(villagers),
+        SAVE_KEY_NEXT_VILLAGER_ID: next_villager_id,
+        SAVE_KEY_POPULATION_GROWTH_TIMER: population_growth_timer,
+        SAVE_KEY_HARVEST_SPEED_MULTIPLIER: harvest_speed_multiplier,
+        SAVE_KEY_HARVEST_YIELD_MULTIPLIER: harvest_yield_multiplier,
+        SAVE_KEY_GLOBAL_MOVEMENT_SPEED_BONUS: global_movement_speed_bonus,
+        SAVE_KEY_GLOBAL_BELONGING_SLOT_BONUS: global_belonging_slot_bonus
+    }
+
+
+func load_save_data(save_data: Dictionary) -> void:
+    villagers.clear()
+    next_villager_id = 1
+    population_growth_timer = 0.0
+    harvested_resources_this_frame.clear()
+    event_messages_this_frame.clear()
+    did_change_tiles = false
+    research_progress_this_frame = 0.0
+    harvest_speed_multiplier = 1.0
+    harvest_yield_multiplier = 1.0
+    global_movement_speed_bonus = 0.0
+    global_belonging_slot_bonus = 0
+
+    if save_data.is_empty():
+        return
+
+    next_villager_id = max(1, int(save_data.get(SAVE_KEY_NEXT_VILLAGER_ID, 1)))
+    population_growth_timer = max(0.0, float(save_data.get(SAVE_KEY_POPULATION_GROWTH_TIMER, 0.0)))
+    harvest_speed_multiplier = max(0.1, float(save_data.get(SAVE_KEY_HARVEST_SPEED_MULTIPLIER, 1.0)))
+    harvest_yield_multiplier = max(0.1, float(save_data.get(SAVE_KEY_HARVEST_YIELD_MULTIPLIER, 1.0)))
+    global_movement_speed_bonus = max(0.0, float(save_data.get(SAVE_KEY_GLOBAL_MOVEMENT_SPEED_BONUS, 0.0)))
+    global_belonging_slot_bonus = max(0, int(save_data.get(SAVE_KEY_GLOBAL_BELONGING_SLOT_BONUS, 0)))
+
+    var saved_villagers_variant: Variant = save_data.get(SAVE_KEY_VILLAGERS, [])
+    var restored_villagers_variant: Variant = restore_save_safe_value(saved_villagers_variant)
+
+    if typeof(restored_villagers_variant) != TYPE_ARRAY:
+        return
+
+    var restored_villagers: Array = restored_villagers_variant
+
+    for villager_index in range(restored_villagers.size()):
+        var villager_variant: Variant = restored_villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+        var villager_id: int = int(villager_data.get("id", 0))
+
+        if villager_id <= 0:
+            continue
+
+        sanitize_loaded_villager_data(villager_data)
+        villagers.append(villager_data)
+
+        if villager_id >= next_villager_id:
+            next_villager_id = villager_id + 1
+
+    update_all_villager_speed_stats()
+    update_all_villager_belonging_caps()
+
+
+func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
+    var fallback_tile := Vector2i(region_width / 2, region_height / 2)
+
+    var tile: Vector2i = villager_data.get("tile", fallback_tile)
+
+    if not is_tile_in_bounds(tile):
+        tile = find_nearest_available_spawn_tile(fallback_tile)
+
+        if not is_tile_in_bounds(tile):
+            tile = fallback_tile
+
+    villager_data["tile"] = tile
+    villager_data["world_position"] = tile_to_world_center(tile)
+
+    if not villager_data.has("state"):
+        villager_data["state"] = VILLAGER_STATE_IDLE
+
+    if not villager_data.has("role"):
+        villager_data["role"] = StoneAgeVillagerAssignmentData.get_default_role()
+
+    if not villager_data.has("assigned_building_instance_id"):
+        villager_data["assigned_building_instance_id"] = 0
+
+    if not villager_data.has("assigned_building_role"):
+        villager_data["assigned_building_role"] = ""
+
+    if not villager_data.has("assignment_replaces_shelter"):
+        villager_data["assignment_replaces_shelter"] = false
+
+    if not villager_data.has("assigned_work_anchor_tile"):
+        villager_data["assigned_work_anchor_tile"] = NO_ASSIGNED_AREA
+
+    if not villager_data.has("assigned_work_radius"):
+        villager_data["assigned_work_radius"] = DEFAULT_ASSIGNED_WORK_RADIUS
+
+    if not villager_data.has("target_tile"):
+        villager_data["target_tile"] = Vector2i(-1, -1)
+
+    if not villager_data.has("harvest_tile"):
+        villager_data["harvest_tile"] = Vector2i(-1, -1)
+
+    if not villager_data.has("assigned_harvest_center"):
+        villager_data["assigned_harvest_center"] = NO_ASSIGNED_AREA
+
+    if not villager_data.has("assigned_harvest_radius"):
+        villager_data["assigned_harvest_radius"] = 0
+
+    if not villager_data.has("skills"):
+        villager_data["skills"] = {}
+
+    if not villager_data.has("health"):
+        villager_data["health"] = BASE_HEALTH
+
+    if not villager_data.has("max_health"):
+        villager_data["max_health"] = BASE_HEALTH
+
+    if not villager_data.has("hunger"):
+        villager_data["hunger"] = HUNGER_FULL
+
+    if not villager_data.has("base_speed"):
+        villager_data["base_speed"] = BASE_SPEED
+
+    if not villager_data.has("belongings"):
+        villager_data["belongings"] = []
+
+    if not villager_data.has("statuses"):
+        villager_data["statuses"] = []
+
+    if not villager_data.has("health_state"):
+        villager_data["health_state"] = HEALTH_STATE_HEALTHY
+
+    if not villager_data.has("move_timer"):
+        villager_data["move_timer"] = 0.0
+
+    if not villager_data.has("harvest_timer"):
+        villager_data["harvest_timer"] = 0.0
+
+    if not villager_data.has("current_work_task"):
+        villager_data["current_work_task"] = ""
+
+    recalculate_villager_level(villager_data)
+    apply_slot_counts_for_role(villager_data)
+    refresh_role_stats_for_villager(villager_data)
+
+
+func get_save_safe_value(value: Variant) -> Variant:
+    match typeof(value):
+        TYPE_VECTOR2I:
+            var vector_i_value: Vector2i = value
+
+            return {
+                SAVE_TYPE_KEY: SAVE_TYPE_VECTOR2I,
+                "x": vector_i_value.x,
+                "y": vector_i_value.y
+            }
+
+        TYPE_VECTOR2:
+            var vector_value: Vector2 = value
+
+            return {
+                SAVE_TYPE_KEY: SAVE_TYPE_VECTOR2,
+                "x": vector_value.x,
+                "y": vector_value.y
+            }
+
+        TYPE_DICTIONARY:
+            var source_dict: Dictionary = value
+            var output_dict: Dictionary = {}
+            var keys: Array = source_dict.keys()
+
+            for key_index in range(keys.size()):
+                var key_variant: Variant = keys[key_index]
+                var key_string: String = str(key_variant)
+
+                output_dict[key_string] = get_save_safe_value(source_dict.get(key_variant))
+
+            return output_dict
+
+        TYPE_ARRAY:
+            var source_array: Array = value
+            var output_array: Array = []
+
+            for value_index in range(source_array.size()):
+                output_array.append(get_save_safe_value(source_array[value_index]))
+
+            return output_array
+
+        _:
+            return value
+
+
+func restore_save_safe_value(value: Variant) -> Variant:
+    if typeof(value) == TYPE_DICTIONARY:
+        var source_dict: Dictionary = value
+        var save_type: String = str(source_dict.get(SAVE_TYPE_KEY, ""))
+
+        if save_type == SAVE_TYPE_VECTOR2I:
+            return Vector2i(
+                int(source_dict.get("x", 0)),
+                int(source_dict.get("y", 0))
+            )
+
+        if save_type == SAVE_TYPE_VECTOR2:
+            return Vector2(
+                float(source_dict.get("x", 0.0)),
+                float(source_dict.get("y", 0.0))
+            )
+
+        var restored_dict: Dictionary = {}
+        var keys: Array = source_dict.keys()
+
+        for key_index in range(keys.size()):
+            var key_variant: Variant = keys[key_index]
+            var key_string: String = str(key_variant)
+
+            restored_dict[key_string] = restore_save_safe_value(source_dict.get(key_variant))
+
+        return restored_dict
+
+    if typeof(value) == TYPE_ARRAY:
+        var source_array: Array = value
+        var restored_array: Array = []
+
+        for value_index in range(source_array.size()):
+            restored_array.append(restore_save_safe_value(source_array[value_index]))
+
+        return restored_array
+
+    return value
 
 func reset_and_spawn_starting_villagers() -> void:
     villagers.clear()

@@ -22,6 +22,32 @@ const STORAGE_SELECTOR_BUTTON_GAP: int = 2
 
 const VILLAGE_LOG_MAX_MESSAGES: int = 50
 
+const SAVE_KEY_REGION_NAME: String = "region_name"
+const SAVE_KEY_REGION_SEED: String = "region_seed"
+const SAVE_KEY_SOURCE_WORLD_SEED: String = "source_world_seed"
+const SAVE_KEY_SOURCE_SELECTION_ORIGIN: String = "source_selection_origin"
+const SAVE_KEY_SOURCE_WORLD_RESOURCE_TOTALS: String = "source_world_resource_totals"
+const SAVE_KEY_SOURCE_WORLD_TILES: String = "source_world_tiles"
+const SAVE_KEY_REGION_TILES: String = "region_tiles"
+
+const SAVE_KEY_HOVERED_TILE: String = "hovered_tile"
+const SAVE_KEY_SELECTED_TILE: String = "selected_tile"
+const SAVE_KEY_SHOW_RESOURCE_MARKERS: String = "show_resource_markers"
+const SAVE_KEY_SHOW_CAMPFIRE_RADIUS: String = "show_campfire_radius"
+const SAVE_KEY_SIMULATION_PAUSED: String = "simulation_paused"
+
+const SAVE_KEY_INVENTORY: String = "inventory"
+const SAVE_KEY_ITEM_INVENTORY: String = "item_inventory"
+const SAVE_KEY_RESEARCH: String = "research"
+const SAVE_KEY_BUILDING_MANAGER: String = "building_manager"
+const SAVE_KEY_VILLAGER_MANAGER: String = "villager_manager"
+
+const SAVE_KEY_VILLAGE_LOG_MESSAGES: String = "village_log_messages"
+
+const SAVE_TYPE_KEY: String = "__save_type"
+const SAVE_TYPE_VECTOR2I: String = "Vector2i"
+const SAVE_TYPE_VECTOR2: String = "Vector2"
+
 @export var region_seed: int = 12345
 
 var region_name: String = "New Settlement"
@@ -111,6 +137,285 @@ func set_region_name(new_region_name: String) -> void:
 func get_region_name() -> String:
     return region_name
 
+func get_save_data() -> Dictionary:
+    return {
+        SAVE_KEY_REGION_NAME: region_name,
+        SAVE_KEY_REGION_SEED: region_seed,
+        SAVE_KEY_SOURCE_WORLD_SEED: source_world_seed,
+        SAVE_KEY_SOURCE_SELECTION_ORIGIN: get_save_safe_value(source_selection_origin),
+        SAVE_KEY_SOURCE_WORLD_RESOURCE_TOTALS: source_world_resource_totals.duplicate(true),
+        SAVE_KEY_SOURCE_WORLD_TILES: get_save_safe_value(source_world_tiles),
+        SAVE_KEY_REGION_TILES: get_save_safe_value(region_tiles),
+        SAVE_KEY_HOVERED_TILE: get_save_safe_value(hovered_tile),
+        SAVE_KEY_SELECTED_TILE: get_save_safe_value(selected_tile),
+        SAVE_KEY_SHOW_RESOURCE_MARKERS: show_resource_markers,
+        SAVE_KEY_SHOW_CAMPFIRE_RADIUS: show_campfire_radius,
+        SAVE_KEY_SIMULATION_PAUSED: simulation_paused,
+        SAVE_KEY_INVENTORY: inventory.get_save_data(),
+        SAVE_KEY_ITEM_INVENTORY: item_inventory.get_save_data(),
+        SAVE_KEY_RESEARCH: research.get_save_data(),
+        SAVE_KEY_BUILDING_MANAGER: building_manager.get_save_data(),
+        SAVE_KEY_VILLAGER_MANAGER: villager_manager.get_save_data(),
+        SAVE_KEY_VILLAGE_LOG_MESSAGES: village_log_messages.duplicate(true)
+    }
+
+
+func load_save_data(save_data: Dictionary) -> void:
+    if save_data.is_empty():
+        return
+
+    region_name = str(save_data.get(SAVE_KEY_REGION_NAME, "New Settlement")).strip_edges()
+
+    if region_name == "":
+        region_name = "New Settlement"
+
+    region_seed = int(save_data.get(SAVE_KEY_REGION_SEED, region_seed))
+    source_world_seed = int(save_data.get(SAVE_KEY_SOURCE_WORLD_SEED, 0))
+    source_world_resource_totals = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_SOURCE_WORLD_RESOURCE_TOTALS, {})
+    ).duplicate(true)
+
+    var restored_origin: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_SOURCE_SELECTION_ORIGIN, Vector2i(-1, -1))
+    )
+
+    if typeof(restored_origin) == TYPE_VECTOR2I:
+        source_selection_origin = restored_origin
+    else:
+        source_selection_origin = Vector2i(-1, -1)
+
+    var restored_source_world_tiles: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_SOURCE_WORLD_TILES, [])
+    )
+
+    if typeof(restored_source_world_tiles) == TYPE_ARRAY:
+        source_world_tiles = restored_source_world_tiles
+    else:
+        source_world_tiles = []
+
+    var restored_region_tiles: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_REGION_TILES, [])
+    )
+
+    if typeof(restored_region_tiles) == TYPE_ARRAY and not restored_region_tiles.is_empty():
+        region_tiles = restored_region_tiles
+    elif not source_world_tiles.is_empty():
+        region_tiles = RegionGenerator.generate_region_from_world_selection(
+            REGION_WIDTH,
+            REGION_HEIGHT,
+            region_seed,
+            source_world_tiles
+        )
+    else:
+        region_tiles = RegionGenerator.generate_region(
+            REGION_WIDTH,
+            REGION_HEIGHT,
+            region_seed
+        )
+
+    setup_building_manager()
+    setup_villager_manager_for_loaded_save()
+
+    var restored_hovered_tile: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_HOVERED_TILE, Vector2i(-1, -1))
+    )
+
+    if typeof(restored_hovered_tile) == TYPE_VECTOR2I:
+        hovered_tile = restored_hovered_tile
+    else:
+        hovered_tile = Vector2i(-1, -1)
+
+    var restored_selected_tile: Variant = restore_save_safe_value(
+        save_data.get(SAVE_KEY_SELECTED_TILE, Vector2i(-1, -1))
+    )
+
+    if typeof(restored_selected_tile) == TYPE_VECTOR2I:
+        selected_tile = restored_selected_tile
+    else:
+        selected_tile = Vector2i(-1, -1)
+
+    show_resource_markers = bool(save_data.get(SAVE_KEY_SHOW_RESOURCE_MARKERS, true))
+    show_campfire_radius = bool(save_data.get(SAVE_KEY_SHOW_CAMPFIRE_RADIUS, false))
+    simulation_paused = bool(save_data.get(SAVE_KEY_SIMULATION_PAUSED, true))
+
+    storage_selector_open = false
+    selected_storage_building_instance_id = 0
+    storage_selector_anchor_tile = Vector2i(-1, -1)
+    storage_selector_options = []
+
+    is_dragging_villager = false
+    dragged_villager_id = 0
+    drag_assignment_tile = Vector2i(-1, -1)
+
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    show_build_panel = false
+    close_crafting_panel()
+    close_assignment_panel()
+    show_village_log_panel = false
+    show_debug_panel = false
+
+    var inventory_save_data: Dictionary = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_INVENTORY, {})
+    )
+    inventory.load_save_data(inventory_save_data)
+
+    var item_inventory_save_data: Dictionary = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_ITEM_INVENTORY, {})
+    )
+    item_inventory.load_save_data(item_inventory_save_data)
+
+    var research_save_data: Dictionary = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_RESEARCH, {})
+    )
+    research.load_save_data(research_save_data)
+
+    var building_manager_save_data: Dictionary = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_BUILDING_MANAGER, {})
+    )
+    building_manager.load_save_data(building_manager_save_data)
+
+    var villager_manager_save_data: Dictionary = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_VILLAGER_MANAGER, {})
+    )
+    villager_manager.load_save_data(villager_manager_save_data)
+
+    restore_runtime_unlocks_from_loaded_research()
+
+    village_log_messages.clear()
+
+    var saved_log_messages: Variant = save_data.get(SAVE_KEY_VILLAGE_LOG_MESSAGES, [])
+
+    if typeof(saved_log_messages) == TYPE_ARRAY:
+        var log_array: Array = saved_log_messages
+
+        for message_index in range(log_array.size()):
+            add_village_log_message(str(log_array[message_index]))
+
+    add_village_log_message("Loaded settlement: " + region_name + ".")
+
+    print("Loaded Region Name: ", region_name)
+    print("Loaded Region Seed: ", region_seed)
+    print_settlement_inventory()
+    print_research_status()
+
+    queue_redraw()
+
+
+func setup_villager_manager_for_loaded_save() -> void:
+    villager_manager.setup(
+        region_tiles,
+        REGION_WIDTH,
+        REGION_HEIGHT,
+        REGION_TILE_SIZE,
+        REGION_TERRAIN_GRASS,
+        REGION_TERRAIN_WATER,
+        FEATURE_NONE
+    )
+
+
+func restore_runtime_unlocks_from_loaded_research() -> void:
+    RegionBuildingData.reset_runtime_unlocks()
+
+    var loaded_unlocked_buildings: Array = research.get_unlocked_buildings()
+
+    if not loaded_unlocked_buildings.is_empty():
+        RegionBuildingData.unlock_buildings(loaded_unlocked_buildings)
+
+
+func get_dictionary_from_variant(value: Variant) -> Dictionary:
+    if typeof(value) != TYPE_DICTIONARY:
+        return {}
+
+    var dictionary_value: Dictionary = value
+    return dictionary_value
+
+
+func get_save_safe_value(value: Variant) -> Variant:
+    match typeof(value):
+        TYPE_VECTOR2I:
+            var vector_i_value: Vector2i = value
+
+            return {
+                SAVE_TYPE_KEY: SAVE_TYPE_VECTOR2I,
+                "x": vector_i_value.x,
+                "y": vector_i_value.y
+            }
+
+        TYPE_VECTOR2:
+            var vector_value: Vector2 = value
+
+            return {
+                SAVE_TYPE_KEY: SAVE_TYPE_VECTOR2,
+                "x": vector_value.x,
+                "y": vector_value.y
+            }
+
+        TYPE_DICTIONARY:
+            var source_dict: Dictionary = value
+            var output_dict: Dictionary = {}
+            var keys: Array = source_dict.keys()
+
+            for key_index in range(keys.size()):
+                var key_variant: Variant = keys[key_index]
+                var key_string: String = str(key_variant)
+
+                output_dict[key_string] = get_save_safe_value(source_dict.get(key_variant))
+
+            return output_dict
+
+        TYPE_ARRAY:
+            var source_array: Array = value
+            var output_array: Array = []
+
+            for value_index in range(source_array.size()):
+                output_array.append(get_save_safe_value(source_array[value_index]))
+
+            return output_array
+
+        _:
+            return value
+
+
+func restore_save_safe_value(value: Variant) -> Variant:
+    if typeof(value) == TYPE_DICTIONARY:
+        var source_dict: Dictionary = value
+        var save_type: String = str(source_dict.get(SAVE_TYPE_KEY, ""))
+
+        if save_type == SAVE_TYPE_VECTOR2I:
+            return Vector2i(
+                int(source_dict.get("x", 0)),
+                int(source_dict.get("y", 0))
+            )
+
+        if save_type == SAVE_TYPE_VECTOR2:
+            return Vector2(
+                float(source_dict.get("x", 0.0)),
+                float(source_dict.get("y", 0.0))
+            )
+
+        var restored_dict: Dictionary = {}
+        var keys: Array = source_dict.keys()
+
+        for key_index in range(keys.size()):
+            var key_variant: Variant = keys[key_index]
+            var key_string: String = str(key_variant)
+
+            restored_dict[key_string] = restore_save_safe_value(source_dict.get(key_variant))
+
+        return restored_dict
+
+    if typeof(value) == TYPE_ARRAY:
+        var source_array: Array = value
+        var restored_array: Array = []
+
+        for value_index in range(source_array.size()):
+            restored_array.append(restore_save_safe_value(source_array[value_index]))
+
+        return restored_array
+
+    return value
 
 func get_map_center() -> Vector2:
     return Vector2(
@@ -327,16 +632,7 @@ func setup_building_manager() -> void:
 
 
 func setup_villager_manager() -> void:
-    villager_manager.setup(
-        region_tiles,
-        REGION_WIDTH,
-        REGION_HEIGHT,
-        REGION_TILE_SIZE,
-        REGION_TERRAIN_GRASS,
-        REGION_TERRAIN_WATER,
-        FEATURE_NONE
-    )
-
+    setup_villager_manager_for_loaded_save()
     villager_manager.reset_and_spawn_starting_villagers()
 
 
