@@ -621,6 +621,8 @@ func draw_wild_animal(
     )
 
     var dangerous: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_DANGEROUS, false))
+    var is_unique: bool = bool(animal_data.get("is_unique", false))
+
     var radius: float = StoneAgeTuning.WILD_ANIMAL_NORMAL_ICON_RADIUS
     var fill_color := Color(1.0, 0.88, 0.16, 1.0)
     var outline_color := Color(0.18, 0.12, 0.02, 1.0)
@@ -629,6 +631,11 @@ func draw_wild_animal(
         radius = StoneAgeTuning.WILD_ANIMAL_DANGEROUS_ICON_RADIUS
         fill_color = Color(1.0, 0.12, 0.08, 1.0)
         outline_color = Color(0.18, 0.02, 0.02, 1.0)
+
+    if is_unique:
+        radius = StoneAgeTuning.WILD_ANIMAL_DANGEROUS_ICON_RADIUS + 4.0
+        fill_color = Color(0.12, 0.42, 1.0, 1.0)
+        outline_color = Color(0.85, 0.94, 1.0, 1.0)
 
     draw_star_marker(
         canvas,

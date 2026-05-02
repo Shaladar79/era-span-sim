@@ -3,10 +3,16 @@ class_name RegionWildAnimalManager
 
 const SAVE_KEY_WILD_ANIMALS: String = "wild_animals"
 const SAVE_KEY_NEXT_INSTANCE_ID: String = "next_instance_id"
+const SAVE_KEY_ANIMAL_KILL_COUNTS: String = "animal_kill_counts"
+const SAVE_KEY_PENDING_RESPAWNS: String = "pending_respawns"
+const SAVE_KEY_RESPAWN_CHECK_TIMER: String = "respawn_check_timer"
+const SAVE_KEY_UNIQUE_SPAWN_COUNTS: String = "unique_spawn_counts"
+const SAVE_KEY_UNIQUE_LAST_TRIGGER_COUNTS: String = "unique_last_trigger_counts"
 
 const KEY_INSTANCE_ID: String = "instance_id"
 const KEY_ANIMAL_ID: String = "animal_id"
 const KEY_NAME: String = "name"
+const KEY_SPECIES: String = "species"
 const KEY_TILE: String = "tile"
 const KEY_DANGEROUS: String = "dangerous"
 const KEY_DANGER_LEVEL: String = "danger_level"
@@ -17,6 +23,14 @@ const KEY_CAN_KILL_HUNTERS: String = "can_kill_hunters"
 const KEY_INJURY_CHANCE: String = "injury_chance"
 const KEY_DEATH_CHANCE: String = "death_chance"
 const KEY_HUNT_DAMAGE: String = "hunt_damage"
+const KEY_HUNT_TIME_MODIFIER: String = "hunt_time_modifier"
+const KEY_CAN_RESPAWN: String = "can_respawn"
+const KEY_RESPAWN_TIME: String = "respawn_time"
+const KEY_MAX_ACTIVE: String = "max_active"
+const KEY_IS_UNIQUE: String = "is_unique"
+const KEY_UNIQUE_ID: String = "unique_id"
+const KEY_UNIQUE_REPEATABLE: String = "unique_repeatable"
+const KEY_UNIQUE_MAX_SPAWNS: String = "unique_max_spawns"
 const KEY_ACTIVE: String = "active"
 const KEY_WANDER_TIMER: String = "wander_timer"
 const KEY_RESERVED_FOR_HUNT: String = "reserved_for_hunt"
@@ -25,6 +39,10 @@ const KEY_HUNT_COUNTDOWN_STARTED: String = "hunt_countdown_started"
 const KEY_HUNT_TIMER: String = "hunt_timer"
 const KEY_HUNT_DURATION: String = "hunt_duration"
 const KEY_HUNT_DANGER_TICK_TIMER: String = "hunt_danger_tick_timer"
+
+const KEY_RESPAWN_ANIMAL_ID: String = "animal_id"
+const KEY_RESPAWN_TIMER: String = "timer"
+const KEY_RESPAWN_IS_UNIQUE: String = "is_unique"
 
 const SAVE_TYPE_KEY: String = "__save_type"
 const SAVE_TYPE_VECTOR2I: String = "Vector2i"
@@ -42,6 +60,13 @@ const WANDER_DIRECTIONS: Array[Vector2i] = [
 
 var wild_animals: Array = []
 var next_instance_id: int = 1
+
+var animal_kill_counts: Dictionary = {}
+var pending_respawns: Array = []
+var respawn_check_timer: float = 0.0
+var unique_spawn_counts: Dictionary = {}
+var unique_last_trigger_counts: Dictionary = {}
+var event_messages_this_frame: Array = []
 
 var region_tiles: Array = []
 var region_width: int = 0
@@ -66,12 +91,23 @@ func setup(
 func reset() -> void:
     wild_animals.clear()
     next_instance_id = 1
+    animal_kill_counts.clear()
+    pending_respawns.clear()
+    respawn_check_timer = 0.0
+    unique_spawn_counts.clear()
+    unique_last_trigger_counts.clear()
+    event_messages_this_frame.clear()
 
 
 func get_save_data() -> Dictionary:
     return {
         SAVE_KEY_WILD_ANIMALS: get_save_safe_value(wild_animals),
-        SAVE_KEY_NEXT_INSTANCE_ID: next_instance_id
+        SAVE_KEY_NEXT_INSTANCE_ID: next_instance_id,
+        SAVE_KEY_ANIMAL_KILL_COUNTS: animal_kill_counts.duplicate(true),
+        SAVE_KEY_PENDING_RESPAWNS: get_save_safe_value(pending_respawns),
+        SAVE_KEY_RESPAWN_CHECK_TIMER: respawn_check_timer,
+        SAVE_KEY_UNIQUE_SPAWN_COUNTS: unique_spawn_counts.duplicate(true),
+        SAVE_KEY_UNIQUE_LAST_TRIGGER_COUNTS: unique_last_trigger_counts.duplicate(true)
     }
 
 
@@ -82,6 +118,29 @@ func load_save_data(save_data: Dictionary) -> void:
         return
 
     next_instance_id = max(1, int(save_data.get(SAVE_KEY_NEXT_INSTANCE_ID, 1)))
+
+    animal_kill_counts = get_dictionary_from_variant(
+    save_data.get(SAVE_KEY_ANIMAL_KILL_COUNTS, {})
+).duplicate(true)
+
+    var restored_pending_respawns_variant: Variant = restore_save_safe_value(
+    save_data.get(SAVE_KEY_PENDING_RESPAWNS, [])
+)
+
+    if typeof(restored_pending_respawns_variant) == TYPE_ARRAY:
+        pending_respawns = restored_pending_respawns_variant
+    else:
+        pending_respawns = []
+
+        respawn_check_timer = max(0.0, float(save_data.get(SAVE_KEY_RESPAWN_CHECK_TIMER, 0.0)))
+
+        unique_spawn_counts = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_UNIQUE_SPAWN_COUNTS, {})
+        ).duplicate(true)
+
+        unique_last_trigger_counts = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_UNIQUE_LAST_TRIGGER_COUNTS, {})
+        ).duplicate(true)
 
     var saved_animals_variant: Variant = save_data.get(SAVE_KEY_WILD_ANIMALS, [])
     var restored_animals_variant: Variant = restore_save_safe_value(saved_animals_variant)
@@ -120,6 +179,7 @@ func sanitize_loaded_animal_data(animal_data: Dictionary) -> void:
 
     animal_data[KEY_ANIMAL_ID] = animal_id
     animal_data[KEY_NAME] = str(animal_data.get(KEY_NAME, base_data.get(RegionWildAnimalData.KEY_NAME, animal_id)))
+    animal_data[KEY_SPECIES] = str(animal_data.get(KEY_SPECIES, base_data.get(RegionWildAnimalData.KEY_SPECIES, animal_id)))
     animal_data[KEY_DANGEROUS] = bool(animal_data.get(KEY_DANGEROUS, base_data.get(RegionWildAnimalData.KEY_DANGEROUS, false)))
     animal_data[KEY_DANGER_LEVEL] = str(animal_data.get(KEY_DANGER_LEVEL, base_data.get(RegionWildAnimalData.KEY_DANGER_LEVEL, RegionWildAnimalData.DANGER_NONE)))
     animal_data[KEY_REQUIRED_HUNTERS] = max(1, int(animal_data.get(KEY_REQUIRED_HUNTERS, base_data.get(RegionWildAnimalData.KEY_REQUIRED_HUNTERS, 1))))
@@ -129,6 +189,14 @@ func sanitize_loaded_animal_data(animal_data: Dictionary) -> void:
     animal_data[KEY_INJURY_CHANCE] = float(animal_data.get(KEY_INJURY_CHANCE, base_data.get(RegionWildAnimalData.KEY_INJURY_CHANCE, 0.0)))
     animal_data[KEY_DEATH_CHANCE] = float(animal_data.get(KEY_DEATH_CHANCE, base_data.get(RegionWildAnimalData.KEY_DEATH_CHANCE, 0.0)))
     animal_data[KEY_HUNT_DAMAGE] = max(0, int(animal_data.get(KEY_HUNT_DAMAGE, base_data.get(RegionWildAnimalData.KEY_HUNT_DAMAGE, 0))))
+    animal_data[KEY_HUNT_TIME_MODIFIER] = float(animal_data.get(KEY_HUNT_TIME_MODIFIER, base_data.get(RegionWildAnimalData.KEY_HUNT_TIME_MODIFIER, 0.0)))
+    animal_data[KEY_CAN_RESPAWN] = bool(animal_data.get(KEY_CAN_RESPAWN, base_data.get(RegionWildAnimalData.KEY_CAN_RESPAWN, true)))
+    animal_data[KEY_RESPAWN_TIME] = max(0.0, float(animal_data.get(KEY_RESPAWN_TIME, base_data.get(RegionWildAnimalData.KEY_RESPAWN_TIME, CoreTuning.ANIMAL_RESPAWN_DEFAULT_TIME))))
+    animal_data[KEY_MAX_ACTIVE] = max(0, int(animal_data.get(KEY_MAX_ACTIVE, base_data.get(RegionWildAnimalData.KEY_MAX_ACTIVE, 0))))
+    animal_data[KEY_IS_UNIQUE] = bool(animal_data.get(KEY_IS_UNIQUE, base_data.get(RegionWildAnimalData.KEY_IS_UNIQUE, false)))
+    animal_data[KEY_UNIQUE_ID] = str(animal_data.get(KEY_UNIQUE_ID, base_data.get(RegionWildAnimalData.KEY_UNIQUE_ID, "")))
+    animal_data[KEY_UNIQUE_REPEATABLE] = bool(animal_data.get(KEY_UNIQUE_REPEATABLE, base_data.get(RegionWildAnimalData.KEY_UNIQUE_REPEATABLE, false)))
+    animal_data[KEY_UNIQUE_MAX_SPAWNS] = max(0, int(animal_data.get(KEY_UNIQUE_MAX_SPAWNS, base_data.get(RegionWildAnimalData.KEY_UNIQUE_MAX_SPAWNS, 0))))
     animal_data[KEY_ACTIVE] = bool(animal_data.get(KEY_ACTIVE, true))
     animal_data[KEY_RESERVED_FOR_HUNT] = bool(animal_data.get(KEY_RESERVED_FOR_HUNT, false))
     animal_data[KEY_HUNTING_PARTY_ASSIGNED] = bool(animal_data.get(KEY_HUNTING_PARTY_ASSIGNED, false))
