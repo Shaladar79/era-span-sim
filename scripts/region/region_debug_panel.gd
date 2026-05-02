@@ -27,13 +27,15 @@ const TEST_RESOURCE_NAMES: Array[String] = [
     "Fish",
     "Meat",
     "Hide",
-    "Bone"
+    "Bone",
+    "Feather"
 ]
 
 const TEST_ANIMAL_RESOURCE_NAMES: Array[String] = [
     "Meat",
     "Hide",
-    "Bone"
+    "Bone",
+    "Feather"
 ]
 
 
