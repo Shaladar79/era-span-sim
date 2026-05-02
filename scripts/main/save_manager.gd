@@ -271,3 +271,65 @@ static func read_most_recent_save() -> Dictionary:
     var save_path: String = str(newest_save.get("path", ""))
 
     return read_save_from_path(save_path)
+    
+static func delete_save_file(file_name: String) -> Dictionary:
+    ensure_save_directory_exists()
+
+    var safe_file_name: String = file_name.strip_edges()
+
+    if safe_file_name == "":
+        return {
+            "success": false,
+            "path": "",
+            "message": "Delete failed. Empty save file name."
+        }
+
+    if safe_file_name.contains("/") or safe_file_name.contains("\\"):
+        return {
+            "success": false,
+            "path": "",
+            "message": "Delete failed. Invalid save file name."
+        }
+
+    if not safe_file_name.ends_with(SAVE_EXTENSION):
+        return {
+            "success": false,
+            "path": "",
+            "message": "Delete failed. Save file must end with " + SAVE_EXTENSION + "."
+        }
+
+    var save_path: String = get_save_path_from_file_name(safe_file_name)
+
+    if not FileAccess.file_exists(save_path):
+        return {
+            "success": false,
+            "path": save_path,
+            "message": "Delete failed. Save file does not exist."
+        }
+
+    var error: Error = DirAccess.remove_absolute(save_path)
+
+    if error != OK:
+        return {
+            "success": false,
+            "path": save_path,
+            "message": "Delete failed. Error: " + str(error)
+        }
+
+    return {
+        "success": true,
+        "path": save_path,
+        "message": "Deleted save file: " + safe_file_name
+    }
+
+
+static func is_valid_save_file_name(file_name: String) -> bool:
+    var safe_file_name: String = file_name.strip_edges()
+
+    if safe_file_name == "":
+        return false
+
+    if safe_file_name.contains("/") or safe_file_name.contains("\\"):
+        return false
+
+    return safe_file_name.ends_with(SAVE_EXTENSION)

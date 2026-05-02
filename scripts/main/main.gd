@@ -41,8 +41,10 @@ func _ready() -> void:
     connect_ui_signals()
     enter_main_menu_mode()
 
+
 func _process(delta: float) -> void:
     update_autosave(delta)
+
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -102,9 +104,12 @@ func connect_ui_signals() -> void:
 
     if ui.has_signal("pause_return_to_main_requested"):
         ui.connect("pause_return_to_main_requested", Callable(self, "_on_pause_return_to_main_requested"))
-        
+
     if ui.has_signal("load_save_file_requested"):
         ui.connect("load_save_file_requested", Callable(self, "_on_load_save_file_requested"))
+
+    if ui.has_signal("delete_save_file_requested"):
+        ui.connect("delete_save_file_requested", Callable(self, "_on_delete_save_file_requested"))
 
     if ui.has_signal("load_save_back_requested"):
         ui.connect("load_save_back_requested", Callable(self, "_on_load_save_back_requested"))
@@ -263,6 +268,7 @@ func enter_region_mode(
     previous_game_mode = GAME_MODE_REGION
     autosave_timer = 0.0
     autosave_index = 0
+
     current_region_name = region_name.strip_edges()
 
     if current_region_name == "":
@@ -444,11 +450,13 @@ func build_current_region_save_data() -> Dictionary:
         "simulation_paused": true
     }
 
+
 func vector2i_to_save_dict(value: Vector2i) -> Dictionary:
     return {
         "x": value.x,
         "y": value.y
     }
+
 
 func update_autosave(delta: float) -> void:
     if game_mode != GAME_MODE_REGION:
@@ -485,6 +493,7 @@ func autosave_current_game() -> void:
     if region != null and region.has_method("add_village_log_message"):
         region.call("add_village_log_message", "Autosave complete.")
 
+
 func save_current_game() -> void:
     if game_mode != GAME_MODE_REGION and game_mode != GAME_MODE_PAUSED:
         print("Save Game requested, but no active region is running.")
@@ -498,6 +507,7 @@ func save_current_game() -> void:
 
     if region != null and region.has_method("add_village_log_message"):
         region.call("add_village_log_message", message)
+
 
 func load_most_recent_game() -> void:
     var result: Dictionary = SaveManager.read_most_recent_save()
@@ -516,7 +526,8 @@ func load_most_recent_game() -> void:
     apply_loaded_save_data(save_data)
 
     print(str(result.get("message", "Loaded save.")))
-    
+
+
 func show_load_game_selection(opened_from_pause: bool = false) -> void:
     var save_infos: Array = SaveManager.list_save_file_infos()
 
@@ -526,6 +537,13 @@ func show_load_game_selection(opened_from_pause: bool = false) -> void:
 
     print("Load panel is not available. Loading most recent save instead.")
     load_most_recent_game()
+
+
+func refresh_load_game_selection() -> void:
+    var save_infos: Array = SaveManager.list_save_file_infos()
+
+    if ui != null and ui.has_method("show_load_game_panel"):
+        ui.call("show_load_game_panel", save_infos, game_mode == GAME_MODE_PAUSED)
 
 
 func load_save_file(save_file_name: String) -> void:
@@ -550,6 +568,18 @@ func load_save_file(save_file_name: String) -> void:
     apply_loaded_save_data(save_data)
 
     print(str(result.get("message", "Loaded save.")))
+
+
+func delete_save_file(save_file_name: String) -> void:
+    var result: Dictionary = SaveManager.delete_save_file(save_file_name)
+    var message: String = str(result.get("message", "Delete save finished."))
+
+    print(message)
+
+    if not bool(result.get("success", false)):
+        return
+
+    refresh_load_game_selection()
 
 
 func apply_loaded_save_data(save_data: Dictionary) -> void:
@@ -583,11 +613,11 @@ func apply_loaded_save_data(save_data: Dictionary) -> void:
         if ui.has_method("hide_pause_menu"):
             ui.call("hide_pause_menu")
 
-        if ui.has_method("set_build_ui_enabled"):
-            ui.call("set_build_ui_enabled", true)
-            
         if ui.has_method("hide_load_game_panel"):
             ui.call("hide_load_game_panel")
+
+        if ui.has_method("set_build_ui_enabled"):
+            ui.call("set_build_ui_enabled", true)
 
     if world.has_method("deactivate"):
         world.call("deactivate")
@@ -607,7 +637,7 @@ func apply_loaded_save_data(save_data: Dictionary) -> void:
         main_camera.position = region.call("get_map_center")
 
     print("Loaded game: " + current_region_name)
-    
+
 
 func _on_world_region_requested(
     selected_world_tiles: Array,
@@ -677,9 +707,14 @@ func _on_pause_load_requested() -> void:
 
 func _on_pause_return_to_main_requested() -> void:
     enter_main_menu_mode()
-    
+
+
 func _on_load_save_file_requested(save_file_name: String) -> void:
     load_save_file(save_file_name)
+
+
+func _on_delete_save_file_requested(save_file_name: String) -> void:
+    delete_save_file(save_file_name)
 
 
 func _on_load_save_back_requested() -> void:

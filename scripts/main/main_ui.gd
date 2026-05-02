@@ -5,6 +5,7 @@ signal main_menu_load_game_requested
 signal main_menu_options_requested
 
 signal load_save_file_requested(save_file_name: String)
+signal delete_save_file_requested(save_file_name: String)
 signal load_save_back_requested
 
 signal world_preview_reroll_requested
@@ -37,6 +38,10 @@ var confirm_load_panel: Panel = null
 var pending_load_save_file_name: String = ""
 var pending_load_save_label: String = ""
 
+var confirm_delete_panel: Panel = null
+var pending_delete_save_file_name: String = ""
+var pending_delete_save_label: String = ""
+
 var generated_build_buttons: Array = []
 var generated_age_buttons: Array = []
 var generated_main_menu_buttons: Array = []
@@ -45,6 +50,7 @@ var generated_region_start_buttons: Array = []
 var generated_pause_menu_buttons: Array = []
 var generated_load_save_buttons: Array = []
 var generated_confirm_load_buttons: Array = []
+var generated_confirm_delete_buttons: Array = []
 
 var selected_build_age: String = ""
 var build_ui_enabled: bool = false
@@ -59,7 +65,9 @@ func _ready() -> void:
     setup_world_preview_panel()
     setup_region_start_panel()
     setup_pause_menu()
+    setup_load_game_panel()
     setup_confirm_load_panel()
+    setup_confirm_delete_panel()
 
     if build_button == null:
         push_warning("BuildButton was not found under UI.")
@@ -87,9 +95,11 @@ func _notification(what: int) -> void:
         setup_world_preview_panel_layout()
         setup_region_start_panel_layout()
         setup_pause_menu_layout()
-        setup_build_ui_layout()
         setup_load_game_panel_layout()
         setup_confirm_load_panel_layout()
+        setup_confirm_delete_panel_layout()
+        setup_build_ui_layout()
+
 
 func set_build_ui_enabled(is_enabled: bool) -> void:
     build_ui_enabled = is_enabled
@@ -113,7 +123,6 @@ func hide_build_menu() -> void:
 func show_main_menu() -> void:
     if main_menu_panel == null:
         setup_main_menu()
-        
 
     if main_menu_panel != null:
         main_menu_panel.visible = true
@@ -121,9 +130,11 @@ func show_main_menu() -> void:
     hide_world_preview_panel()
     hide_region_start_panel()
     hide_pause_menu()
-    set_build_ui_enabled(false)
     hide_load_game_panel()
     hide_confirm_load_panel()
+    hide_confirm_delete_panel()
+    set_build_ui_enabled(false)
+
 
 func hide_main_menu() -> void:
     if main_menu_panel != null:
@@ -140,9 +151,10 @@ func show_world_preview_panel() -> void:
     hide_main_menu()
     hide_region_start_panel()
     hide_pause_menu()
-    set_build_ui_enabled(false)
     hide_load_game_panel()
     hide_confirm_load_panel()
+    hide_confirm_delete_panel()
+    set_build_ui_enabled(false)
 
 
 func hide_world_preview_panel() -> void:
@@ -165,9 +177,10 @@ func show_region_start_panel(default_region_name: String = "New Settlement") -> 
     hide_main_menu()
     hide_world_preview_panel()
     hide_pause_menu()
-    set_build_ui_enabled(false)
     hide_load_game_panel()
     hide_confirm_load_panel()
+    hide_confirm_delete_panel()
+    set_build_ui_enabled(false)
 
 
 func hide_region_start_panel() -> void:
@@ -185,7 +198,14 @@ func show_pause_menu() -> void:
     hide_build_menu()
     hide_load_game_panel()
     hide_confirm_load_panel()
-    
+    hide_confirm_delete_panel()
+
+
+func hide_pause_menu() -> void:
+    if pause_menu_panel != null:
+        pause_menu_panel.visible = false
+
+
 func show_load_game_panel(
     save_infos: Array,
     opened_from_pause: bool = false
@@ -194,11 +214,12 @@ func show_load_game_panel(
         setup_load_game_panel()
 
     load_game_opened_from_pause = opened_from_pause
-    clear_generated_load_save_buttons()
 
     if load_game_panel != null:
         load_game_panel.visible = true
 
+    hide_confirm_load_panel()
+    hide_confirm_delete_panel()
     hide_main_menu()
     hide_world_preview_panel()
     hide_region_start_panel()
@@ -207,16 +228,17 @@ func show_load_game_panel(
         hide_pause_menu()
 
     set_build_ui_enabled(false)
-
     populate_load_game_panel(save_infos)
 
 
 func hide_load_game_panel() -> void:
     if load_game_panel != null:
         load_game_panel.visible = false
-        
+
     hide_confirm_load_panel()
+    hide_confirm_delete_panel()
     clear_generated_load_save_buttons()
+
 
 func show_confirm_load_panel(
     save_file_name: String,
@@ -224,6 +246,8 @@ func show_confirm_load_panel(
 ) -> void:
     if confirm_load_panel == null:
         setup_confirm_load_panel()
+
+    hide_confirm_delete_panel()
 
     pending_load_save_file_name = save_file_name
     pending_load_save_label = save_label
@@ -250,6 +274,43 @@ func update_confirm_load_panel_text() -> void:
 
     if save_name_label != null:
         save_name_label.text = pending_load_save_label
+
+
+func show_confirm_delete_panel(
+    save_file_name: String,
+    save_label: String
+) -> void:
+    if confirm_delete_panel == null:
+        setup_confirm_delete_panel()
+
+    hide_confirm_load_panel()
+
+    pending_delete_save_file_name = save_file_name
+    pending_delete_save_label = save_label
+
+    if confirm_delete_panel != null:
+        confirm_delete_panel.visible = true
+
+    update_confirm_delete_panel_text()
+
+
+func hide_confirm_delete_panel() -> void:
+    if confirm_delete_panel != null:
+        confirm_delete_panel.visible = false
+
+    pending_delete_save_file_name = ""
+    pending_delete_save_label = ""
+
+
+func update_confirm_delete_panel_text() -> void:
+    if confirm_delete_panel == null:
+        return
+
+    var save_name_label: Label = confirm_delete_panel.get_node_or_null("SaveNameLabel")
+
+    if save_name_label != null:
+        save_name_label.text = pending_delete_save_label
+
 
 func populate_load_game_panel(save_infos: Array) -> void:
     if load_game_panel == null:
@@ -286,9 +347,11 @@ func populate_load_game_panel(save_infos: Array) -> void:
             continue
 
         var button_label: String = get_save_button_label(file_name, modified_time)
+        var row_y: float = 64.0 + float(save_index) * 32.0
+
         var save_button := create_load_save_button(
             button_label,
-            Vector2(30, 64 + save_index * 32)
+            Vector2(24, row_y)
         )
 
         save_button.pressed.connect(
@@ -297,6 +360,19 @@ func populate_load_game_panel(save_infos: Array) -> void:
 
         load_game_panel.add_child(save_button)
         generated_load_save_buttons.append(save_button)
+
+        var delete_button := create_delete_save_button(
+            "X",
+            Vector2(348, row_y)
+        )
+
+        delete_button.tooltip_text = "Delete " + file_name
+        delete_button.pressed.connect(
+            Callable(self, "_on_delete_save_file_pressed").bind(file_name, button_label)
+        )
+
+        load_game_panel.add_child(delete_button)
+        generated_load_save_buttons.append(delete_button)
 
 
 func get_save_button_label(file_name: String, modified_time: int) -> String:
@@ -332,17 +408,27 @@ func create_load_save_button(
     var button := Button.new()
     button.text = button_text
     button.position = button_position
-    button.size = Vector2(340, 26)
-    button.custom_minimum_size = Vector2(340, 26)
+    button.size = Vector2(318, 26)
+    button.custom_minimum_size = Vector2(318, 26)
     button.process_mode = Node.PROCESS_MODE_ALWAYS
     setup_menu_button_theme(button)
 
     return button
 
 
-func hide_pause_menu() -> void:
-    if pause_menu_panel != null:
-        pause_menu_panel.visible = false
+func create_delete_save_button(
+    button_text: String,
+    button_position: Vector2
+) -> Button:
+    var button := Button.new()
+    button.text = button_text
+    button.position = button_position
+    button.size = Vector2(28, 26)
+    button.custom_minimum_size = Vector2(28, 26)
+    button.process_mode = Node.PROCESS_MODE_ALWAYS
+    setup_menu_button_theme(button)
+
+    return button
 
 
 func setup_main_menu() -> void:
@@ -448,7 +534,8 @@ func setup_world_preview_panel() -> void:
     generated_world_preview_buttons.append(back_button)
 
     setup_world_preview_panel_layout()
-    
+
+
 func setup_load_game_panel() -> void:
     if load_game_panel != null:
         return
@@ -482,10 +569,10 @@ func setup_load_game_panel() -> void:
     var back_button := create_menu_button("Back", Vector2(120, 330))
     back_button.pressed.connect(_on_load_save_back_pressed)
     load_game_panel.add_child(back_button)
-    generated_load_save_buttons.append(back_button)
 
     setup_load_game_panel_layout()
-    
+
+
 func setup_confirm_load_panel() -> void:
     if confirm_load_panel != null:
         return
@@ -546,6 +633,68 @@ func setup_confirm_load_panel() -> void:
     generated_confirm_load_buttons.append(cancel_button)
 
     setup_confirm_load_panel_layout()
+
+
+func setup_confirm_delete_panel() -> void:
+    if confirm_delete_panel != null:
+        return
+
+    confirm_delete_panel = Panel.new()
+    confirm_delete_panel.name = "GeneratedConfirmDeletePanel"
+    confirm_delete_panel.visible = false
+    confirm_delete_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(confirm_delete_panel)
+
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.04, 0.04, 0.04, 0.98)
+    panel_style.border_color = Color(0.95, 0.28, 0.22, 1.0)
+    panel_style.set_border_width_all(2)
+    panel_style.set_corner_radius_all(6)
+    panel_style.content_margin_left = 12
+    panel_style.content_margin_right = 12
+    panel_style.content_margin_top = 12
+    panel_style.content_margin_bottom = 12
+    confirm_delete_panel.add_theme_stylebox_override("panel", panel_style)
+
+    var title_label := Label.new()
+    title_label.name = "TitleLabel"
+    title_label.text = "Delete This Save?"
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title_label.add_theme_font_size_override("font_size", 20)
+    title_label.position = Vector2(0, 16)
+    title_label.size = Vector2(360, 30)
+    confirm_delete_panel.add_child(title_label)
+
+    var save_name_label := Label.new()
+    save_name_label.name = "SaveNameLabel"
+    save_name_label.text = ""
+    save_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    save_name_label.add_theme_font_size_override("font_size", 12)
+    save_name_label.position = Vector2(20, 54)
+    save_name_label.size = Vector2(320, 24)
+    confirm_delete_panel.add_child(save_name_label)
+
+    var warning_label := Label.new()
+    warning_label.name = "WarningLabel"
+    warning_label.text = "This permanently deletes the save file. This cannot be undone."
+    warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    warning_label.add_theme_font_size_override("font_size", 12)
+    warning_label.position = Vector2(30, 86)
+    warning_label.size = Vector2(300, 44)
+    confirm_delete_panel.add_child(warning_label)
+
+    var confirm_button := create_menu_button("Delete Save", Vector2(100, 142))
+    confirm_button.pressed.connect(_on_confirm_delete_pressed)
+    confirm_delete_panel.add_child(confirm_button)
+    generated_confirm_delete_buttons.append(confirm_button)
+
+    var cancel_button := create_menu_button("Cancel", Vector2(100, 180))
+    cancel_button.pressed.connect(_on_confirm_delete_cancel_pressed)
+    confirm_delete_panel.add_child(cancel_button)
+    generated_confirm_delete_buttons.append(cancel_button)
+
+    setup_confirm_delete_panel_layout()
 
 
 func setup_region_start_panel() -> void:
@@ -671,7 +820,7 @@ func setup_pause_menu() -> void:
     generated_pause_menu_buttons.append(main_menu_button)
 
     setup_pause_menu_layout()
-    setup_load_game_panel()
+
 
 func create_menu_button(button_text: String, button_position: Vector2) -> Button:
     var button := Button.new()
@@ -777,7 +926,8 @@ func setup_pause_menu_layout() -> void:
         viewport_size.x * 0.5 - pause_menu_panel.size.x * 0.5,
         viewport_size.y * 0.5 - pause_menu_panel.size.y * 0.5
     )
-    
+
+
 func setup_load_game_panel_layout() -> void:
     if load_game_panel == null:
         return
@@ -788,7 +938,8 @@ func setup_load_game_panel_layout() -> void:
         viewport_size.x * 0.5 - load_game_panel.size.x * 0.5,
         viewport_size.y * 0.5 - load_game_panel.size.y * 0.5
     )
-    
+
+
 func setup_confirm_load_panel_layout() -> void:
     if confirm_load_panel == null:
         return
@@ -799,16 +950,18 @@ func setup_confirm_load_panel_layout() -> void:
         viewport_size.x * 0.5 - confirm_load_panel.size.x * 0.5,
         viewport_size.y * 0.5 - confirm_load_panel.size.y * 0.5
     )
-    
-func clear_generated_confirm_load_buttons() -> void:
-    for button_index in range(generated_confirm_load_buttons.size()):
-        var button_variant: Variant = generated_confirm_load_buttons[button_index]
 
-        if button_variant is Node:
-            var button_node: Node = button_variant
-            button_node.queue_free()
 
-    generated_confirm_load_buttons.clear()
+func setup_confirm_delete_panel_layout() -> void:
+    if confirm_delete_panel == null:
+        return
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    confirm_delete_panel.size = Vector2(360, 230)
+    confirm_delete_panel.position = Vector2(
+        viewport_size.x * 0.5 - confirm_delete_panel.size.x * 0.5,
+        viewport_size.y * 0.5 - confirm_delete_panel.size.y * 0.5
+    )
 
 
 func force_build_button_visible() -> void:
@@ -1096,7 +1249,8 @@ func clear_generated_pause_menu_buttons() -> void:
             button_node.queue_free()
 
     generated_pause_menu_buttons.clear()
-    
+
+
 func clear_generated_load_save_buttons() -> void:
     for button_index in range(generated_load_save_buttons.size()):
         var button_variant: Variant = generated_load_save_buttons[button_index]
@@ -1106,6 +1260,28 @@ func clear_generated_load_save_buttons() -> void:
             button_node.queue_free()
 
     generated_load_save_buttons.clear()
+
+
+func clear_generated_confirm_load_buttons() -> void:
+    for button_index in range(generated_confirm_load_buttons.size()):
+        var button_variant: Variant = generated_confirm_load_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_confirm_load_buttons.clear()
+
+
+func clear_generated_confirm_delete_buttons() -> void:
+    for button_index in range(generated_confirm_delete_buttons.size()):
+        var button_variant: Variant = generated_confirm_delete_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_confirm_delete_buttons.clear()
 
 
 func get_building_tooltip_text(building_data: Dictionary) -> String:
@@ -1276,6 +1452,7 @@ func _on_pause_load_pressed() -> void:
 func _on_pause_return_to_main_pressed() -> void:
     pause_return_to_main_requested.emit()
 
+
 func _on_load_save_file_pressed(save_file_name: String) -> void:
     var save_label: String = save_file_name
 
@@ -1283,6 +1460,13 @@ func _on_load_save_file_pressed(save_file_name: String) -> void:
         save_label = save_label.substr(0, save_label.length() - 5)
 
     show_confirm_load_panel(save_file_name, save_label)
+
+
+func _on_delete_save_file_pressed(
+    save_file_name: String,
+    save_label: String
+) -> void:
+    show_confirm_delete_panel(save_file_name, save_label)
 
 
 func _on_load_save_back_pressed() -> void:
@@ -1294,7 +1478,8 @@ func _on_load_save_back_pressed() -> void:
         show_main_menu()
 
     load_save_back_requested.emit()
-    
+
+
 func _on_confirm_load_pressed() -> void:
     if pending_load_save_file_name.strip_edges() == "":
         hide_confirm_load_panel()
@@ -1307,3 +1492,17 @@ func _on_confirm_load_pressed() -> void:
 
 func _on_confirm_load_cancel_pressed() -> void:
     hide_confirm_load_panel()
+
+
+func _on_confirm_delete_pressed() -> void:
+    if pending_delete_save_file_name.strip_edges() == "":
+        hide_confirm_delete_panel()
+        return
+
+    var save_file_name: String = pending_delete_save_file_name
+    hide_confirm_delete_panel()
+    delete_save_file_requested.emit(save_file_name)
+
+
+func _on_confirm_delete_cancel_pressed() -> void:
+    hide_confirm_delete_panel()
