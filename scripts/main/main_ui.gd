@@ -8,6 +8,9 @@ signal world_preview_reroll_requested
 signal world_preview_confirm_requested
 signal world_preview_back_requested
 
+signal region_start_confirm_requested(region_name: String)
+signal region_start_cancel_requested
+
 signal pause_resume_requested
 signal pause_save_requested
 signal pause_load_requested
@@ -20,12 +23,15 @@ signal pause_return_to_main_requested
 
 var main_menu_panel: Panel = null
 var world_preview_panel: Panel = null
+var region_start_panel: Panel = null
+var region_name_input: LineEdit = null
 var pause_menu_panel: Panel = null
 
 var generated_build_buttons: Array = []
 var generated_age_buttons: Array = []
 var generated_main_menu_buttons: Array = []
 var generated_world_preview_buttons: Array = []
+var generated_region_start_buttons: Array = []
 var generated_pause_menu_buttons: Array = []
 
 var selected_build_age: String = ""
@@ -39,6 +45,7 @@ func _ready() -> void:
 
     setup_main_menu()
     setup_world_preview_panel()
+    setup_region_start_panel()
     setup_pause_menu()
 
     if build_button == null:
@@ -65,6 +72,7 @@ func _notification(what: int) -> void:
     if what == NOTIFICATION_WM_SIZE_CHANGED:
         setup_main_menu_layout()
         setup_world_preview_panel_layout()
+        setup_region_start_panel_layout()
         setup_pause_menu_layout()
         setup_build_ui_layout()
 
@@ -96,6 +104,7 @@ func show_main_menu() -> void:
         main_menu_panel.visible = true
 
     hide_world_preview_panel()
+    hide_region_start_panel()
     hide_pause_menu()
     set_build_ui_enabled(false)
 
@@ -113,6 +122,7 @@ func show_world_preview_panel() -> void:
         world_preview_panel.visible = true
 
     hide_main_menu()
+    hide_region_start_panel()
     hide_pause_menu()
     set_build_ui_enabled(false)
 
@@ -120,6 +130,29 @@ func show_world_preview_panel() -> void:
 func hide_world_preview_panel() -> void:
     if world_preview_panel != null:
         world_preview_panel.visible = false
+
+
+func show_region_start_panel(default_region_name: String = "New Settlement") -> void:
+    if region_start_panel == null:
+        setup_region_start_panel()
+
+    if region_start_panel != null:
+        region_start_panel.visible = true
+
+    if region_name_input != null:
+        region_name_input.text = default_region_name
+        region_name_input.grab_focus()
+        region_name_input.select_all()
+
+    hide_main_menu()
+    hide_world_preview_panel()
+    hide_pause_menu()
+    set_build_ui_enabled(false)
+
+
+func hide_region_start_panel() -> void:
+    if region_start_panel != null:
+        region_start_panel.visible = false
 
 
 func show_pause_menu() -> void:
@@ -242,6 +275,78 @@ func setup_world_preview_panel() -> void:
     setup_world_preview_panel_layout()
 
 
+func setup_region_start_panel() -> void:
+    if region_start_panel != null:
+        return
+
+    region_start_panel = Panel.new()
+    region_start_panel.name = "GeneratedRegionStartPanel"
+    region_start_panel.visible = false
+    region_start_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(region_start_panel)
+
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.04, 0.04, 0.04, 0.94)
+    panel_style.border_color = Color(0.78, 0.70, 0.48, 1.0)
+    panel_style.set_border_width_all(2)
+    panel_style.set_corner_radius_all(6)
+    panel_style.content_margin_left = 12
+    panel_style.content_margin_right = 12
+    panel_style.content_margin_top = 12
+    panel_style.content_margin_bottom = 12
+    region_start_panel.add_theme_stylebox_override("panel", panel_style)
+
+    var title_label := Label.new()
+    title_label.name = "TitleLabel"
+    title_label.text = "Start Region?"
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title_label.add_theme_font_size_override("font_size", 20)
+    title_label.position = Vector2(0, 16)
+    title_label.size = Vector2(340, 30)
+    region_start_panel.add_child(title_label)
+
+    var hint_label := Label.new()
+    hint_label.name = "HintLabel"
+    hint_label.text = "Name your settlement before entering the region."
+    hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    hint_label.add_theme_font_size_override("font_size", 11)
+    hint_label.position = Vector2(12, 48)
+    hint_label.size = Vector2(316, 24)
+    region_start_panel.add_child(hint_label)
+
+    var name_label := Label.new()
+    name_label.name = "NameLabel"
+    name_label.text = "Settlement Name"
+    name_label.add_theme_font_size_override("font_size", 12)
+    name_label.position = Vector2(50, 82)
+    name_label.size = Vector2(240, 20)
+    region_start_panel.add_child(name_label)
+
+    region_name_input = LineEdit.new()
+    region_name_input.name = "RegionNameInput"
+    region_name_input.text = "New Settlement"
+    region_name_input.placeholder_text = "Enter settlement name"
+    region_name_input.position = Vector2(50, 104)
+    region_name_input.size = Vector2(240, 30)
+    region_name_input.custom_minimum_size = Vector2(240, 30)
+    region_name_input.process_mode = Node.PROCESS_MODE_ALWAYS
+    region_name_input.text_submitted.connect(_on_region_name_submitted)
+    setup_line_edit_theme(region_name_input)
+    region_start_panel.add_child(region_name_input)
+
+    var start_button := create_menu_button("Start Region", Vector2(90, 150))
+    start_button.pressed.connect(_on_region_start_confirm_pressed)
+    region_start_panel.add_child(start_button)
+    generated_region_start_buttons.append(start_button)
+
+    var cancel_button := create_menu_button("Back to World Map", Vector2(90, 188))
+    cancel_button.pressed.connect(_on_region_start_cancel_pressed)
+    region_start_panel.add_child(cancel_button)
+    generated_region_start_buttons.append(cancel_button)
+
+    setup_region_start_panel_layout()
+
+
 func setup_pause_menu() -> void:
     if pause_menu_panel != null:
         return
@@ -332,6 +437,27 @@ func setup_menu_button_theme(button: Button) -> void:
     button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
 
+func setup_line_edit_theme(line_edit: LineEdit) -> void:
+    line_edit.add_theme_font_size_override("font_size", 13)
+
+    var normal_style := StyleBoxFlat.new()
+    normal_style.bg_color = Color(0.10, 0.10, 0.10, 0.98)
+    normal_style.border_color = Color(0.78, 0.70, 0.48, 1.0)
+    normal_style.set_border_width_all(1)
+    normal_style.set_corner_radius_all(4)
+    normal_style.content_margin_left = 8
+    normal_style.content_margin_right = 8
+    normal_style.content_margin_top = 5
+    normal_style.content_margin_bottom = 5
+
+    var focus_style := normal_style.duplicate()
+    focus_style.border_color = Color(1.0, 0.86, 0.42, 1.0)
+
+    line_edit.add_theme_stylebox_override("normal", normal_style)
+    line_edit.add_theme_stylebox_override("focus", focus_style)
+    line_edit.add_theme_stylebox_override("read_only", normal_style)
+
+
 func setup_main_menu_layout() -> void:
     if main_menu_panel == null:
         return
@@ -353,6 +479,18 @@ func setup_world_preview_panel_layout() -> void:
     world_preview_panel.position = Vector2(
         viewport_size.x - world_preview_panel.size.x - 16.0,
         16.0
+    )
+
+
+func setup_region_start_panel_layout() -> void:
+    if region_start_panel == null:
+        return
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    region_start_panel.size = Vector2(340, 234)
+    region_start_panel.position = Vector2(
+        viewport_size.x * 0.5 - region_start_panel.size.x * 0.5,
+        viewport_size.y * 0.5 - region_start_panel.size.y * 0.5
     )
 
 
@@ -510,11 +648,6 @@ func setup_build_menu_age_buttons() -> void:
         Vector2(8, 8)
     )
 
-    # Later age buttons will be added here.
-    # Example:
-    # create_age_button("Copper Age", RegionBuildingData.AGE_COPPER, Vector2(90, 8))
-    # create_age_button("Bronze Age", RegionBuildingData.AGE_BRONZE, Vector2(180, 8))
-
 
 func create_age_button(display_name: String, age_id: String, position: Vector2) -> void:
     var age_button := Button.new()
@@ -636,6 +769,17 @@ func clear_generated_world_preview_buttons() -> void:
             button_node.queue_free()
 
     generated_world_preview_buttons.clear()
+
+
+func clear_generated_region_start_buttons() -> void:
+    for button_index in range(generated_region_start_buttons.size()):
+        var button_variant: Variant = generated_region_start_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_region_start_buttons.clear()
 
 
 func clear_generated_pause_menu_buttons() -> void:
@@ -780,6 +924,26 @@ func _on_world_preview_confirm_pressed() -> void:
 
 func _on_world_preview_back_pressed() -> void:
     world_preview_back_requested.emit()
+
+
+func _on_region_start_confirm_pressed() -> void:
+    var region_name: String = ""
+
+    if region_name_input != null:
+        region_name = region_name_input.text.strip_edges()
+
+    if region_name == "":
+        region_name = "New Settlement"
+
+    region_start_confirm_requested.emit(region_name)
+
+
+func _on_region_name_submitted(_submitted_text: String) -> void:
+    _on_region_start_confirm_pressed()
+
+
+func _on_region_start_cancel_pressed() -> void:
+    region_start_cancel_requested.emit()
 
 
 func _on_pause_resume_pressed() -> void:

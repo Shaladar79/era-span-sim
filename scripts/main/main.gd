@@ -3,6 +3,7 @@ extends Node2D
 const GAME_MODE_MAIN_MENU: String = "main_menu"
 const GAME_MODE_WORLD_PREVIEW: String = "world_preview"
 const GAME_MODE_WORLD: String = "world"
+const GAME_MODE_REGION_CONFIRM: String = "region_confirm"
 const GAME_MODE_REGION: String = "region"
 const GAME_MODE_PAUSED: String = "paused"
 
@@ -13,6 +14,12 @@ const GAME_MODE_PAUSED: String = "paused"
 
 var game_mode: String = GAME_MODE_MAIN_MENU
 var previous_game_mode: String = GAME_MODE_MAIN_MENU
+
+var pending_selected_world_tiles: Array = []
+var pending_source_world_seed: int = 0
+var pending_selection_origin: Vector2i = Vector2i(-1, -1)
+var pending_source_resource_totals: Dictionary = {}
+var current_region_name: String = ""
 
 
 func _ready() -> void:
@@ -40,6 +47,11 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
 
+        if game_mode == GAME_MODE_REGION_CONFIRM:
+            cancel_region_start_confirmation()
+            get_viewport().set_input_as_handled()
+            return
+
 
 func connect_ui_signals() -> void:
     if ui == null:
@@ -64,6 +76,12 @@ func connect_ui_signals() -> void:
     if ui.has_signal("world_preview_back_requested"):
         ui.connect("world_preview_back_requested", Callable(self, "_on_world_preview_back_requested"))
 
+    if ui.has_signal("region_start_confirm_requested"):
+        ui.connect("region_start_confirm_requested", Callable(self, "_on_region_start_confirm_requested"))
+
+    if ui.has_signal("region_start_cancel_requested"):
+        ui.connect("region_start_cancel_requested", Callable(self, "_on_region_start_cancel_requested"))
+
     if ui.has_signal("pause_resume_requested"):
         ui.connect("pause_resume_requested", Callable(self, "_on_pause_resume_requested"))
 
@@ -82,6 +100,8 @@ func enter_main_menu_mode() -> void:
     game_mode = GAME_MODE_MAIN_MENU
     previous_game_mode = GAME_MODE_MAIN_MENU
 
+    clear_pending_region_selection()
+
     world.visible = false
     region.visible = false
 
@@ -98,6 +118,9 @@ func enter_main_menu_mode() -> void:
         if ui.has_method("hide_world_preview_panel"):
             ui.call("hide_world_preview_panel")
 
+        if ui.has_method("hide_region_start_panel"):
+            ui.call("hide_region_start_panel")
+
         if ui.has_method("hide_pause_menu"):
             ui.call("hide_pause_menu")
 
@@ -110,6 +133,8 @@ func enter_world_preview_mode() -> void:
     game_mode = GAME_MODE_WORLD_PREVIEW
     previous_game_mode = GAME_MODE_WORLD_PREVIEW
 
+    clear_pending_region_selection()
+
     world.visible = true
     region.visible = false
 
@@ -119,6 +144,9 @@ func enter_world_preview_mode() -> void:
 
         if ui.has_method("show_world_preview_panel"):
             ui.call("show_world_preview_panel")
+
+        if ui.has_method("hide_region_start_panel"):
+            ui.call("hide_region_start_panel")
 
         if ui.has_method("hide_pause_menu"):
             ui.call("hide_pause_menu")
@@ -154,6 +182,9 @@ func enter_world_mode() -> void:
         if ui.has_method("hide_world_preview_panel"):
             ui.call("hide_world_preview_panel")
 
+        if ui.has_method("hide_region_start_panel"):
+            ui.call("hide_region_start_panel")
+
         if ui.has_method("hide_pause_menu"):
             ui.call("hide_pause_menu")
 
@@ -173,18 +204,20 @@ func enter_world_mode() -> void:
         main_camera.position = world.call("get_map_center")
 
 
-func enter_region_mode(
+func enter_region_start_confirmation_mode(
     selected_world_tiles: Array,
     source_world_seed: int,
     selection_origin: Vector2i,
     source_resource_totals: Dictionary
 ) -> void:
     get_tree().paused = false
-    game_mode = GAME_MODE_REGION
-    previous_game_mode = GAME_MODE_REGION
+    game_mode = GAME_MODE_REGION_CONFIRM
+    previous_game_mode = GAME_MODE_WORLD
 
-    world.visible = false
-    region.visible = true
+    pending_selected_world_tiles = selected_world_tiles.duplicate(true)
+    pending_source_world_seed = source_world_seed
+    pending_selection_origin = selection_origin
+    pending_source_resource_totals = source_resource_totals.duplicate(true)
 
     if ui != null:
         if ui.has_method("hide_main_menu"):
@@ -197,6 +230,45 @@ func enter_region_mode(
             ui.call("hide_pause_menu")
 
         if ui.has_method("set_build_ui_enabled"):
+            ui.call("set_build_ui_enabled", false)
+
+        if ui.has_method("show_region_start_panel"):
+            ui.call("show_region_start_panel", get_default_region_name())
+
+
+func enter_region_mode(
+    selected_world_tiles: Array,
+    source_world_seed: int,
+    selection_origin: Vector2i,
+    source_resource_totals: Dictionary,
+    region_name: String = ""
+) -> void:
+    get_tree().paused = false
+    game_mode = GAME_MODE_REGION
+    previous_game_mode = GAME_MODE_REGION
+
+    current_region_name = region_name.strip_edges()
+
+    if current_region_name == "":
+        current_region_name = get_default_region_name()
+
+    world.visible = false
+    region.visible = true
+
+    if ui != null:
+        if ui.has_method("hide_main_menu"):
+            ui.call("hide_main_menu")
+
+        if ui.has_method("hide_world_preview_panel"):
+            ui.call("hide_world_preview_panel")
+
+        if ui.has_method("hide_region_start_panel"):
+            ui.call("hide_region_start_panel")
+
+        if ui.has_method("hide_pause_menu"):
+            ui.call("hide_pause_menu")
+
+        if ui.has_method("set_build_ui_enabled"):
             ui.call("set_build_ui_enabled", true)
 
     if world.has_method("deactivate"):
@@ -204,6 +276,9 @@ func enter_region_mode(
 
     if region.has_method("activate"):
         region.call("activate")
+
+    if region.has_method("set_region_name"):
+        region.call("set_region_name", current_region_name)
 
     if region.has_method("generate_from_world_selection"):
         region.call(
@@ -249,13 +324,51 @@ func resume_from_pause() -> void:
             ui.call("set_build_ui_enabled", game_mode == GAME_MODE_REGION)
 
 
+func confirm_pending_region_start(region_name: String) -> void:
+    if pending_selected_world_tiles.is_empty():
+        print("No pending region selection to start.")
+        enter_world_mode()
+        return
+
+    enter_region_mode(
+        pending_selected_world_tiles,
+        pending_source_world_seed,
+        pending_selection_origin,
+        pending_source_resource_totals,
+        region_name
+    )
+
+
+func cancel_region_start_confirmation() -> void:
+    clear_pending_region_selection()
+
+    if ui != null and ui.has_method("hide_region_start_panel"):
+        ui.call("hide_region_start_panel")
+
+    enter_world_mode()
+
+
+func clear_pending_region_selection() -> void:
+    pending_selected_world_tiles.clear()
+    pending_source_world_seed = 0
+    pending_selection_origin = Vector2i(-1, -1)
+    pending_source_resource_totals.clear()
+
+
+func get_default_region_name() -> String:
+    if pending_selection_origin.x >= 0 and pending_selection_origin.y >= 0:
+        return "Settlement " + str(pending_selection_origin.x) + "-" + str(pending_selection_origin.y)
+
+    return "New Settlement"
+
+
 func _on_world_region_requested(
     selected_world_tiles: Array,
     source_world_seed: int,
     selection_origin: Vector2i,
     source_resource_totals: Dictionary
 ) -> void:
-    enter_region_mode(
+    enter_region_start_confirmation_mode(
         selected_world_tiles,
         source_world_seed,
         selection_origin,
@@ -293,6 +406,14 @@ func _on_world_preview_confirm_requested() -> void:
 
 func _on_world_preview_back_requested() -> void:
     enter_main_menu_mode()
+
+
+func _on_region_start_confirm_requested(region_name: String) -> void:
+    confirm_pending_region_start(region_name)
+
+
+func _on_region_start_cancel_requested() -> void:
+    cancel_region_start_confirmation()
 
 
 func _on_pause_resume_requested() -> void:
