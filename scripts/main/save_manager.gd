@@ -4,6 +4,7 @@ class_name SaveManager
 const SAVE_DIRECTORY: String = "user://saves"
 const SAVE_EXTENSION: String = ".json"
 const AUTOSAVE_SUFFIX: String = "_auto_"
+const MAX_AUTOSAVES_PER_REGION: int = 3
 
 const SAVE_VERSION: int = 1
 
@@ -105,8 +106,12 @@ static func write_autosave(region_name: String, autosave_index: int, save_data: 
     ensure_save_directory_exists()
 
     var save_path: String = get_autosave_path(region_name, autosave_index)
+    var result: Dictionary = write_save_to_path(save_path, save_data)
 
-    return write_save_to_path(save_path, save_data)
+    if bool(result.get("success", false)):
+        prune_old_autosaves(region_name, MAX_AUTOSAVES_PER_REGION)
+
+    return result
 
 
 static func write_save_to_path(save_path: String, save_data: Dictionary) -> Dictionary:
@@ -220,7 +225,8 @@ static func list_save_files() -> Array:
     save_files.sort()
 
     return save_files
-    
+
+
 static func get_save_path_from_file_name(file_name: String) -> String:
     return SAVE_DIRECTORY + "/" + file_name
 
@@ -271,7 +277,8 @@ static func read_most_recent_save() -> Dictionary:
     var save_path: String = str(newest_save.get("path", ""))
 
     return read_save_from_path(save_path)
-    
+
+
 static func delete_save_file(file_name: String) -> Dictionary:
     ensure_save_directory_exists()
 
@@ -333,3 +340,63 @@ static func is_valid_save_file_name(file_name: String) -> bool:
         return false
 
     return safe_file_name.ends_with(SAVE_EXTENSION)
+
+
+static func prune_old_autosaves(region_name: String, max_autosaves: int) -> void:
+    if max_autosaves <= 0:
+        return
+
+    var autosave_infos: Array = list_autosave_file_infos_for_region(region_name)
+
+    if autosave_infos.size() <= max_autosaves:
+        return
+
+    autosave_infos.sort_custom(_sort_save_infos_newest_first)
+
+    for autosave_index in range(max_autosaves, autosave_infos.size()):
+        var autosave_info: Dictionary = autosave_infos[autosave_index]
+        var file_name: String = str(autosave_info.get("file_name", ""))
+
+        if file_name == "":
+            continue
+
+        var delete_result: Dictionary = delete_save_file(file_name)
+
+        if bool(delete_result.get("success", false)):
+            print(str(delete_result.get("message", "Old autosave deleted.")))
+        else:
+            print(str(delete_result.get("message", "Failed to delete old autosave.")))
+
+
+static func list_autosave_file_infos_for_region(region_name: String) -> Array:
+    ensure_save_directory_exists()
+
+    var safe_region_name: String = sanitize_save_name(region_name)
+
+    if safe_region_name == "":
+        safe_region_name = "region"
+
+    var autosave_prefix: String = safe_region_name + AUTOSAVE_SUFFIX
+    var autosave_infos: Array = []
+    var save_files: Array = list_save_files()
+
+    for file_index in range(save_files.size()):
+        var file_name: String = str(save_files[file_index])
+
+        if not file_name.begins_with(autosave_prefix):
+            continue
+
+        if not file_name.ends_with(SAVE_EXTENSION):
+            continue
+
+        var save_path: String = get_save_path_from_file_name(file_name)
+
+        autosave_infos.append({
+            "file_name": file_name,
+            "path": save_path,
+            "modified_time": get_save_modified_time(save_path)
+        })
+
+    autosave_infos.sort_custom(_sort_save_infos_newest_first)
+
+    return autosave_infos
