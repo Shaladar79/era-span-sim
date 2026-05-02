@@ -2168,6 +2168,12 @@ func draw_paused_villager_hover_panel() -> void:
     if is_dragging_villager:
         return
 
+    var animal_data: Dictionary = wild_animal_manager.get_animal_at_tile(hovered_tile)
+
+    if not animal_data.is_empty():
+        draw_wild_animal_hover_panel(animal_data)
+        return
+
     var mouse_screen_position: Vector2 = get_viewport().get_mouse_position()
     var assignment_hover_villager: Dictionary = get_assignment_hovered_villager(mouse_screen_position)
 
@@ -2185,6 +2191,12 @@ func draw_paused_villager_hover_panel() -> void:
         return
 
     draw_villager_hover_panel(villager_data)
+    
+func draw_wild_animal_hover_panel(animal_data: Dictionary) -> void:
+    RegionDraw.draw_wild_animal_hover_panel(
+        self,
+        animal_data
+    )
 
 
 func draw_villager_hover_panel(villager_data: Dictionary) -> void:

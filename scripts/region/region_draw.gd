@@ -1437,6 +1437,189 @@ static func draw_villager_hover_panel(
         villager_data,
         panel_screen_rect
     )
+    
+static func draw_wild_animal_hover_panel(
+    node: CanvasItem,
+    animal_data: Dictionary
+) -> void:
+    if animal_data.is_empty():
+        return
+
+    var mouse_screen_position: Vector2 = node.get_viewport().get_mouse_position()
+    var panel_width: float = 260.0
+    var panel_height: float = 150.0
+    var panel_offset := Vector2(18.0, 18.0)
+
+    var panel_screen_position: Vector2 = mouse_screen_position + panel_offset
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+
+    if panel_screen_position.x + panel_width > viewport_size.x:
+        panel_screen_position.x = mouse_screen_position.x - panel_width - panel_offset.x
+
+    if panel_screen_position.y + panel_height > viewport_size.y:
+        panel_screen_position.y = mouse_screen_position.y - panel_height - panel_offset.y
+
+    var panel_screen_rect := Rect2(
+        panel_screen_position,
+        Vector2(panel_width, panel_height)
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.95), true)
+
+    var dangerous: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_DANGEROUS, false))
+    var border_color := Color(0.95, 0.82, 0.35, 0.95)
+
+    if dangerous:
+        border_color = Color(1.0, 0.25, 0.18, 0.98)
+
+    node.draw_rect(
+        panel_world_rect,
+        border_color,
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    draw_wild_animal_hover_panel_text(
+        node,
+        animal_data,
+        panel_screen_rect
+    )
+
+
+static func draw_wild_animal_hover_panel_text(
+    node: CanvasItem,
+    animal_data: Dictionary,
+    panel_screen_rect: Rect2
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var title_font_size: int = get_title_font_size(world_per_screen_y)
+    var body_font_size: int = get_small_font_size(world_per_screen_y)
+
+    var animal_name: String = str(animal_data.get(RegionWildAnimalManager.KEY_NAME, "Wild Animal"))
+    var dangerous: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_DANGEROUS, false))
+    var danger_level: String = str(animal_data.get(RegionWildAnimalManager.KEY_DANGER_LEVEL, RegionWildAnimalData.DANGER_NONE))
+    var required_hunters: int = int(animal_data.get(RegionWildAnimalManager.KEY_REQUIRED_HUNTERS, 1))
+    var injury_chance: float = float(animal_data.get(RegionWildAnimalManager.KEY_INJURY_CHANCE, 0.0))
+    var death_chance: float = float(animal_data.get(RegionWildAnimalManager.KEY_DEATH_CHANCE, 0.0))
+    var yields: Dictionary = animal_data.get(RegionWildAnimalManager.KEY_YIELDS, {})
+
+    var danger_text: String = "Normal"
+
+    if dangerous:
+        danger_text = "Dangerous - " + danger_level.capitalize()
+
+    var yield_text: String = get_wild_animal_yield_text(yields)
+
+    var injury_percent: int = int(round(injury_chance * 100.0))
+    var death_percent: int = int(round(death_chance * 100.0))
+
+    var text_x: float = panel_screen_rect.position.x + 10.0
+    var text_y: float = panel_screen_rect.position.y + 20.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        animal_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        title_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    text_y += 22.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Type: " + danger_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Required Hunters: " + str(required_hunters),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Yields: " + yield_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Injury Risk: " + str(injury_percent) + "%",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.88, 0.70, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Death Risk: " + str(death_percent) + "%",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.72, 0.68, 1.0)
+    )
+
+
+static func get_wild_animal_yield_text(yields: Dictionary) -> String:
+    if yields.is_empty():
+        return "None"
+
+    var parts: Array = []
+
+    var resource_order: Array = [
+        StoneAgeTuning.RESOURCE_MEAT,
+        StoneAgeTuning.RESOURCE_HIDE,
+        StoneAgeTuning.RESOURCE_BONE,
+        StoneAgeTuning.RESOURCE_FEATHER
+    ]
+
+    for resource_index in range(resource_order.size()):
+        var resource_name: String = str(resource_order[resource_index])
+        var amount: int = int(yields.get(resource_name, 0))
+
+        if amount <= 0:
+            continue
+
+        parts.append(resource_name + " " + str(amount))
+
+    if parts.is_empty():
+        return "None"
+
+    return ", ".join(parts)
 
 
 static func draw_villager_hover_panel_text(
