@@ -517,12 +517,24 @@ func _process(delta: float) -> void:
 func update_wild_animal_manager(delta: float) -> void:
     setup_wild_animal_manager()
 
+    var campfire_tiles: Array = get_campfire_center_tiles()
+
     var did_animals_move: bool = wild_animal_manager.update_wild_animals(
         delta,
-        get_campfire_center_tiles()
+        campfire_tiles
     )
 
-    if did_animals_move:
+    var did_respawn: bool = wild_animal_manager.update_respawns(
+        delta,
+        campfire_tiles
+    )
+
+    var animal_event_messages: Array = wild_animal_manager.get_event_messages()
+
+    if not animal_event_messages.is_empty():
+        add_village_log_messages(animal_event_messages)
+
+    if did_animals_move or did_respawn:
         queue_redraw()
 
 
@@ -830,6 +842,20 @@ func update_hunting_jobs(delta: float) -> void:
             if not hunt_yields.is_empty():
                 inventory.add_resources(hunt_yields)
                 print_settlement_inventory()
+
+            var kill_record_result: Dictionary = wild_animal_manager.record_animal_kill_from_hunt_result(
+                hunt_result
+            )
+
+            var kill_record_messages: Array = kill_record_result.get("messages", [])
+
+            if not kill_record_messages.is_empty():
+                add_village_log_messages(kill_record_messages)
+
+            var animal_event_messages: Array = wild_animal_manager.get_event_messages()
+
+            if not animal_event_messages.is_empty():
+                add_village_log_messages(animal_event_messages)
 
             var party_messages: Array = villager_manager.apply_hunting_result_to_party(
                 animal_instance_id,
