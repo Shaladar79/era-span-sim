@@ -14,6 +14,10 @@ const SAVE_KEY_WARLEADER_DATA: String = "warleader_data"
 const SAVE_KEY_HAS_SPIRITUAL_LEADER: String = "has_spiritual_leader"
 const SAVE_KEY_SPIRITUAL_LEADER_DATA: String = "spiritual_leader_data"
 const SAVE_KEY_HERO_PLACEHOLDERS: String = "hero_placeholders"
+const KEY_ACTIVE: String = "active"
+const KEY_FUEL_TIMER: String = "fuel_timer"
+const KEY_IS_LIT: String = "is_lit"
+const KEY_LAST_FUEL_MESSAGE_STATE: String = "last_fuel_message_state"
 
 const SAVE_TYPE_KEY: String = "__save_type"
 const SAVE_TYPE_VECTOR2I: String = "Vector2i"
@@ -125,7 +129,9 @@ func load_save_data(save_data: Dictionary) -> void:
             var instance_id: int = int(building_data.get("instance_id", 0))
 
             if instance_id <= 0:
-                continue
+               continue
+
+            sanitize_loaded_building_runtime_data(building_data)
 
             region_buildings.append(building_data)
 
@@ -700,8 +706,8 @@ func is_footprint_in_active_fire_range(
         if not is_fire_source_building(building_id):
             continue
 
-        if not bool(building_data.get("active", true)):
-            continue
+        if not is_protection_light_building_lit(building_data):
+           continue
 
         var fire_origin := Vector2i(
             int(building_data.get("x", 0)),
@@ -727,10 +733,15 @@ func is_footprint_in_active_fire_range(
 
 
 func is_fire_source_building(building_id: String) -> bool:
-    return (
-        building_id == RegionBuildingData.BUILDING_CAMPFIRE
-        or building_id == RegionBuildingData.BUILDING_BONFIRE
-    )
+    return ProtectionLightData.is_protection_light_building(building_id)
+    
+func is_protection_light_building_lit(building_data: Dictionary) -> bool:
+    var building_id: String = str(building_data.get("id", ""))
+
+    if not ProtectionLightData.is_protection_light_building(building_id):
+        return false
+
+    return bool(building_data.get(KEY_IS_LIT, building_data.get(KEY_ACTIVE, true)))
 
 
 func footprints_are_within_range(
@@ -791,6 +802,8 @@ func place_building(
         building_data,
         source_building_data
     )
+    
+    initialize_protection_light_building_runtime_data(building_data)
 
     region_buildings.append(building_data)
 
@@ -861,6 +874,42 @@ func copy_runtime_building_metadata(
 
         if not target_building_data.has("storage_capacity"):
             target_building_data["storage_capacity"] = RegionBuildingData.STORAGE_AREA_CAPACITY
+            
+func initialize_protection_light_building_runtime_data(building_data: Dictionary) -> void:
+    var building_id: String = str(building_data.get("id", ""))
+
+    if not ProtectionLightData.is_protection_light_building(building_id):
+        return
+
+    var fuel_interval: float = ProtectionLightData.get_fuel_interval_for_building(building_id)
+
+    building_data[KEY_IS_LIT] = true
+    building_data[KEY_ACTIVE] = true
+    building_data[KEY_FUEL_TIMER] = fuel_interval
+    building_data[KEY_LAST_FUEL_MESSAGE_STATE] = "lit"
+    
+func sanitize_loaded_building_runtime_data(building_data: Dictionary) -> void:
+    var building_id: String = str(building_data.get("id", ""))
+
+    if not ProtectionLightData.is_protection_light_building(building_id):
+        return
+
+    var fuel_interval: float = ProtectionLightData.get_fuel_interval_for_building(building_id)
+
+    if not building_data.has(KEY_IS_LIT):
+        building_data[KEY_IS_LIT] = bool(building_data.get(KEY_ACTIVE, true))
+
+    if not building_data.has(KEY_ACTIVE):
+        building_data[KEY_ACTIVE] = bool(building_data.get(KEY_IS_LIT, true))
+
+    if not building_data.has(KEY_FUEL_TIMER):
+        building_data[KEY_FUEL_TIMER] = fuel_interval
+
+    if not building_data.has(KEY_LAST_FUEL_MESSAGE_STATE):
+        if bool(building_data.get(KEY_IS_LIT, true)):
+            building_data[KEY_LAST_FUEL_MESSAGE_STATE] = "lit"
+        else:
+            building_data[KEY_LAST_FUEL_MESSAGE_STATE] = "unlit"
 
 
 func get_normal_housing_capacity() -> int:
@@ -952,6 +1001,92 @@ func get_building_count_by_id(target_building_id: String) -> int:
             building_count += 1
 
     return building_count
+    
+func update_protection_light_fuel(
+    delta: float,
+    inventory: RegionInventory
+) -> Array:
+    var messages: Array = []
+
+    if delta <= 0.0:
+        return messages
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_id: String = str(building_data.get("id", ""))
+
+        if not ProtectionLightData.is_protection_light_building(building_id):
+            continue
+
+        if not ProtectionLightData.building_requires_fuel(building_id):
+            building_data[KEY_IS_LIT] = true
+            building_data[KEY_ACTIVE] = true
+            region_buildings[building_index] = building_data
+            continue
+
+        if not ProtectionLightData.should_auto_fuel_building(building_id):
+            region_buildings[building_index] = building_data
+            continue
+
+        var fuel_interval: float = ProtectionLightData.get_fuel_interval_for_building(building_id)
+
+        if fuel_interval <= 0.0:
+            building_data[KEY_IS_LIT] = true
+            building_data[KEY_ACTIVE] = true
+            region_buildings[building_index] = building_data
+            continue
+
+        var current_timer: float = float(building_data.get(KEY_FUEL_TIMER, fuel_interval))
+        current_timer -= delta
+
+        if current_timer > 0.0:
+            building_data[KEY_FUEL_TIMER] = current_timer
+            region_buildings[building_index] = building_data
+            continue
+
+        var fuel_cost: Dictionary = ProtectionLightData.get_fuel_cost_for_building(building_id)
+        var source_name: String = ProtectionLightData.get_display_name_for_building(building_id)
+        var building_instance_id: int = int(building_data.get("instance_id", 0))
+
+        if inventory.has_cost(fuel_cost):
+            inventory.spend_cost(fuel_cost)
+
+            building_data[KEY_IS_LIT] = true
+            building_data[KEY_ACTIVE] = true
+            building_data[KEY_FUEL_TIMER] = fuel_interval
+
+            if str(building_data.get(KEY_LAST_FUEL_MESSAGE_STATE, "lit")) != "lit":
+                messages.append(
+                    source_name
+                    + " #"
+                    + str(building_instance_id)
+                    + " has been refueled and relit."
+                )
+
+            building_data[KEY_LAST_FUEL_MESSAGE_STATE] = "lit"
+        else:
+            building_data[KEY_IS_LIT] = false
+            building_data[KEY_ACTIVE] = false
+            building_data[KEY_FUEL_TIMER] = min(30.0, fuel_interval)
+
+            if str(building_data.get(KEY_LAST_FUEL_MESSAGE_STATE, "lit")) != "unlit":
+                messages.append(
+                    source_name
+                    + " #"
+                    + str(building_instance_id)
+                    + " has gone out. More fuel is needed."
+                )
+
+            building_data[KEY_LAST_FUEL_MESSAGE_STATE] = "unlit"
+
+        region_buildings[building_index] = building_data
+
+    return messages
 
 
 func get_building_center_tile(building_data: Dictionary) -> Vector2i:

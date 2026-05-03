@@ -523,6 +523,7 @@ func _process(delta: float) -> void:
         queue_redraw()
         return
 
+    update_protection_light_fuel(delta)
     update_villager_manager(delta)
     update_hero_manager(delta)
     update_hunting_jobs(delta)
@@ -774,6 +775,20 @@ func update_hero_manager(delta: float) -> void:
     if did_heroes_move:
         queue_redraw()
 
+
+func update_protection_light_fuel(delta: float) -> void:
+    var fuel_messages: Array = building_manager.update_protection_light_fuel(
+        delta,
+        inventory
+    )
+
+    if not fuel_messages.is_empty():
+        add_village_log_messages(fuel_messages)
+        print_settlement_inventory()
+        relocate_wild_animals_away_from_campfires()
+        queue_redraw()
+
+
 func update_villager_manager(delta: float) -> void:
     var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
 
@@ -798,7 +813,6 @@ func update_villager_manager(delta: float) -> void:
 
     if villager_manager.has_tile_changes():
         queue_redraw()
-
 
 func update_hunting_jobs(delta: float) -> void:
     var reserved_hunts: Array = wild_animal_manager.get_reserved_hunts_ready_to_check()
