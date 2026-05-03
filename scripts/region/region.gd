@@ -2659,6 +2659,11 @@ func get_visible_inventory_resource_names() -> Array:
 
     return visible_resources
 
+func get_animal_kill_count_for_hover(animal_id: String) -> int:
+    if animal_id == "":
+        return 0
+
+    return wild_animal_manager.get_animal_kill_count(animal_id)
 
 func is_tile_in_bounds(tile_position: Vector2i) -> bool:
     return (

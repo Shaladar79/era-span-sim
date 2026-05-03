@@ -1446,8 +1446,8 @@ static func draw_wild_animal_hover_panel(
         return
 
     var mouse_screen_position: Vector2 = node.get_viewport().get_mouse_position()
-    var panel_width: float = 260.0
-    var panel_height: float = 150.0
+    var panel_width: float = 290.0
+    var panel_height: float = 210.0
     var panel_offset := Vector2(18.0, 18.0)
 
     var panel_screen_position: Vector2 = mouse_screen_position + panel_offset
@@ -1474,10 +1474,14 @@ static func draw_wild_animal_hover_panel(
     node.draw_rect(panel_world_rect, Color(0.04, 0.035, 0.025, 0.95), true)
 
     var dangerous: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_DANGEROUS, false))
+    var is_unique: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_IS_UNIQUE, false))
     var border_color := Color(0.95, 0.82, 0.35, 0.95)
 
     if dangerous:
         border_color = Color(1.0, 0.25, 0.18, 0.98)
+
+    if is_unique:
+        border_color = Color(0.35, 0.65, 1.0, 1.0)
 
     node.draw_rect(
         panel_world_rect,
@@ -1570,23 +1574,42 @@ static func draw_wild_animal_hover_panel_text(
     var title_font_size: int = get_title_font_size(world_per_screen_y)
     var body_font_size: int = get_small_font_size(world_per_screen_y)
 
+    var animal_id: String = str(animal_data.get(RegionWildAnimalManager.KEY_ANIMAL_ID, ""))
     var animal_name: String = str(animal_data.get(RegionWildAnimalManager.KEY_NAME, "Wild Animal"))
     var dangerous: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_DANGEROUS, false))
+    var is_unique: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_IS_UNIQUE, false))
     var danger_level: String = str(animal_data.get(RegionWildAnimalManager.KEY_DANGER_LEVEL, RegionWildAnimalData.DANGER_NONE))
     var required_hunters: int = int(animal_data.get(RegionWildAnimalManager.KEY_REQUIRED_HUNTERS, 1))
     var injury_chance: float = float(animal_data.get(RegionWildAnimalManager.KEY_INJURY_CHANCE, 0.0))
     var death_chance: float = float(animal_data.get(RegionWildAnimalManager.KEY_DEATH_CHANCE, 0.0))
+    var hunt_damage: int = int(animal_data.get(RegionWildAnimalManager.KEY_HUNT_DAMAGE, 0))
+    var hunt_time_modifier: float = float(animal_data.get(RegionWildAnimalManager.KEY_HUNT_TIME_MODIFIER, 0.0))
+    var can_respawn: bool = bool(animal_data.get(RegionWildAnimalManager.KEY_CAN_RESPAWN, false))
+    var respawn_time: float = float(animal_data.get(RegionWildAnimalManager.KEY_RESPAWN_TIME, 0.0))
     var yields: Dictionary = animal_data.get(RegionWildAnimalManager.KEY_YIELDS, {})
+
+    var kill_count: int = 0
+
+    if node.has_method("get_animal_kill_count_for_hover"):
+        kill_count = int(node.call("get_animal_kill_count_for_hover", animal_id))
 
     var danger_text: String = "Normal"
 
     if dangerous:
         danger_text = "Dangerous - " + danger_level.capitalize()
 
+    if is_unique:
+        danger_text = "Unique Dangerous - " + danger_level.capitalize()
+
     var yield_text: String = get_wild_animal_yield_text(yields)
 
     var injury_percent: int = int(round(injury_chance * 100.0))
     var death_percent: int = int(round(death_chance * 100.0))
+
+    var respawn_text: String = "No"
+
+    if can_respawn:
+        respawn_text = str(int(round(respawn_time))) + "s"
 
     var text_x: float = panel_screen_rect.position.x + 10.0
     var text_y: float = panel_screen_rect.position.y + 20.0
@@ -1618,11 +1641,47 @@ static func draw_wild_animal_hover_panel_text(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Required Hunters: " + str(required_hunters),
+        "Required Hunters: " + str(required_hunters) + " | Kill Count: " + str(kill_count),
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
         Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Hunt Damage: " + str(hunt_damage) + " | Time Mod: " + str(snapped(hunt_time_modifier, 0.1)) + "s",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Injury Risk: " + str(injury_percent) + "% | Death Risk: " + str(death_percent) + "%",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.82, 0.70, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Respawn: " + respawn_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
     )
 
     text_y += 18.0
@@ -1635,30 +1694,6 @@ static func draw_wild_animal_hover_panel_text(
         -1,
         body_font_size,
         Color(1.0, 1.0, 1.0, 1.0)
-    )
-
-    text_y += 18.0
-
-    node.draw_string(
-        ThemeDB.fallback_font,
-        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Injury Risk: " + str(injury_percent) + "%",
-        HORIZONTAL_ALIGNMENT_LEFT,
-        -1,
-        body_font_size,
-        Color(1.0, 0.88, 0.70, 1.0)
-    )
-
-    text_y += 18.0
-
-    node.draw_string(
-        ThemeDB.fallback_font,
-        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Death Risk: " + str(death_percent) + "%",
-        HORIZONTAL_ALIGNMENT_LEFT,
-        -1,
-        body_font_size,
-        Color(1.0, 0.72, 0.68, 1.0)
     )
 
 
