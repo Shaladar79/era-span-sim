@@ -258,6 +258,136 @@ func get_visible_items_by_category(category: String) -> Array:
     return matching_items
 
 
+func is_item_belonging_source(item_id: String) -> bool:
+    if item_id == "":
+        return false
+
+    return StoneAgeBelongingData.is_source_item_a_belonging(item_id)
+
+
+func get_belonging_id_for_item(item_id: String) -> String:
+    if item_id == "":
+        return ""
+
+    return StoneAgeBelongingData.get_belonging_id_for_source_item(item_id)
+
+
+func get_visible_belonging_items() -> Array:
+    var belonging_items: Array = []
+    var visible_items: Array = get_visible_items()
+
+    for item_index in range(visible_items.size()):
+        var item_data: Dictionary = visible_items[item_index]
+        var item_id: String = str(item_data.get("id", ""))
+
+        if item_id == "":
+            continue
+
+        var belonging_id: String = get_belonging_id_for_item(item_id)
+
+        if belonging_id == "":
+            continue
+
+        var belonging_data: Dictionary = StoneAgeBelongingData.get_belonging(belonging_id)
+
+        if belonging_data.is_empty():
+            continue
+
+        var display_item: Dictionary = item_data.duplicate(true)
+        display_item["belonging_id"] = belonging_id
+        display_item["belonging_name"] = StoneAgeBelongingData.get_belonging_name(belonging_id)
+        display_item["slot_cost"] = StoneAgeBelongingData.get_belonging_slot_cost(belonging_id)
+        display_item["allowed_roles_text"] = StoneAgeBelongingData.get_role_restriction_text(belonging_id)
+        display_item["effect_notes"] = str(belonging_data.get("effect_notes", ""))
+
+        belonging_items.append(display_item)
+
+    belonging_items.sort_custom(_sort_belonging_items_by_name)
+
+    return belonging_items
+
+
+func get_available_belonging_items_for_villager(villager_data: Dictionary) -> Array:
+    var available_items: Array = []
+
+    if villager_data.is_empty():
+        return available_items
+
+    var villager_role: String = str(
+        villager_data.get(
+            "role",
+            StoneAgeVillagerAssignmentData.get_default_role()
+        )
+    )
+
+    var max_belongings: int = int(villager_data.get("max_belongings", CoreTuning.BASE_BELONGING_SLOTS))
+    var open_slots: int = max_belongings
+
+    if villager_data.has("belongings"):
+        var belongings: Array = villager_data.get("belongings", [])
+
+        for belonging_index in range(belongings.size()):
+            var belonging_entry: Dictionary = StoneAgeBelongingData.normalize_belonging_entry(
+                belongings[belonging_index]
+            )
+
+            if belonging_entry.is_empty():
+                continue
+
+            open_slots -= max(1, int(belonging_entry.get("slot_cost", 1)))
+
+    open_slots = max(0, open_slots)
+
+    if open_slots <= 0:
+        return available_items
+
+    var current_belonging_ids: Array = []
+    var current_belongings: Array = villager_data.get("belongings", [])
+
+    for current_index in range(current_belongings.size()):
+        var current_belonging: Dictionary = StoneAgeBelongingData.normalize_belonging_entry(
+            current_belongings[current_index]
+        )
+
+        if current_belonging.is_empty():
+            continue
+
+        var current_belonging_id: String = str(current_belonging.get("id", ""))
+
+        if current_belonging_id == "":
+            continue
+
+        current_belonging_ids.append(current_belonging_id)
+
+    var belonging_items: Array = get_visible_belonging_items()
+
+    for item_index in range(belonging_items.size()):
+        var item_data: Dictionary = belonging_items[item_index]
+        var belonging_id: String = str(item_data.get("belonging_id", ""))
+
+        if belonging_id == "":
+            continue
+
+        var slot_cost: int = StoneAgeBelongingData.get_belonging_slot_cost(belonging_id)
+
+        if slot_cost > open_slots:
+            continue
+
+        if StoneAgeBelongingData.is_unique_belonging(belonging_id):
+            if current_belonging_ids.has(belonging_id):
+                continue
+
+        if not StoneAgeBelongingData.is_role_allowed_for_belonging(
+            belonging_id,
+            villager_role
+        ):
+            continue
+
+        available_items.append(item_data)
+
+    return available_items
+
+
 func get_item_function(item_id: String) -> String:
     var item_data: Dictionary = get_item(item_id)
 
@@ -341,5 +471,12 @@ func _sort_items_by_category_then_name(a: Dictionary, b: Dictionary) -> bool:
 
     var name_a: String = str(a.get("name", ""))
     var name_b: String = str(b.get("name", ""))
+
+    return name_a < name_b
+
+
+func _sort_belonging_items_by_name(a: Dictionary, b: Dictionary) -> bool:
+    var name_a: String = str(a.get("belonging_name", a.get("name", "")))
+    var name_b: String = str(b.get("belonging_name", b.get("name", "")))
 
     return name_a < name_b

@@ -1392,6 +1392,508 @@ static func draw_village_log_panel(
 
         draw_row += 1
 
+static func get_selected_panel_belonging_id_from_variant(belonging_variant: Variant) -> String:
+    if typeof(belonging_variant) == TYPE_STRING:
+        return str(belonging_variant)
+
+    if typeof(belonging_variant) != TYPE_DICTIONARY:
+        return ""
+
+    var belonging_data: Dictionary = belonging_variant
+
+    return str(belonging_data.get("id", belonging_data.get("item_id", "")))
+
+
+static func get_selected_panel_used_belonging_slots(belongings: Array) -> int:
+    var used_slots: int = 0
+
+    for belonging_index in range(belongings.size()):
+        var normalized_belonging: Dictionary = StoneAgeBelongingData.normalize_belonging_entry(
+            belongings[belonging_index]
+        )
+
+        if normalized_belonging.is_empty():
+            continue
+
+        used_slots += max(1, int(normalized_belonging.get("slot_cost", 1)))
+
+    return used_slots
+
+
+static func draw_selected_villager_panel(
+    node: CanvasItem,
+    villager_data: Dictionary,
+    available_belonging_items: Array
+) -> void:
+    if villager_data.is_empty():
+        return
+
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_screen_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var title_font_size: int = get_title_font_size(world_per_screen_y)
+    var body_font_size: int = get_body_font_size(world_per_screen_y)
+    var small_font_size: int = get_small_font_size(world_per_screen_y)
+    var tiny_font_size: int = get_tiny_font_size(world_per_screen_y)
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.96),
+        true
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.98),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    draw_selected_villager_panel_close_button(
+        node,
+        panel_screen_rect
+    )
+
+    draw_selected_villager_panel_header(
+        node,
+        villager_data,
+        panel_screen_rect,
+        title_font_size,
+        body_font_size,
+        small_font_size
+    )
+
+    draw_selected_villager_current_belongings(
+        node,
+        villager_data,
+        body_font_size,
+        small_font_size,
+        tiny_font_size
+    )
+
+    draw_selected_villager_available_belongings(
+        node,
+        villager_data,
+        available_belonging_items,
+        body_font_size,
+        small_font_size,
+        tiny_font_size
+    )
+
+
+static func draw_selected_villager_panel_close_button(
+    node: CanvasItem,
+    _panel_screen_rect: Rect2
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var close_button_screen_rect: Rect2 = RegionUI.get_selected_villager_close_button_screen_rect(
+        viewport_size
+    )
+    var close_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        close_button_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    node.draw_rect(
+        close_button_world_rect,
+        Color(0.28, 0.08, 0.06, 0.98),
+        true
+    )
+
+    node.draw_rect(
+        close_button_world_rect,
+        Color(1.0, 0.55, 0.45, 1.0),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            close_button_screen_rect.position + Vector2(6, 16)
+        ),
+        "X",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_small_font_size(world_per_screen_y),
+        Color(1.0, 0.95, 0.90, 1.0)
+    )
+
+
+static func draw_selected_villager_panel_header(
+    node: CanvasItem,
+    villager_data: Dictionary,
+    panel_screen_rect: Rect2,
+    title_font_size: int,
+    body_font_size: int,
+    small_font_size: int
+) -> void:
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var gender: String = str(villager_data.get("gender", "unknown"))
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(role)
+    var level: int = int(villager_data.get("level", 0))
+    var health: int = int(villager_data.get("health", 5))
+    var max_health: int = int(villager_data.get("max_health", 5))
+    var hunger: int = int(villager_data.get("hunger", 100))
+    var speed: int = int(villager_data.get("speed", 100))
+    var health_state: String = str(villager_data.get("health_state", "healthy"))
+
+    var belongings: Array = villager_data.get("belongings", [])
+    var max_belongings: int = int(villager_data.get("max_belongings", villager_data.get("belonging_slots", 1)))
+    var used_belonging_slots: int = get_selected_panel_used_belonging_slots(belongings)
+
+    var text_x: float = panel_screen_rect.position.x + 10.0
+    var text_y: float = panel_screen_rect.position.y + 20.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        villager_name + " (" + gender + ")",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        title_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    text_y += 22.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Role: " + role_name + " | Level " + str(level),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Health: " + str(health) + "/" + str(max_health) + " | Hunger: " + str(hunger) + " | Speed: " + str(speed),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(0.92, 0.92, 0.88, 1.0)
+    )
+
+    text_y += 17.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "State: " + health_state.capitalize() + " | Belonging Slots: " + str(used_belonging_slots) + "/" + str(max_belongings),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(0.92, 0.92, 0.88, 1.0)
+    )
+
+
+static func draw_selected_villager_current_belongings(
+    node: CanvasItem,
+    villager_data: Dictionary,
+    body_font_size: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+    var belongings: Array = villager_data.get("belongings", [])
+    var visible_count: int = min(
+        belongings.size(),
+        RegionUI.get_selected_villager_current_belonging_visible_row_count()
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y - 12)
+        ),
+        "Current Belongings",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if belongings.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y + 18)
+            ),
+            "None",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    for belonging_index in range(visible_count):
+        var belonging_data: Dictionary = StoneAgeBelongingData.normalize_belonging_entry(
+            belongings[belonging_index]
+        )
+
+        if belonging_data.is_empty():
+            continue
+
+        draw_selected_villager_current_belonging_row(
+            node,
+            belonging_data,
+            belonging_index,
+            small_font_size,
+            tiny_font_size
+        )
+
+
+static func draw_selected_villager_current_belonging_row(
+    node: CanvasItem,
+    belonging_data: Dictionary,
+    belonging_index: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var row_screen_rect: Rect2 = RegionUI.get_selected_villager_current_belonging_row_screen_rect(
+        viewport_size,
+        belonging_index
+    )
+    var row_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        row_screen_rect
+    )
+
+    var remove_button_screen_rect: Rect2 = RegionUI.get_selected_villager_remove_belonging_button_screen_rect(
+        viewport_size,
+        belonging_index
+    )
+    var remove_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        remove_button_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.12, 0.10, 0.07, 0.95),
+        true
+    )
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.65, 0.55, 0.32, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    var belonging_name: String = str(belonging_data.get("name", "Belonging"))
+    var slot_cost: int = max(1, int(belonging_data.get("slot_cost", 1)))
+    var effect_notes: String = str(belonging_data.get("effect_notes", ""))
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            row_screen_rect.position + Vector2(8, 13)
+        ),
+        belonging_name + " | Slots " + str(slot_cost),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    if effect_notes != "":
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                row_screen_rect.position + Vector2(8, 25)
+            ),
+            effect_notes,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            tiny_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+
+    node.draw_rect(
+        remove_button_world_rect,
+        Color(0.28, 0.08, 0.06, 0.98),
+        true
+    )
+
+    node.draw_rect(
+        remove_button_world_rect,
+        Color(1.0, 0.55, 0.45, 1.0),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            remove_button_screen_rect.position + Vector2(7, 16)
+        ),
+        "X",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        tiny_font_size,
+        Color(1.0, 0.95, 0.90, 1.0)
+    )
+
+
+static func draw_selected_villager_available_belongings(
+    node: CanvasItem,
+    villager_data: Dictionary,
+    available_belonging_items: Array,
+    body_font_size: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+    var max_belongings: int = int(villager_data.get("max_belongings", villager_data.get("belonging_slots", 1)))
+    var used_slots: int = get_selected_panel_used_belonging_slots(villager_data.get("belongings", []))
+    var open_slots: int = max(0, max_belongings - used_slots)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y - 12)
+        ),
+        "Available Belongings",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if open_slots <= 0:
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y + 18)
+            ),
+            "No open belonging slots.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    if available_belonging_items.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y + 18)
+            ),
+            "No compatible belongings in inventory.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    var visible_count: int = min(
+        available_belonging_items.size(),
+        RegionUI.get_selected_villager_available_belonging_visible_row_count()
+    )
+
+    for item_index in range(visible_count):
+        draw_selected_villager_available_belonging_row(
+            node,
+            available_belonging_items[item_index],
+            item_index,
+            small_font_size,
+            tiny_font_size
+        )
+
+
+static func draw_selected_villager_available_belonging_row(
+    node: CanvasItem,
+    item_data: Dictionary,
+    item_index: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var row_screen_rect: Rect2 = RegionUI.get_selected_villager_available_belonging_row_screen_rect(
+        viewport_size,
+        item_index
+    )
+    var row_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        row_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.10, 0.13, 0.08, 0.95),
+        true
+    )
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.55, 0.72, 0.38, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    var item_name: String = str(item_data.get("belonging_name", item_data.get("name", "Belonging")))
+    var amount: int = int(item_data.get("amount", 0))
+    var slot_cost: int = int(item_data.get("slot_cost", 1))
+    var role_text: String = str(item_data.get("allowed_roles_text", "Any role"))
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            row_screen_rect.position + Vector2(8, 13)
+        ),
+        item_name + " x" + str(amount) + " | Slots " + str(slot_cost),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            row_screen_rect.position + Vector2(8, 25)
+        ),
+        "Allowed: " + role_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        tiny_font_size,
+        Color(0.82, 0.90, 0.78, 1.0)
+    )
 
 static func draw_villager_hover_panel(
     node: CanvasItem,

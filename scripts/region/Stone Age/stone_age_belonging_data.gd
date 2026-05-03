@@ -22,9 +22,10 @@ static func get_all_belongings() -> Dictionary:
             "type": BELONGING_TYPE_LIGHT,
             "slot_cost": 1,
             "unique": true,
-            "source_item_id": "",
+            "source_item_id": BELONGING_TORCH,
+            "allowed_roles": [],
             "description": "A carried light source. It gives a small mobile protection/light radius.",
-            "effect_notes": "Protection/light radius scale 0.25. No fuel cost. Full crafting/equipping comes in Task 12."
+            "effect_notes": "Protection/light radius scale 0.25. No fuel cost."
         },
 
         BELONGING_CLOTH_SHOES: {
@@ -34,8 +35,9 @@ static func get_all_belongings() -> Dictionary:
             "slot_cost": 1,
             "unique": true,
             "source_item_id": BELONGING_CLOTH_SHOES,
+            "allowed_roles": [],
             "description": "Simple foot wraps that make movement easier over rough ground.",
-            "effect_notes": "Future speed belonging. Bonus not active in Task 11A."
+            "effect_notes": "Future speed belonging. Bonus not active yet."
         },
 
         BELONGING_WOVEN_POUCH: {
@@ -45,8 +47,16 @@ static func get_all_belongings() -> Dictionary:
             "slot_cost": 1,
             "unique": true,
             "source_item_id": BELONGING_WOVEN_POUCH,
+            "allowed_roles": [
+                StoneAgeVillagerAssignmentData.ROLE_VILLAGER,
+                StoneAgeVillagerAssignmentData.ROLE_MAKER,
+                StoneAgeVillagerAssignmentData.ROLE_STONEWORKER,
+                StoneAgeVillagerAssignmentData.ROLE_WOODWORKER,
+                StoneAgeVillagerAssignmentData.ROLE_HUNTER,
+                StoneAgeVillagerAssignmentData.ROLE_FISHER
+            ],
             "description": "A small woven pouch for carrying gathered materials.",
-            "effect_notes": "Future gathering/storage belonging. Bonus not active in Task 11A."
+            "effect_notes": "Future gathering/storage belonging. Bonus not active yet."
         },
 
         BELONGING_WARM_WRAP: {
@@ -56,8 +66,9 @@ static func get_all_belongings() -> Dictionary:
             "slot_cost": 1,
             "unique": true,
             "source_item_id": BELONGING_WARM_WRAP,
+            "allowed_roles": [],
             "description": "A rough wrap that helps protect a villager from exposure.",
-            "effect_notes": "Future survival belonging. Bonus not active in Task 11A."
+            "effect_notes": "Future survival belonging. Bonus not active yet."
         },
 
         BELONGING_BONE_CHARM: {
@@ -67,8 +78,12 @@ static func get_all_belongings() -> Dictionary:
             "slot_cost": 1,
             "unique": true,
             "source_item_id": BELONGING_BONE_CHARM,
+            "allowed_roles": [
+                StoneAgeVillagerAssignmentData.ROLE_THINKER,
+                StoneAgeVillagerAssignmentData.ROLE_RITUALIST
+            ],
             "description": "A small charm used as an early symbol of belief, luck, or memory.",
-            "effect_notes": "Future thinker/ritualist belonging. Bonus not active in Task 11A."
+            "effect_notes": "Future thinker/ritualist belonging. Bonus not active yet."
         }
     }
 
@@ -106,6 +121,29 @@ static func get_belonging_slot_cost(belonging_id: String) -> int:
     return max(1, int(belonging_data.get("slot_cost", 1)))
 
 
+static func get_belonging_source_item_id(belonging_id: String) -> String:
+    var belonging_data: Dictionary = get_belonging(belonging_id)
+
+    if belonging_data.is_empty():
+        return ""
+
+    return str(belonging_data.get("source_item_id", ""))
+
+
+static func get_allowed_roles(belonging_id: String) -> Array:
+    var belonging_data: Dictionary = get_belonging(belonging_id)
+
+    if belonging_data.is_empty():
+        return []
+
+    var allowed_roles_variant: Variant = belonging_data.get("allowed_roles", [])
+
+    if typeof(allowed_roles_variant) != TYPE_ARRAY:
+        return []
+
+    return allowed_roles_variant.duplicate(true)
+
+
 static func is_unique_belonging(belonging_id: String) -> bool:
     var belonging_data: Dictionary = get_belonging(belonging_id)
 
@@ -113,6 +151,75 @@ static func is_unique_belonging(belonging_id: String) -> bool:
         return true
 
     return bool(belonging_data.get("unique", true))
+
+
+static func is_role_allowed_for_belonging(
+    belonging_id: String,
+    role_id: String
+) -> bool:
+    var allowed_roles: Array = get_allowed_roles(belonging_id)
+
+    if allowed_roles.is_empty():
+        return true
+
+    return allowed_roles.has(role_id)
+
+
+static func get_role_restriction_text(belonging_id: String) -> String:
+    var allowed_roles: Array = get_allowed_roles(belonging_id)
+
+    if allowed_roles.is_empty():
+        return "Any role"
+
+    var role_names: Array = []
+
+    for role_index in range(allowed_roles.size()):
+        var role_id: String = str(allowed_roles[role_index])
+        role_names.append(StoneAgeVillagerAssignmentData.get_role_display_name(role_id))
+
+    return ", ".join(role_names)
+
+
+static func get_belonging_id_for_source_item(item_id: String) -> String:
+    if item_id == "":
+        return ""
+
+    var all_belongings: Dictionary = get_all_belongings()
+    var belonging_ids: Array = all_belongings.keys()
+
+    for belonging_index in range(belonging_ids.size()):
+        var belonging_id: String = str(belonging_ids[belonging_index])
+        var belonging_data: Dictionary = all_belongings[belonging_id]
+        var source_item_id: String = str(belonging_data.get("source_item_id", ""))
+
+        if source_item_id == item_id:
+            return belonging_id
+
+    return ""
+
+
+static func is_source_item_a_belonging(item_id: String) -> bool:
+    return get_belonging_id_for_source_item(item_id) != ""
+
+
+static func get_all_belonging_source_item_ids() -> Array:
+    var source_item_ids: Array = []
+    var all_belongings: Dictionary = get_all_belongings()
+    var belonging_ids: Array = all_belongings.keys()
+
+    for belonging_index in range(belonging_ids.size()):
+        var belonging_id: String = str(belonging_ids[belonging_index])
+        var source_item_id: String = get_belonging_source_item_id(belonging_id)
+
+        if source_item_id == "":
+            continue
+
+        if source_item_ids.has(source_item_id):
+            continue
+
+        source_item_ids.append(source_item_id)
+
+    return source_item_ids
 
 
 static func make_belonging_instance(belonging_id: String) -> Dictionary:
@@ -127,6 +234,7 @@ static func make_belonging_instance(belonging_id: String) -> Dictionary:
         "type": str(belonging_data.get("type", "belonging")),
         "slot_cost": max(1, int(belonging_data.get("slot_cost", 1))),
         "source_item_id": str(belonging_data.get("source_item_id", "")),
+        "allowed_roles": get_allowed_roles(belonging_id),
         "effect_notes": str(belonging_data.get("effect_notes", "")),
         "description": str(belonging_data.get("description", ""))
     }
@@ -154,6 +262,7 @@ static func normalize_belonging_entry(belonging_variant: Variant) -> Dictionary:
             "type": str(raw_belonging.get("type", "belonging")),
             "slot_cost": max(1, int(raw_belonging.get("slot_cost", 1))),
             "source_item_id": str(raw_belonging.get("source_item_id", "")),
+            "allowed_roles": [],
             "effect_notes": str(raw_belonging.get("effect_notes", "")),
             "description": str(raw_belonging.get("description", ""))
         }

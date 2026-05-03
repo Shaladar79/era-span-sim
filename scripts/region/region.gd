@@ -105,6 +105,9 @@ var selected_crafting_building_instance_id: int = 0
 var show_assignment_panel: bool = false
 var selected_assignment_building_instance_id: int = 0
 
+var show_selected_villager_panel: bool = false
+var selected_villager_id: int = 0
+
 var show_village_log_panel: bool = false
 var show_debug_panel: bool = false
 var village_log_messages: Array = []
@@ -1060,6 +1063,7 @@ func start_campfire_placement() -> void:
 
 func start_building_placement(building_id: String) -> void:
     close_storage_selector()
+    close_selected_villager_panel()
     show_build_panel = false
     show_resource_inventory_panel = false
     show_village_inventory_panel = false
@@ -1166,6 +1170,15 @@ func try_handle_village_log_click(mouse_screen_position: Vector2) -> bool:
 
 
 func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
+    if show_selected_villager_panel:
+        if try_handle_selected_villager_panel_click(mouse_screen_position):
+            return true
+
+        if RegionUI.get_selected_villager_panel_screen_rect(
+            get_viewport().get_visible_rect().size
+        ).has_point(mouse_screen_position):
+            return true
+
     if get_resources_button_screen_rect().has_point(mouse_screen_position):
         show_resource_inventory_panel = not show_resource_inventory_panel
 
@@ -1375,6 +1388,210 @@ func try_start_building_from_mouse(mouse_screen_position: Vector2) -> bool:
         return true
 
     return false
+    
+func try_handle_selected_villager_panel_click(mouse_screen_position: Vector2) -> bool:
+    if not show_selected_villager_panel:
+        return false
+
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+
+    if RegionUI.get_selected_villager_close_button_screen_rect(viewport_size).has_point(mouse_screen_position):
+        close_selected_villager_panel()
+        return true
+
+    if try_remove_selected_villager_belonging_from_mouse(mouse_screen_position):
+        return true
+
+    if try_equip_selected_villager_belonging_from_mouse(mouse_screen_position):
+        return true
+
+    return false
+
+
+func try_remove_selected_villager_belonging_from_mouse(mouse_screen_position: Vector2) -> bool:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return false
+
+    var belongings: Array = villager_data.get("belongings", [])
+    var visible_count: int = min(
+        belongings.size(),
+        RegionUI.get_selected_villager_current_belonging_visible_row_count()
+    )
+
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+
+    for belonging_index in range(visible_count):
+        var remove_button_rect: Rect2 = RegionUI.get_selected_villager_remove_belonging_button_screen_rect(
+            viewport_size,
+            belonging_index
+        )
+
+        if not remove_button_rect.has_point(mouse_screen_position):
+            continue
+
+        remove_selected_villager_belonging_at_index(belonging_index)
+        return true
+
+    return false
+
+
+func remove_selected_villager_belonging_at_index(belonging_index: int) -> void:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return
+
+    var belongings: Array = villager_data.get("belongings", [])
+
+    if belonging_index < 0:
+        return
+
+    if belonging_index >= belongings.size():
+        return
+
+    var belonging_data: Dictionary = StoneAgeBelongingData.normalize_belonging_entry(
+        belongings[belonging_index]
+    )
+
+    if belonging_data.is_empty():
+        return
+
+    var belonging_id: String = str(belonging_data.get("id", ""))
+    var source_item_id: String = str(belonging_data.get("source_item_id", ""))
+    var belonging_name: String = str(belonging_data.get("name", StoneAgeBelongingData.get_belonging_name(belonging_id)))
+    var description: String = str(belonging_data.get("description", ""))
+    var effect_notes: String = str(belonging_data.get("effect_notes", ""))
+
+    if belonging_id == "":
+        return
+
+    var remove_result: Dictionary = villager_manager.remove_belonging_from_villager(
+        selected_villager_id,
+        belonging_id
+    )
+
+    var remove_message: String = str(remove_result.get("message", ""))
+
+    if remove_message != "":
+        add_village_log_message(remove_message)
+
+    if not bool(remove_result.get("success", false)):
+        queue_redraw()
+        return
+
+    if source_item_id != "":
+        item_inventory.add_item(
+            source_item_id,
+            belonging_name,
+            1,
+            RegionItemInventory.CATEGORY_KIT,
+            description,
+            {
+                "belonging_id": belonging_id,
+                "item_function": "belonging",
+                "effect_notes": effect_notes
+            }
+        )
+
+        add_village_log_message(belonging_name + " returned to Village Inventory.")
+
+    item_inventory.print_inventory()
+    queue_redraw()
+
+
+func try_equip_selected_villager_belonging_from_mouse(mouse_screen_position: Vector2) -> bool:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return false
+
+    var available_items: Array = item_inventory.get_available_belonging_items_for_villager(
+        villager_data
+    )
+
+    var visible_count: int = min(
+        available_items.size(),
+        RegionUI.get_selected_villager_available_belonging_visible_row_count()
+    )
+
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+
+    for item_index in range(visible_count):
+        var item_button_rect: Rect2 = RegionUI.get_selected_villager_available_belonging_row_screen_rect(
+            viewport_size,
+            item_index
+        )
+
+        if not item_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var item_data: Dictionary = available_items[item_index]
+        equip_selected_villager_belonging_item(item_data)
+        return true
+
+    return false
+
+
+func equip_selected_villager_belonging_item(item_data: Dictionary) -> void:
+    if item_data.is_empty():
+        return
+
+    var source_item_id: String = str(item_data.get("id", ""))
+    var belonging_id: String = str(item_data.get("belonging_id", ""))
+
+    if source_item_id == "":
+        add_village_log_message("Could not equip belonging. Missing inventory item id.")
+        queue_redraw()
+        return
+
+    if belonging_id == "":
+        add_village_log_message("Could not equip item. It is not a valid belonging.")
+        queue_redraw()
+        return
+
+    if not item_inventory.has_item(source_item_id, 1):
+        add_village_log_message("Village Inventory no longer has " + str(item_data.get("name", source_item_id)) + ".")
+        queue_redraw()
+        return
+
+    var give_result: Dictionary = villager_manager.give_belonging_to_villager(
+        selected_villager_id,
+        belonging_id
+    )
+
+    var give_message: String = str(give_result.get("message", ""))
+
+    if give_message != "":
+        add_village_log_message(give_message)
+
+    if not bool(give_result.get("success", false)):
+        queue_redraw()
+        return
+
+    var did_remove_item: bool = item_inventory.remove_item(source_item_id, 1)
+
+    if not did_remove_item:
+        villager_manager.remove_belonging_from_villager(
+            selected_villager_id,
+            belonging_id
+        )
+
+        add_village_log_message(
+            "Could not remove "
+            + str(item_data.get("name", source_item_id))
+            + " from Village Inventory. Belonging equip was cancelled."
+        )
+
+        queue_redraw()
+        return
+
+    item_inventory.print_inventory()
+    queue_redraw()
 
 
 func try_execute_debug_action_from_mouse(mouse_screen_position: Vector2) -> bool:
@@ -1917,13 +2134,7 @@ func try_start_villager_drag_or_select() -> void:
     )
 
     if villager_id > 0:
-        is_dragging_villager = true
-        dragged_villager_id = villager_id
-        drag_assignment_tile = hovered_tile
-
-        print("Started dragging villager id: ", dragged_villager_id)
-
-        queue_redraw()
+        open_selected_villager_panel(villager_id)
         return
 
     select_hovered_tile()
@@ -2321,11 +2532,11 @@ func _draw() -> void:
     draw_build_panel()
     draw_crafting_panel()
     draw_assignment_panel()
+    draw_selected_villager_panel()
     draw_village_log_button()
     draw_village_log_panel()
     draw_debug_panel()
     draw_hover_panels()
-
 
 func draw_storage_selector() -> void:
     RegionDraw.draw_storage_selector(
@@ -2489,6 +2700,72 @@ func draw_assignment_panel() -> void:
         assigned_villager_data,
         assignable_villagers
     )
+    
+func open_selected_villager_panel(villager_id: int) -> void:
+    if villager_id <= 0:
+        return
+
+    var villager_data: Dictionary = villager_manager.get_villager_data_by_id(villager_id)
+
+    if villager_data.is_empty():
+        return
+
+    show_selected_villager_panel = true
+    selected_villager_id = villager_id
+
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    show_build_panel = false
+    close_crafting_panel()
+    close_assignment_panel()
+    close_storage_selector()
+
+    print("Opened villager panel for: " + str(villager_data.get("name", "Villager")))
+
+    queue_redraw()
+
+
+func close_selected_villager_panel() -> void:
+    show_selected_villager_panel = false
+    selected_villager_id = 0
+    queue_redraw()
+
+
+func get_selected_villager_data() -> Dictionary:
+    if not show_selected_villager_panel:
+        return {}
+
+    if selected_villager_id <= 0:
+        return {}
+
+    return villager_manager.get_villager_data_by_id(selected_villager_id)
+
+
+func get_selected_villager_available_belonging_items() -> Array:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        return []
+
+    return item_inventory.get_available_belonging_items_for_villager(villager_data)
+
+
+func draw_selected_villager_panel() -> void:
+    if not show_selected_villager_panel:
+        return
+
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return
+
+    RegionDraw.draw_selected_villager_panel(
+        self,
+        villager_data,
+        get_selected_villager_available_belonging_items()
+    )
 
 
 func draw_village_log_button() -> void:
@@ -2522,6 +2799,9 @@ func draw_debug_panel() -> void:
 
 func draw_hover_panels() -> void:
     if is_dragging_villager:
+        return
+
+    if show_selected_villager_panel:
         return
 
     var grave_data: Dictionary = villager_manager.get_dead_villager_at_tile(hovered_tile)

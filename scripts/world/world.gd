@@ -371,34 +371,7 @@ func update_tile_info_label() -> void:
     if tile_info_label == null:
         return
 
-    if not is_tile_in_bounds(hovered_tile):
-        tile_info_label.text = (
-            "Hover Tile: outside map\n"
-            + "Selected Region: " + get_selected_region_text() + "\n"
-            + get_world_mode_help_text()
-        )
-        return
-
-    var tile_data: Dictionary = tiles[hovered_tile.y][hovered_tile.x]
-
-    var elevation_text := str(snapped(float(tile_data.get("elevation", 0.0)), 0.001))
-    var moisture_text := str(snapped(float(tile_data.get("moisture", 0.0)), 0.001))
-    var resources_text := get_resources_text(tile_data)
-
-    tile_info_label.text = (
-        "Hover Tile: " + str(hovered_tile.x) + ", " + str(hovered_tile.y) + "\n"
-        + "Selected Region: " + get_selected_region_text() + "\n"
-        + get_world_mode_help_text() + "\n"
-        + "Terrain: " + str(tile_data.get("terrain", "unknown")) + "\n"
-        + "Biome: " + str(tile_data.get("biome", "unknown")) + "\n"
-        + "Sub-Biome: " + str(tile_data.get("sub_biome", "none")) + "\n"
-        + "Elevation: " + elevation_text + "\n"
-        + "Moisture: " + moisture_text + "\n"
-        + "Walkable: " + str(tile_data.get("walkable", false)) + "\n"
-        + "Buildable: " + str(tile_data.get("buildable", false)) + "\n"
-        + "Resources:\n" + resources_text
-    )
-
+    tile_info_label.text = ""
 
 func get_world_mode_help_text() -> String:
     if allow_world_regeneration and not region_selection_enabled:

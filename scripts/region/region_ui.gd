@@ -56,6 +56,17 @@ const ASSIGNMENT_ROW_HEIGHT: int = 34
 const ASSIGNMENT_LIST_START_Y: int = 94
 const ASSIGNMENT_HEADER_HEIGHT: int = 84
 
+const SELECTED_VILLAGER_PANEL_WIDTH: int = 390
+const SELECTED_VILLAGER_PANEL_HEIGHT: int = 420
+const SELECTED_VILLAGER_PANEL_MARGIN: int = 12
+const SELECTED_VILLAGER_CLOSE_BUTTON_SIZE: int = 22
+
+const SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y: int = 142
+const SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y: int = 264
+const SELECTED_VILLAGER_BELONGING_ROW_HEIGHT: int = 30
+const SELECTED_VILLAGER_REMOVE_BUTTON_WIDTH: int = 24
+const SELECTED_VILLAGER_REMOVE_BUTTON_HEIGHT: int = 22
+
 const VILLAGER_HOVER_PANEL_WIDTH: int = 270
 const VILLAGER_HOVER_PANEL_HEIGHT: int = 310
 const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
@@ -376,6 +387,117 @@ static func get_assignment_visible_row_count() -> int:
         floor(
             float(ASSIGNMENT_PANEL_HEIGHT - ASSIGNMENT_LIST_START_Y - 10)
             / float(ASSIGNMENT_ROW_HEIGHT)
+        )
+    )
+
+
+static func get_selected_villager_panel_screen_rect(viewport_size: Vector2) -> Rect2:
+    return Rect2(
+        Vector2(
+            SELECTED_VILLAGER_PANEL_MARGIN,
+            SELECTED_VILLAGER_PANEL_MARGIN
+        ),
+        Vector2(
+            SELECTED_VILLAGER_PANEL_WIDTH,
+            SELECTED_VILLAGER_PANEL_HEIGHT
+        )
+    )
+
+
+static func get_selected_villager_close_button_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x + panel_rect.size.x - SELECTED_VILLAGER_CLOSE_BUTTON_SIZE - 8,
+            panel_rect.position.y + 8
+        ),
+        Vector2(
+            SELECTED_VILLAGER_CLOSE_BUTTON_SIZE,
+            SELECTED_VILLAGER_CLOSE_BUTTON_SIZE
+        )
+    )
+
+
+static func get_selected_villager_current_belonging_row_screen_rect(
+    viewport_size: Vector2,
+    belonging_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y + belonging_index * SELECTED_VILLAGER_BELONGING_ROW_HEIGHT
+        ),
+        Vector2(
+            SELECTED_VILLAGER_PANEL_WIDTH - 20,
+            SELECTED_VILLAGER_BELONGING_ROW_HEIGHT - 4
+        )
+    )
+
+
+static func get_selected_villager_remove_belonging_button_screen_rect(
+    viewport_size: Vector2,
+    belonging_index: int
+) -> Rect2:
+    var row_rect: Rect2 = get_selected_villager_current_belonging_row_screen_rect(
+        viewport_size,
+        belonging_index
+    )
+
+    return Rect2(
+        Vector2(
+            row_rect.position.x + row_rect.size.x - SELECTED_VILLAGER_REMOVE_BUTTON_WIDTH - 4,
+            row_rect.position.y + 3
+        ),
+        Vector2(
+            SELECTED_VILLAGER_REMOVE_BUTTON_WIDTH,
+            SELECTED_VILLAGER_REMOVE_BUTTON_HEIGHT
+        )
+    )
+
+
+static func get_selected_villager_available_belonging_row_screen_rect(
+    viewport_size: Vector2,
+    belonging_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y + belonging_index * SELECTED_VILLAGER_BELONGING_ROW_HEIGHT
+        ),
+        Vector2(
+            SELECTED_VILLAGER_PANEL_WIDTH - 20,
+            SELECTED_VILLAGER_BELONGING_ROW_HEIGHT - 4
+        )
+    )
+
+
+static func get_selected_villager_current_belonging_visible_row_count() -> int:
+    return int(
+        floor(
+            float(
+                SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y
+                - SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y
+                - 18
+            )
+            / float(SELECTED_VILLAGER_BELONGING_ROW_HEIGHT)
+        )
+    )
+
+
+static func get_selected_villager_available_belonging_visible_row_count() -> int:
+    return int(
+        floor(
+            float(
+                SELECTED_VILLAGER_PANEL_HEIGHT
+                - SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y
+                - 14
+            )
+            / float(SELECTED_VILLAGER_BELONGING_ROW_HEIGHT)
         )
     )
 

@@ -1253,26 +1253,9 @@ func draw_pause_overlay(
     canvas: CanvasItem,
     simulation_paused: bool
 ) -> void:
-    if not simulation_paused:
-        return
-
-    var label_position := Vector2(16, 16)
-
-    canvas.draw_rect(
-        Rect2(label_position - Vector2(6, 4), Vector2(190, 26)),
-        Color(0.0, 0.0, 0.0, 0.55),
-        true
-    )
-
-    canvas.draw_string(
-        ThemeDB.fallback_font,
-        label_position + Vector2(0, 16),
-        "PAUSED - assign orders",
-        HORIZONTAL_ALIGNMENT_LEFT,
-        -1,
-        16,
-        Color(1.0, 1.0, 1.0, 1.0)
-    )
+    # Pause state is now handled by UI panels/menus.
+    # Keep this function as a no-op so draw_all() can still call it safely.
+    pass
 
 
 func draw_grid_lines(
