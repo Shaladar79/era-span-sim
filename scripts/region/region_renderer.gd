@@ -44,6 +44,7 @@ func draw_all(
     building_manager: RegionBuildingManager,
     villager_manager: VillagerManager,
     wild_animals: Array,
+    heroes: Array,
     hovered_tile: Vector2i,
     selected_tile: Vector2i,
     is_dragging_villager: bool,
@@ -106,11 +107,10 @@ func draw_all(
         villager_manager
     )
 
-    draw_chieftain(
-        canvas,
-        building_manager,
-        region_tile_size
-    )
+    draw_heroes(
+    canvas,
+    heroes
+)
 
     draw_villager_assignment_markers(
         canvas,
@@ -814,7 +814,214 @@ func draw_villager(
     canvas.draw_circle(center + Vector2(0, 3), 4.2, outline_color, false, 1.0)
     canvas.draw_circle(center + Vector2(0, -3), 2.7, outline_color, false, 1.0)
 
+func draw_heroes(
+    canvas: CanvasItem,
+    heroes: Array
+) -> void:
+    for hero_index in range(heroes.size()):
+        var hero_variant: Variant = heroes[hero_index]
 
+        if typeof(hero_variant) != TYPE_DICTIONARY:
+            continue
+
+        var hero_data: Dictionary = hero_variant
+
+        draw_hero(
+            canvas,
+            hero_data
+        )
+
+
+func draw_hero(
+    canvas: CanvasItem,
+    hero_data: Dictionary
+) -> void:
+    var center: Vector2 = hero_data.get(HeroManager.KEY_WORLD_POSITION, Vector2.ZERO)
+
+    if center == Vector2.ZERO:
+        return
+
+    var hero_type: String = str(hero_data.get(HeroManager.KEY_HERO_TYPE, ""))
+    var visual_piece: String = str(hero_data.get(HeroManager.KEY_VISUAL_PIECE, HeroData.VISUAL_PIECE_ROOK))
+    var fill_color: Color = HeroData.get_hero_color(hero_type)
+    var outline_color := Color(0.08, 0.07, 0.04, 1.0)
+
+    match visual_piece:
+        HeroData.VISUAL_PIECE_KING:
+            draw_hero_king_piece(
+                canvas,
+                center,
+                fill_color,
+                outline_color
+            )
+
+        HeroData.VISUAL_PIECE_BISHOP:
+            draw_hero_bishop_piece(
+                canvas,
+                center,
+                fill_color,
+                outline_color
+            )
+
+        HeroData.VISUAL_PIECE_ROOK:
+            draw_hero_rook_piece(
+                canvas,
+                center,
+                fill_color,
+                outline_color
+            )
+
+        _:
+            draw_hero_rook_piece(
+                canvas,
+                center,
+                fill_color,
+                outline_color
+            )
+
+
+func draw_hero_rook_piece(
+    canvas: CanvasItem,
+    center: Vector2,
+    fill_color: Color,
+    outline_color: Color
+) -> void:
+    canvas.draw_rect(
+        Rect2(center + Vector2(-6.0, 4.0), Vector2(12.0, 4.0)),
+        outline_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-5.0, -3.0), Vector2(10.0, 8.0)),
+        fill_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-5.0, -3.0), Vector2(10.0, 8.0)),
+        outline_color,
+        false,
+        1.0
+    )
+
+    for notch_index in range(3):
+        var notch_x: float = center.x - 5.0 + float(notch_index) * 4.0
+
+        canvas.draw_rect(
+            Rect2(Vector2(notch_x, center.y - 8.0), Vector2(2.0, 5.0)),
+            fill_color,
+            true
+        )
+
+        canvas.draw_rect(
+            Rect2(Vector2(notch_x, center.y - 8.0), Vector2(2.0, 5.0)),
+            outline_color,
+            false,
+            1.0
+        )
+
+
+func draw_hero_king_piece(
+    canvas: CanvasItem,
+    center: Vector2,
+    fill_color: Color,
+    outline_color: Color
+) -> void:
+    canvas.draw_rect(
+        Rect2(center + Vector2(-6.0, 5.0), Vector2(12.0, 3.0)),
+        outline_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-4.0, 0.0), Vector2(8.0, 7.0)),
+        fill_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-4.0, 0.0), Vector2(8.0, 7.0)),
+        outline_color,
+        false,
+        1.0
+    )
+
+    canvas.draw_circle(
+        center + Vector2(0.0, -4.0),
+        4.0,
+        fill_color
+    )
+
+    canvas.draw_circle(
+        center + Vector2(0.0, -4.0),
+        4.0,
+        outline_color,
+        false,
+        1.0
+    )
+
+    canvas.draw_line(
+        center + Vector2(0.0, -13.0),
+        center + Vector2(0.0, -7.0),
+        outline_color,
+        2.0
+    )
+
+    canvas.draw_line(
+        center + Vector2(-3.0, -10.0),
+        center + Vector2(3.0, -10.0),
+        outline_color,
+        2.0
+    )
+
+
+func draw_hero_bishop_piece(
+    canvas: CanvasItem,
+    center: Vector2,
+    fill_color: Color,
+    outline_color: Color
+) -> void:
+    canvas.draw_rect(
+        Rect2(center + Vector2(-5.5, 5.0), Vector2(11.0, 3.0)),
+        outline_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-3.5, 0.0), Vector2(7.0, 7.0)),
+        fill_color,
+        true
+    )
+
+    canvas.draw_rect(
+        Rect2(center + Vector2(-3.5, 0.0), Vector2(7.0, 7.0)),
+        outline_color,
+        false,
+        1.0
+    )
+
+    canvas.draw_circle(
+        center + Vector2(0.0, -5.0),
+        5.0,
+        fill_color
+    )
+
+    canvas.draw_circle(
+        center + Vector2(0.0, -5.0),
+        5.0,
+        outline_color,
+        false,
+        1.0
+    )
+
+    canvas.draw_line(
+        center + Vector2(1.5, -9.0),
+        center + Vector2(-2.0, -2.0),
+        outline_color,
+        1.5
+    )
+    
 func draw_chieftain(
     canvas: CanvasItem,
     building_manager: RegionBuildingManager,
