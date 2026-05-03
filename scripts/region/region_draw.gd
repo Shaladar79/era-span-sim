@@ -1855,6 +1855,47 @@ static func get_wild_animal_yield_text(yields: Dictionary) -> String:
 
     return ", ".join(parts)
 
+static func get_belonging_name_from_variant(belonging_variant: Variant) -> String:
+    if typeof(belonging_variant) == TYPE_STRING:
+        return StoneAgeBelongingData.get_belonging_name(str(belonging_variant))
+
+    if typeof(belonging_variant) != TYPE_DICTIONARY:
+        return ""
+
+    var belonging_data: Dictionary = belonging_variant
+    var belonging_id: String = str(belonging_data.get("id", belonging_data.get("item_id", "")))
+
+    if belonging_id != "":
+        return str(
+            belonging_data.get(
+                "name",
+                StoneAgeBelongingData.get_belonging_name(belonging_id)
+            )
+        )
+
+    return str(belonging_data.get("name", ""))
+
+
+static func get_belongings_text(belongings: Array) -> String:
+    if belongings.is_empty():
+        return "None"
+
+    var name_parts: Array = []
+
+    for belonging_index in range(belongings.size()):
+        var belonging_name: String = get_belonging_name_from_variant(
+            belongings[belonging_index]
+        )
+
+        if belonging_name == "":
+            continue
+
+        name_parts.append(belonging_name)
+
+    if name_parts.is_empty():
+        return "None"
+
+    return ", ".join(name_parts)
 
 static func draw_villager_hover_panel_text(
     node: CanvasItem,
@@ -1887,6 +1928,7 @@ static func draw_villager_hover_panel_text(
 
     var belongings: Array = villager_data.get("belongings", [])
     var belonging_slots: int = int(villager_data.get("belonging_slots", villager_data.get("max_belongings", 1)))
+    var belongings_text: String = get_belongings_text(belongings)
     var tool_slots: int = int(villager_data.get("tool_slots", 0))
     var weapon_slots: int = int(villager_data.get("weapon_slots", 0))
     var armor_slots: int = int(villager_data.get("armor_slots", 0))
@@ -1992,11 +2034,11 @@ static func draw_villager_hover_panel_text(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "Slots: Belong " + str(belongings.size()) + "/" + str(belonging_slots) + " | Tool " + str(tool_slots) + " | Weapon " + str(weapon_slots) + " | Armor " + str(armor_slots),
+        "Belongings: " + belongings_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         body_font_size,
-        Color(0.90, 0.95, 1.0, 1.0)
+        Color(0.92, 0.88, 0.72, 1.0)
     )
 
     text_y += 16.0

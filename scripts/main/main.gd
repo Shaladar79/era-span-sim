@@ -78,6 +78,9 @@ func connect_ui_signals() -> void:
     if ui.has_signal("main_menu_options_requested"):
         ui.connect("main_menu_options_requested", Callable(self, "_on_main_menu_options_requested"))
 
+    if ui.has_signal("debug_action_requested"):
+        ui.connect("debug_action_requested", Callable(self, "_on_debug_action_requested"))
+
     if ui.has_signal("world_preview_reroll_requested"):
         ui.connect("world_preview_reroll_requested", Callable(self, "_on_world_preview_reroll_requested"))
 
@@ -666,7 +669,22 @@ func _on_main_menu_load_game_requested() -> void:
 
 
 func _on_main_menu_options_requested() -> void:
-    print("Options requested. Options menu is not implemented yet.")
+    if ui != null and ui.has_method("show_options_panel"):
+        ui.call("show_options_panel")
+        return
+
+    print("Options requested, but Options panel is not available.")
+
+
+func _on_debug_action_requested(action_id: String) -> void:
+    if action_id == "":
+        return
+
+    if region != null and region.has_method("execute_debug_action"):
+        region.call("execute_debug_action", action_id)
+        return
+
+    print("Debug action requested, but Region cannot execute debug actions: " + action_id)
 
 
 func _on_world_preview_reroll_requested() -> void:

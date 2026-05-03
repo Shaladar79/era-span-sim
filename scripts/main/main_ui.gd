@@ -1,8 +1,13 @@
 extends CanvasLayer
 
+#  MainUi
+
 signal main_menu_new_game_requested
 signal main_menu_load_game_requested
 signal main_menu_options_requested
+
+signal debug_action_requested(action_id: String)
+signal debug_mode_changed(is_enabled: bool)
 
 signal load_save_file_requested(save_file_name: String)
 signal delete_save_file_requested(save_file_name: String)
@@ -31,6 +36,12 @@ var region_start_panel: Panel = null
 var region_name_input: LineEdit = null
 var pause_menu_panel: Panel = null
 
+var options_panel: Panel = null
+var debug_mode_checkbox: CheckBox = null
+var debug_tools_panel: Panel = null
+var pause_debug_tools_button: Button = null
+var pause_return_to_main_button: Button = null
+
 var load_game_panel: Panel = null
 var load_game_opened_from_pause: bool = false
 
@@ -48,12 +59,15 @@ var generated_main_menu_buttons: Array = []
 var generated_world_preview_buttons: Array = []
 var generated_region_start_buttons: Array = []
 var generated_pause_menu_buttons: Array = []
+var generated_options_buttons: Array = []
+var generated_debug_tool_buttons: Array = []
 var generated_load_save_buttons: Array = []
 var generated_confirm_load_buttons: Array = []
 var generated_confirm_delete_buttons: Array = []
 
 var selected_build_age: String = ""
 var build_ui_enabled: bool = false
+var debug_mode_enabled: bool = false
 
 
 func _ready() -> void:
@@ -65,6 +79,8 @@ func _ready() -> void:
     setup_world_preview_panel()
     setup_region_start_panel()
     setup_pause_menu()
+    setup_options_panel()
+    setup_debug_tools_panel()
     setup_load_game_panel()
     setup_confirm_load_panel()
     setup_confirm_delete_panel()
@@ -95,6 +111,8 @@ func _notification(what: int) -> void:
         setup_world_preview_panel_layout()
         setup_region_start_panel_layout()
         setup_pause_menu_layout()
+        setup_options_panel_layout()
+        setup_debug_tools_panel_layout()
         setup_load_game_panel_layout()
         setup_confirm_load_panel_layout()
         setup_confirm_delete_panel_layout()
@@ -130,6 +148,8 @@ func show_main_menu() -> void:
     hide_world_preview_panel()
     hide_region_start_panel()
     hide_pause_menu()
+    hide_options_panel()
+    hide_debug_tools_panel()
     hide_load_game_panel()
     hide_confirm_load_panel()
     hide_confirm_delete_panel()
@@ -139,6 +159,53 @@ func show_main_menu() -> void:
 func hide_main_menu() -> void:
     if main_menu_panel != null:
         main_menu_panel.visible = false
+
+
+func show_options_panel() -> void:
+    if options_panel == null:
+        setup_options_panel()
+
+    if options_panel != null:
+        options_panel.visible = true
+
+    hide_main_menu()
+    hide_world_preview_panel()
+    hide_region_start_panel()
+    hide_pause_menu()
+    hide_load_game_panel()
+    hide_confirm_load_panel()
+    hide_confirm_delete_panel()
+    hide_debug_tools_panel()
+    set_build_ui_enabled(false)
+
+
+func hide_options_panel() -> void:
+    if options_panel != null:
+        options_panel.visible = false
+
+
+func show_debug_tools_panel() -> void:
+    if not debug_mode_enabled:
+        return
+
+    if debug_tools_panel == null:
+        setup_debug_tools_panel()
+
+    if debug_tools_panel != null:
+        debug_tools_panel.visible = true
+
+
+func hide_debug_tools_panel() -> void:
+    if debug_tools_panel != null:
+        debug_tools_panel.visible = false
+
+
+func update_debug_mode_ui() -> void:
+    if pause_debug_tools_button != null:
+        pause_debug_tools_button.visible = debug_mode_enabled
+
+    if not debug_mode_enabled:
+        hide_debug_tools_panel()
 
 
 func show_world_preview_panel() -> void:
@@ -151,6 +218,8 @@ func show_world_preview_panel() -> void:
     hide_main_menu()
     hide_region_start_panel()
     hide_pause_menu()
+    hide_options_panel()
+    hide_debug_tools_panel()
     hide_load_game_panel()
     hide_confirm_load_panel()
     hide_confirm_delete_panel()
@@ -177,6 +246,8 @@ func show_region_start_panel(default_region_name: String = "New Settlement") -> 
     hide_main_menu()
     hide_world_preview_panel()
     hide_pause_menu()
+    hide_options_panel()
+    hide_debug_tools_panel()
     hide_load_game_panel()
     hide_confirm_load_panel()
     hide_confirm_delete_panel()
@@ -199,11 +270,15 @@ func show_pause_menu() -> void:
     hide_load_game_panel()
     hide_confirm_load_panel()
     hide_confirm_delete_panel()
+    hide_options_panel()
+    update_debug_mode_ui()
 
 
 func hide_pause_menu() -> void:
     if pause_menu_panel != null:
         pause_menu_panel.visible = false
+
+    hide_debug_tools_panel()
 
 
 func show_load_game_panel(
@@ -223,6 +298,8 @@ func show_load_game_panel(
     hide_main_menu()
     hide_world_preview_panel()
     hide_region_start_panel()
+    hide_options_panel()
+    hide_debug_tools_panel()
 
     if not opened_from_pause:
         hide_pause_menu()
@@ -310,8 +387,7 @@ func update_confirm_delete_panel_text() -> void:
 
     if save_name_label != null:
         save_name_label.text = pending_delete_save_label
-
-
+        
 func populate_load_game_panel(save_infos: Array) -> void:
     if load_game_panel == null:
         return
@@ -479,6 +555,118 @@ func setup_main_menu() -> void:
     setup_main_menu_layout()
 
 
+func setup_options_panel() -> void:
+    if options_panel != null:
+        return
+
+    options_panel = Panel.new()
+    options_panel.name = "GeneratedOptionsPanel"
+    options_panel.visible = false
+    options_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(options_panel)
+
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.04, 0.04, 0.04, 0.94)
+    panel_style.border_color = Color(0.78, 0.70, 0.48, 1.0)
+    panel_style.set_border_width_all(2)
+    panel_style.set_corner_radius_all(6)
+    panel_style.content_margin_left = 12
+    panel_style.content_margin_right = 12
+    panel_style.content_margin_top = 12
+    panel_style.content_margin_bottom = 12
+    options_panel.add_theme_stylebox_override("panel", panel_style)
+
+    var title_label := Label.new()
+    title_label.name = "TitleLabel"
+    title_label.text = "Options"
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title_label.add_theme_font_size_override("font_size", 22)
+    title_label.position = Vector2(0, 18)
+    title_label.size = Vector2(320, 32)
+    options_panel.add_child(title_label)
+
+    debug_mode_checkbox = CheckBox.new()
+    debug_mode_checkbox.name = "DebugModeCheckBox"
+    debug_mode_checkbox.text = "Debug Mode"
+    debug_mode_checkbox.button_pressed = debug_mode_enabled
+    debug_mode_checkbox.position = Vector2(80, 76)
+    debug_mode_checkbox.size = Vector2(180, 28)
+    debug_mode_checkbox.process_mode = Node.PROCESS_MODE_ALWAYS
+    debug_mode_checkbox.toggled.connect(_on_debug_mode_toggled)
+    options_panel.add_child(debug_mode_checkbox)
+
+    var back_button := create_menu_button("Back", Vector2(80, 128))
+    back_button.pressed.connect(_on_options_back_pressed)
+    options_panel.add_child(back_button)
+    generated_options_buttons.append(back_button)
+
+    setup_options_panel_layout()
+
+
+func setup_debug_tools_panel() -> void:
+    if debug_tools_panel != null:
+        return
+
+    debug_tools_panel = Panel.new()
+    debug_tools_panel.name = "GeneratedDebugToolsPanel"
+    debug_tools_panel.visible = false
+    debug_tools_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(debug_tools_panel)
+
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.04, 0.04, 0.04, 0.96)
+    panel_style.border_color = Color(0.95, 0.72, 0.32, 1.0)
+    panel_style.set_border_width_all(2)
+    panel_style.set_corner_radius_all(6)
+    panel_style.content_margin_left = 12
+    panel_style.content_margin_right = 12
+    panel_style.content_margin_top = 12
+    panel_style.content_margin_bottom = 12
+    debug_tools_panel.add_theme_stylebox_override("panel", panel_style)
+
+    var title_label := Label.new()
+    title_label.name = "TitleLabel"
+    title_label.text = "Debug Tools"
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title_label.add_theme_font_size_override("font_size", 20)
+    title_label.position = Vector2(0, 14)
+    title_label.size = Vector2(320, 30)
+    debug_tools_panel.add_child(title_label)
+
+    populate_debug_tools_panel()
+    setup_debug_tools_panel_layout()
+
+
+func populate_debug_tools_panel() -> void:
+    if debug_tools_panel == null:
+        return
+
+    clear_generated_debug_tool_buttons()
+
+    var actions: Array = RegionDebugPanel.get_actions()
+    var max_visible_actions: int = min(actions.size(), 13)
+
+    for action_index in range(max_visible_actions):
+        var action_data: Dictionary = actions[action_index]
+        var action_id: String = str(action_data.get("id", ""))
+        var action_label: String = str(action_data.get("label", action_id))
+
+        if action_id == "":
+            continue
+
+        var debug_button := create_menu_button(
+            action_label,
+            Vector2(80, 54 + action_index * 32)
+        )
+
+        debug_button.pressed.connect(
+            Callable(self, "_on_debug_tool_action_pressed").bind(action_id)
+        )
+
+        debug_tools_panel.add_child(debug_button)
+        generated_debug_tool_buttons.append(debug_button)
+
+
 func setup_world_preview_panel() -> void:
     if world_preview_panel != null:
         return
@@ -534,8 +722,7 @@ func setup_world_preview_panel() -> void:
     generated_world_preview_buttons.append(back_button)
 
     setup_world_preview_panel_layout()
-
-
+    
 func setup_load_game_panel() -> void:
     if load_game_panel != null:
         return
@@ -814,10 +1001,18 @@ func setup_pause_menu() -> void:
     pause_menu_panel.add_child(load_button)
     generated_pause_menu_buttons.append(load_button)
 
-    var main_menu_button := create_menu_button("Return to Main Menu", Vector2(80, 188))
-    main_menu_button.pressed.connect(_on_pause_return_to_main_pressed)
-    pause_menu_panel.add_child(main_menu_button)
-    generated_pause_menu_buttons.append(main_menu_button)
+    pause_debug_tools_button = create_menu_button("Debug Tools", Vector2(80, 188))
+    pause_debug_tools_button.name = "DebugToolsButton"
+    pause_debug_tools_button.visible = debug_mode_enabled
+    pause_debug_tools_button.pressed.connect(_on_pause_debug_tools_pressed)
+    pause_menu_panel.add_child(pause_debug_tools_button)
+    generated_pause_menu_buttons.append(pause_debug_tools_button)
+
+    pause_return_to_main_button = create_menu_button("Return to Main Menu", Vector2(80, 226))
+    pause_return_to_main_button.name = "ReturnToMainMenuButton"
+    pause_return_to_main_button.pressed.connect(_on_pause_return_to_main_pressed)
+    pause_menu_panel.add_child(pause_return_to_main_button)
+    generated_pause_menu_buttons.append(pause_return_to_main_button)
 
     setup_pause_menu_layout()
 
@@ -878,8 +1073,7 @@ func setup_line_edit_theme(line_edit: LineEdit) -> void:
     line_edit.add_theme_stylebox_override("normal", normal_style)
     line_edit.add_theme_stylebox_override("focus", focus_style)
     line_edit.add_theme_stylebox_override("read_only", normal_style)
-
-
+    
 func setup_main_menu_layout() -> void:
     if main_menu_panel == null:
         return
@@ -889,6 +1083,30 @@ func setup_main_menu_layout() -> void:
     main_menu_panel.position = Vector2(
         viewport_size.x * 0.5 - main_menu_panel.size.x * 0.5,
         viewport_size.y * 0.5 - main_menu_panel.size.y * 0.5
+    )
+
+
+func setup_options_panel_layout() -> void:
+    if options_panel == null:
+        return
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    options_panel.size = Vector2(320, 190)
+    options_panel.position = Vector2(
+        viewport_size.x * 0.5 - options_panel.size.x * 0.5,
+        viewport_size.y * 0.5 - options_panel.size.y * 0.5
+    )
+
+
+func setup_debug_tools_panel_layout() -> void:
+    if debug_tools_panel == null:
+        return
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    debug_tools_panel.size = Vector2(320, 500)
+    debug_tools_panel.position = Vector2(
+        viewport_size.x * 0.5 - debug_tools_panel.size.x * 0.5,
+        viewport_size.y * 0.5 - debug_tools_panel.size.y * 0.5
     )
 
 
@@ -921,7 +1139,7 @@ func setup_pause_menu_layout() -> void:
         return
 
     var viewport_size := get_viewport().get_visible_rect().size
-    pause_menu_panel.size = Vector2(320, 248)
+    pause_menu_panel.size = Vector2(320, 286)
     pause_menu_panel.position = Vector2(
         viewport_size.x * 0.5 - pause_menu_panel.size.x * 0.5,
         viewport_size.y * 0.5 - pause_menu_panel.size.y * 0.5
@@ -1251,6 +1469,28 @@ func clear_generated_pause_menu_buttons() -> void:
     generated_pause_menu_buttons.clear()
 
 
+func clear_generated_options_buttons() -> void:
+    for button_index in range(generated_options_buttons.size()):
+        var button_variant: Variant = generated_options_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_options_buttons.clear()
+
+
+func clear_generated_debug_tool_buttons() -> void:
+    for button_index in range(generated_debug_tool_buttons.size()):
+        var button_variant: Variant = generated_debug_tool_buttons[button_index]
+
+        if button_variant is Node:
+            var button_node: Node = button_variant
+            button_node.queue_free()
+
+    generated_debug_tool_buttons.clear()
+
+
 func clear_generated_load_save_buttons() -> void:
     for button_index in range(generated_load_save_buttons.size()):
         var button_variant: Variant = generated_load_save_buttons[button_index]
@@ -1403,6 +1643,36 @@ func _on_main_menu_load_game_pressed() -> void:
 
 func _on_main_menu_options_pressed() -> void:
     main_menu_options_requested.emit()
+
+
+func _on_options_back_pressed() -> void:
+    hide_options_panel()
+    show_main_menu()
+
+
+func _on_debug_mode_toggled(is_enabled: bool) -> void:
+    debug_mode_enabled = is_enabled
+
+    if debug_mode_checkbox != null:
+        debug_mode_checkbox.button_pressed = debug_mode_enabled
+
+    update_debug_mode_ui()
+    debug_mode_changed.emit(debug_mode_enabled)
+
+
+func _on_pause_debug_tools_pressed() -> void:
+    if debug_tools_panel != null and debug_tools_panel.visible:
+        hide_debug_tools_panel()
+    else:
+        show_debug_tools_panel()
+
+
+func _on_debug_tool_action_pressed(action_id: String) -> void:
+    if action_id == RegionDebugPanel.ACTION_CLOSE:
+        hide_debug_tools_panel()
+        return
+
+    debug_action_requested.emit(action_id)
 
 
 func _on_world_preview_reroll_pressed() -> void:

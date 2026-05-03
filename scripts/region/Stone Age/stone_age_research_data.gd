@@ -39,6 +39,7 @@ const RESEARCH_STONEWORKING_BENCH_PLAN: String = RESEARCH_STONEWORKING_HUT_PLAN
 const RESEARCH_WOODWORKING_BENCH_PLAN: String = RESEARCH_WOODWORKING_HUT_PLAN
 
 const RESEARCH_HUNTERS_HUT_PLAN: String = "hunters_hut_plan"
+const RESEARCH_FISHING_HUT_PLAN: String = "fishing_hut_plan"
 const RESEARCH_WARLEADER_SHELTER_PLAN: String = "warleader_shelter_plan"
 const RESEARCH_WARRIOR_HUT_PLAN: String = "warrior_hut_plan"
 
@@ -85,6 +86,7 @@ const RESOURCE_FIBER_NAME: String = "Fiber"
 const RESOURCE_BERRIES_NAME: String = "Berries"
 const RESOURCE_MUSHROOMS_NAME: String = "Mushrooms"
 const RESOURCE_FLINT_NAME: String = "Flint"
+const RESOURCE_FISH_NAME: String = "Fish"
 
 const GLOBAL_BONUS_SMALL_AMOUNT: float = 0.02
 const BELONGING_SLOT_BONUS_AMOUNT: int = 1
@@ -336,6 +338,31 @@ static func get_all_research_plans() -> Dictionary:
             "required_all_resources_seen": [],
             "unlocks_buildings": [
                 RegionBuildingData.BUILDING_HUNTERS_HUT
+            ],
+            "unlocks_recipes": [],
+            "global_bonuses": []
+        },
+        
+                RESEARCH_FISHING_HUT_PLAN: {
+            "id": RESEARCH_FISHING_HUT_PLAN,
+            "name": "Fishing Hut",
+            "tier": RESEARCH_TIER_STONE_AGE_T2,
+            "cost": 8,
+            "description": "The village learns to build a dedicated hut near camp for fishers, creating a more reliable food source from rivers, lakes, and nearby waters.",
+            "required_buildings": [
+                RegionBuildingData.BUILDING_THINKERS_SPOT,
+                RegionBuildingData.BUILDING_MAKING_SPOT,
+                RegionBuildingData.BUILDING_WOODWORKING_BENCH
+            ],
+            "required_research": [
+                RESEARCH_CRUDE_CONTAINER_PLAN
+            ],
+            "required_any_resources_seen": [],
+            "required_all_resources_seen": [
+                RESOURCE_FISH_NAME
+            ],
+            "unlocks_buildings": [
+                RegionBuildingData.BUILDING_FISHING_HUT
             ],
             "unlocks_recipes": [],
             "global_bonuses": []

@@ -9,6 +9,8 @@ const ACTION_ADD_RESEARCH_100: String = "add_research_100"
 const ACTION_ADD_TEST_ITEMS: String = "add_test_items"
 const ACTION_ADD_VILLAGER_1: String = "add_villager_1"
 const ACTION_ADD_VILLAGER_5: String = "add_villager_5"
+const ACTION_GIVE_TORCH: String = "give_torch"
+const ACTION_GIVE_CLOTH_SHOES: String = "give_cloth_shoes"
 const ACTION_ADD_MAMMOTH_KILLS_5: String = "add_mammoth_kills_5"
 const ACTION_ADD_BEAR_KILLS_6: String = "add_bear_kills_6"
 const ACTION_SHOW_ANIMAL_KILL_COUNTS: String = "show_animal_kill_counts"
@@ -76,7 +78,15 @@ static func get_actions() -> Array:
             "id": ACTION_ADD_VILLAGER_5,
             "label": "+5 Villagers"
         },
-                {
+        {
+            "id": ACTION_GIVE_TORCH,
+            "label": "Give Torch"
+        },
+        {
+            "id": ACTION_GIVE_CLOTH_SHOES,
+            "label": "Give Shoes"
+        },
+        {
             "id": ACTION_ADD_MAMMOTH_KILLS_5,
             "label": "+5 Mammoth Kills"
         },
@@ -155,7 +165,27 @@ static func is_villager_action(action_id: String) -> bool:
 
 static func is_animal_resource_action(action_id: String) -> bool:
     return action_id == ACTION_ADD_ANIMAL_RESOURCES
-    
+
+
+static func is_belonging_debug_action(action_id: String) -> bool:
+    return (
+        action_id == ACTION_GIVE_TORCH
+        or action_id == ACTION_GIVE_CLOTH_SHOES
+    )
+
+
+static func get_belonging_id_for_debug_action(action_id: String) -> String:
+    match action_id:
+        ACTION_GIVE_TORCH:
+            return StoneAgeBelongingData.BELONGING_TORCH
+
+        ACTION_GIVE_CLOTH_SHOES:
+            return StoneAgeBelongingData.BELONGING_CLOTH_SHOES
+
+        _:
+            return ""
+
+
 static func is_animal_kill_debug_action(action_id: String) -> bool:
     return (
         action_id == ACTION_ADD_MAMMOTH_KILLS_5
@@ -240,6 +270,39 @@ static func get_test_item_outputs() -> Array:
             "amount": 1,
             "category": RegionItemInventory.CATEGORY_MEDICINE,
             "description": "Debug test item."
+        },
+
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": "cloth_shoes",
+            "name": "Cloth Shoes",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_KIT,
+            "description": "Debug test belonging item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": "woven_pouch",
+            "name": "Woven Pouch",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_KIT,
+            "description": "Debug test belonging item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": "warm_wrap",
+            "name": "Warm Wrap",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_KIT,
+            "description": "Debug test belonging item."
+        },
+        {
+            "type": RegionRecipeData.OUTPUT_TYPE_ITEM,
+            "id": "bone_charm",
+            "name": "Bone Charm",
+            "amount": 1,
+            "category": RegionItemInventory.CATEGORY_KIT,
+            "description": "Debug test belonging item."
         },
 
         # Stone Age T2 test items.

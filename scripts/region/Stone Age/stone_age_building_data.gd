@@ -13,6 +13,7 @@ const BUILDING_STORAGE_AREA: String = "storage_area"
 const BUILDING_THINKERS_SPOT: String = "thinkers_spot"
 
 const BUILDING_HUNTERS_HUT: String = "hunters_hut"
+const BUILDING_FISHING_HUT: String = "fishing_hut"
 const BUILDING_WARLEADER_SHELTER: String = "warleader_shelter"
 const BUILDING_WARRIOR_HUT: String = "warrior_hut"
 
@@ -47,6 +48,7 @@ const ASSIGNMENT_ROLE_THINKER: String = "thinker"
 const ASSIGNMENT_ROLE_STONEWORKER: String = "stoneworker"
 const ASSIGNMENT_ROLE_WOODWORKER: String = "woodworker"
 const ASSIGNMENT_ROLE_HUNTER: String = "hunter"
+const ASSIGNMENT_ROLE_FISHER: String = "fisher"
 const ASSIGNMENT_ROLE_WARRIOR: String = "warrior"
 const ASSIGNMENT_ROLE_RITUALIST: String = "ritualist"
 
@@ -392,6 +394,33 @@ static func get_all_buildings() -> Dictionary:
             "assignment_replaces_shelter": true,
             "assigned_villagers": [],
             "description": "A dedicated Stone Age hut for future hunters. Up to 3 villagers can be assigned here as Hunters, and the hut replaces normal shelter for those villagers."
+        },
+        
+                BUILDING_FISHING_HUT: {
+            "id": BUILDING_FISHING_HUT,
+            "name": "Fishing Hut",
+            "age": AGE_STONE,
+            "category": RegionAgeData.CATEGORY_SPECIAL,
+            "width": 2,
+            "height": 1,
+            "cost": {
+                "Wood": 8,
+                "Fiber": 4,
+                "Reeds": 4
+            },
+            "item_cost": {},
+            "movable": false,
+            "requires_campfire_range": true,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "specialist_role": ASSIGNMENT_ROLE_FISHER,
+            "specialist_housing_capacity": LARGE_SPECIALIST_HUT_CAPACITY,
+            "assignment_enabled": true,
+            "assignment_slots": 3,
+            "assignment_role": ASSIGNMENT_ROLE_FISHER,
+            "assignment_replaces_shelter": true,
+            "assigned_villagers": [],
+            "description": "A dedicated Stone Age hut for fishers. Up to 3 villagers can be assigned here as Fishers, generating Fish over time. The hut replaces normal shelter for those villagers."
         },
 
         BUILDING_WARRIOR_HUT: {

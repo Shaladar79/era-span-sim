@@ -46,6 +46,10 @@ const HEALTH_STATE_DEAD: String = "dead"
 const BASE_HEALTH: int = CoreTuning.BASE_VILLAGER_HEALTH
 const HUNGER_FULL: int = CoreTuning.HUNGER_FULL
 const HUNGER_EAT_THRESHOLD: int = CoreTuning.HUNGER_EAT_THRESHOLD
+const HUNGER_LOSS_PER_DAY: int = CoreTuning.HUNGER_LOSS_PER_DAY
+const STARVATION_HUNGER_THRESHOLD: int = CoreTuning.STARVATION_HUNGER_THRESHOLD
+const STARVATION_HEALTH_LOSS_PER_DAY: int = CoreTuning.STARVATION_HEALTH_LOSS_PER_DAY
+const STARVATION_SICKNESS_CHANCE_PER_DAY: float = CoreTuning.STARVATION_SICKNESS_CHANCE_PER_DAY
 
 const BASE_BELONGING_SLOTS: int = CoreTuning.BASE_BELONGING_SLOTS
 const STONE_AGE_MAX_BELONGING_SLOTS: int = StoneAgeTuning.MAX_BELONGING_SLOTS
@@ -72,6 +76,11 @@ const WARRIOR_BASE_DEFENSE: int = StoneAgeTuning.WARRIOR_BASE_DEFENSE
 const THINKER_BASE_RESEARCH_PER_SECOND: float = StoneAgeTuning.THINKER_BASE_RESEARCH_PER_SECOND
 const THINKER_RESEARCH_BONUS_PER_THINKING_LEVEL: float = StoneAgeTuning.THINKER_RESEARCH_BONUS_PER_THINKING_LEVEL
 
+const FISHER_BASE_FISHING_INTERVAL: float = 12.0
+const FISHER_MIN_FISHING_INTERVAL: float = 4.0
+const FISHER_SKILL_INTERVAL_REDUCTION_PER_LEVEL: float = 0.5
+const FISHER_BASE_YIELD: int = 1
+
 const DEFAULT_ROLE_TOOL_SLOTS: int = StoneAgeTuning.DEFAULT_ROLE_TOOL_SLOTS
 const DEFAULT_COMBAT_TOOL_SLOTS: int = StoneAgeTuning.DEFAULT_COMBAT_TOOL_SLOTS
 const DEFAULT_COMBAT_WEAPON_SLOTS: int = StoneAgeTuning.DEFAULT_COMBAT_WEAPON_SLOTS
@@ -87,6 +96,8 @@ const SKILL_THINKING: String = "thinking"
 const SKILL_STONEWORKING: String = "stoneworking"
 const SKILL_WOODWORKING: String = "woodworking"
 const SKILL_RITUALS: String = "rituals"
+
+const SKILL_FISHING: String = "fishing"
 
 const SKILL_HUNTING: String = "hunting"
 const SKILL_RANGED_WEAPONS: String = "ranged_weapons"
@@ -118,6 +129,7 @@ const ROLE_SKILL_IDS: Array = [
     SKILL_STONEWORKING,
     SKILL_WOODWORKING,
     SKILL_RITUALS,
+    SKILL_FISHING,
     SKILL_HUNTING,
     SKILL_RANGED_WEAPONS,
     SKILL_MELEE_WEAPONS,
@@ -135,6 +147,7 @@ const SKILL_IDS: Array = [
     SKILL_STONEWORKING,
     SKILL_WOODWORKING,
     SKILL_RITUALS,
+    SKILL_FISHING,
     SKILL_HUNTING,
     SKILL_RANGED_WEAPONS,
     SKILL_MELEE_WEAPONS,
@@ -367,6 +380,10 @@ func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
 
     if not villager_data.has("belongings"):
         villager_data["belongings"] = []
+
+        villager_data["belongings"] = normalize_belongings(
+        villager_data.get("belongings", [])
+    )
 
     if not villager_data.has("statuses"):
         villager_data["statuses"] = []
@@ -1073,6 +1090,142 @@ func add_event_message(message: String) -> void:
 
     event_messages_this_frame.append(message)
     print(message)
+    
+func process_daily_hunger(
+    inventory: RegionInventory,
+    days_advanced: int = 1
+) -> Array:
+    var hunger_messages: Array = []
+    var safe_days_advanced: int = max(1, days_advanced)
+
+    for day_index in range(safe_days_advanced):
+        var single_day_messages: Array = process_single_day_hunger(inventory)
+
+        for message_index in range(single_day_messages.size()):
+            hunger_messages.append(str(single_day_messages[message_index]))
+
+    return hunger_messages
+
+
+func process_single_day_hunger(inventory: RegionInventory) -> Array:
+    var hunger_messages: Array = []
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
+        var villager_name: String = str(villager_data.get("name", "Villager"))
+        var current_hunger: int = int(villager_data.get("hunger", HUNGER_FULL))
+
+        current_hunger = max(
+            STARVATION_HUNGER_THRESHOLD,
+            current_hunger - HUNGER_LOSS_PER_DAY
+        )
+
+        villager_data["hunger"] = current_hunger
+
+        if current_hunger <= HUNGER_EAT_THRESHOLD:
+            var food_eaten: String = try_feed_villager(villager_data, inventory)
+
+            if food_eaten != "":
+                hunger_messages.append(villager_name + " ate " + food_eaten + ".")
+            else:
+                var starvation_messages: Array = apply_starvation_to_villager(
+                    villager_index,
+                    villager_data
+                )
+
+                for starvation_message_index in range(starvation_messages.size()):
+                    hunger_messages.append(str(starvation_messages[starvation_message_index]))
+
+                villager_data = villagers[villager_index]
+
+        villagers[villager_index] = villager_data
+
+    return hunger_messages
+
+
+func try_feed_villager(
+    villager_data: Dictionary,
+    inventory: RegionInventory
+) -> String:
+    var food_priority: Array = StoneAgeFoodData.get_daily_food_priority()
+
+    for food_index in range(food_priority.size()):
+        var food_resource_name: String = str(food_priority[food_index])
+
+        if inventory.get_amount(food_resource_name) <= 0:
+            continue
+
+        inventory.spend_cost({food_resource_name: 1})
+
+        var current_hunger: int = int(villager_data.get("hunger", HUNGER_FULL))
+        var restore_amount: int = StoneAgeFoodData.get_food_restore_amount(food_resource_name)
+
+        villager_data["hunger"] = clampi(
+            current_hunger + restore_amount,
+            STARVATION_HUNGER_THRESHOLD,
+            HUNGER_FULL
+        )
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_SICK:
+            villager_data["health_state"] = HEALTH_STATE_HEALTHY
+
+        return food_resource_name
+
+    return ""
+
+
+func apply_starvation_to_villager(
+    villager_index: int,
+    villager_data: Dictionary
+) -> Array:
+    var starvation_messages: Array = []
+
+    if villager_index < 0 or villager_index >= villagers.size():
+        return starvation_messages
+
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var current_hunger: int = int(villager_data.get("hunger", HUNGER_FULL))
+
+    if current_hunger > STARVATION_HUNGER_THRESHOLD:
+        villagers[villager_index] = villager_data
+        return starvation_messages
+
+    var current_health: int = int(villager_data.get("health", BASE_HEALTH))
+    var new_health: int = current_health - STARVATION_HEALTH_LOSS_PER_DAY
+
+    villager_data["health"] = max(0, new_health)
+
+    if new_health <= 0:
+        villagers[villager_index] = villager_data
+
+        var death_message: String = mark_villager_dead(
+            villager_index,
+            "Starvation claimed them."
+        )
+
+        if death_message != "":
+            starvation_messages.append(death_message)
+
+        return starvation_messages
+
+    if rng.randf() <= STARVATION_SICKNESS_CHANCE_PER_DAY:
+        villager_data["health_state"] = HEALTH_STATE_SICK
+        starvation_messages.append(villager_name + " became sick from starvation.")
+    else:
+        starvation_messages.append(villager_name + " is starving and lost health.")
+
+    villagers[villager_index] = villager_data
+
+    return starvation_messages
 
 
 func get_population_count() -> int:
@@ -1097,32 +1250,277 @@ func get_population_count() -> int:
 func get_villagers() -> Array:
     return villagers
     
+func normalize_belongings(raw_belongings: Array) -> Array:
+    var normalized_belongings: Array = []
+
+    for belonging_index in range(raw_belongings.size()):
+        var normalized_belonging: Dictionary = StoneAgeBelongingData.normalize_belonging_entry(
+            raw_belongings[belonging_index]
+        )
+
+        if normalized_belonging.is_empty():
+            continue
+
+        normalized_belongings.append(normalized_belonging)
+
+    return normalized_belongings
+
+
+func get_belonging_id_from_variant(belonging_variant: Variant) -> String:
+    if typeof(belonging_variant) == TYPE_STRING:
+        return str(belonging_variant)
+
+    if typeof(belonging_variant) != TYPE_DICTIONARY:
+        return ""
+
+    var belonging_data: Dictionary = belonging_variant
+
+    return str(belonging_data.get("id", belonging_data.get("item_id", "")))
+
+
+func get_belonging_slot_cost_from_variant(belonging_variant: Variant) -> int:
+    if typeof(belonging_variant) == TYPE_DICTIONARY:
+        var belonging_data: Dictionary = belonging_variant
+        return max(1, int(belonging_data.get("slot_cost", 1)))
+
+    var belonging_id: String = get_belonging_id_from_variant(belonging_variant)
+
+    if belonging_id == "":
+        return 1
+
+    return StoneAgeBelongingData.get_belonging_slot_cost(belonging_id)
+
+
+func get_used_belonging_slots_for_villager(villager_data: Dictionary) -> int:
+    var used_slots: int = 0
+    var belongings: Array = villager_data.get("belongings", [])
+
+    for belonging_index in range(belongings.size()):
+        used_slots += get_belonging_slot_cost_from_variant(belongings[belonging_index])
+
+    return used_slots
+
+
+func get_open_belonging_slots_for_villager(villager_data: Dictionary) -> int:
+    var max_belongings: int = int(villager_data.get("max_belongings", get_current_max_belongings()))
+    var used_slots: int = get_used_belonging_slots_for_villager(villager_data)
+
+    return max(0, max_belongings - used_slots)
+
+
 func villager_has_belonging(
     villager_data: Dictionary,
-    item_id: String
+    belonging_id: String
 ) -> bool:
-    if item_id == "":
+    if belonging_id == "":
         return false
 
     var belongings: Array = villager_data.get("belongings", [])
 
     for belonging_index in range(belongings.size()):
-        var belonging_variant: Variant = belongings[belonging_index]
+        var current_belonging_id: String = get_belonging_id_from_variant(
+            belongings[belonging_index]
+        )
 
-        if typeof(belonging_variant) == TYPE_STRING:
-            if str(belonging_variant) == item_id:
-                return true
-
-        elif typeof(belonging_variant) == TYPE_DICTIONARY:
-            var belonging_data: Dictionary = belonging_variant
-            var belonging_id: String = str(belonging_data.get("id", belonging_data.get("item_id", "")))
-
-            if belonging_id == item_id:
-                return true
+        if current_belonging_id == belonging_id:
+            return true
 
     return false
 
 
+func get_belonging_display_text_for_villager(villager_data: Dictionary) -> String:
+    var belongings: Array = normalize_belongings(
+        villager_data.get("belongings", [])
+    )
+
+    return StoneAgeBelongingData.get_belonging_names_text(belongings)
+
+
+func give_belonging_to_villager(
+    villager_id: int,
+    belonging_id: String
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    if belonging_id == "":
+        result["message"] = "Invalid belonging."
+        return result
+
+    if not StoneAgeBelongingData.has_belonging(belonging_id):
+        result["message"] = "Unknown belonging: " + belonging_id + "."
+        return result
+
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        result["message"] = "Villager not found."
+        return result
+
+    var villager_data: Dictionary = villagers[villager_index]
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+        result["message"] = villager_name + " is dead and cannot receive belongings."
+        return result
+
+    var belongings: Array = normalize_belongings(
+        villager_data.get("belongings", [])
+    )
+
+    villager_data["belongings"] = belongings
+
+    if StoneAgeBelongingData.is_unique_belonging(belonging_id):
+        if villager_has_belonging(villager_data, belonging_id):
+            result["message"] = (
+                villager_name
+                + " already has "
+                + StoneAgeBelongingData.get_belonging_name(belonging_id)
+                + "."
+            )
+            villagers[villager_index] = villager_data
+            return result
+
+    var max_belongings: int = int(villager_data.get("max_belongings", get_current_max_belongings()))
+    var used_slots: int = get_used_belonging_slots_for_villager(villager_data)
+    var slot_cost: int = StoneAgeBelongingData.get_belonging_slot_cost(belonging_id)
+
+    if used_slots + slot_cost > max_belongings:
+        result["message"] = (
+            villager_name
+            + " has no open belonging slot for "
+            + StoneAgeBelongingData.get_belonging_name(belonging_id)
+            + "."
+        )
+        villagers[villager_index] = villager_data
+        return result
+
+    var belonging_instance: Dictionary = StoneAgeBelongingData.make_belonging_instance(belonging_id)
+
+    if belonging_instance.is_empty():
+        result["message"] = "Could not create belonging: " + belonging_id + "."
+        villagers[villager_index] = villager_data
+        return result
+
+    belongings.append(belonging_instance)
+    villager_data["belongings"] = belongings
+    villagers[villager_index] = villager_data
+
+    result["success"] = true
+    result["message"] = (
+        villager_name
+        + " received "
+        + StoneAgeBelongingData.get_belonging_name(belonging_id)
+        + "."
+    )
+
+    return result
+
+
+func remove_belonging_from_villager(
+    villager_id: int,
+    belonging_id: String
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    if belonging_id == "":
+        result["message"] = "Invalid belonging."
+        return result
+
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        result["message"] = "Villager not found."
+        return result
+
+    var villager_data: Dictionary = villagers[villager_index]
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var belongings: Array = normalize_belongings(
+        villager_data.get("belongings", [])
+    )
+
+    for belonging_index in range(belongings.size()):
+        var current_belonging_id: String = get_belonging_id_from_variant(
+            belongings[belonging_index]
+        )
+
+        if current_belonging_id != belonging_id:
+            continue
+
+        belongings.remove_at(belonging_index)
+        villager_data["belongings"] = belongings
+        villagers[villager_index] = villager_data
+
+        result["success"] = true
+        result["message"] = (
+            villager_name
+            + " no longer has "
+            + StoneAgeBelongingData.get_belonging_name(belonging_id)
+            + "."
+        )
+
+        return result
+
+    villager_data["belongings"] = belongings
+    villagers[villager_index] = villager_data
+
+    result["message"] = (
+        villager_name
+        + " does not have "
+        + StoneAgeBelongingData.get_belonging_name(belonging_id)
+        + "."
+    )
+
+    return result
+
+
+func give_belonging_to_first_living_villager(belonging_id: String) -> String:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
+        var villager_id: int = int(villager_data.get("id", 0))
+        var result: Dictionary = give_belonging_to_villager(
+            villager_id,
+            belonging_id
+        )
+
+        return str(result.get("message", ""))
+
+    return "No living villager available for belonging."
+
+
+func debug_give_torch_to_first_living_villager() -> String:
+    return give_belonging_to_first_living_villager(
+        StoneAgeBelongingData.BELONGING_TORCH
+    )
+
+
+func debug_give_cloth_shoes_to_first_living_villager() -> String:
+    return give_belonging_to_first_living_villager(
+        StoneAgeBelongingData.BELONGING_CLOTH_SHOES
+    )
+    
 func get_villager_protection_light_sources() -> Array:
     var protection_sources: Array = []
 
@@ -1137,7 +1535,7 @@ func get_villager_protection_light_sources() -> Array:
         if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
             continue
 
-        if not villager_has_belonging(villager_data, ProtectionLightData.SOURCE_TORCH):
+        if not villager_has_belonging(villager_data, StoneAgeBelongingData.BELONGING_TORCH):
             continue
 
         var villager_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
@@ -1155,42 +1553,6 @@ func get_villager_protection_light_sources() -> Array:
         })
 
     return protection_sources
-
-
-func debug_give_torch_to_first_living_villager() -> String:
-    for villager_index in range(villagers.size()):
-        var villager_variant: Variant = villagers[villager_index]
-
-        if typeof(villager_variant) != TYPE_DICTIONARY:
-            continue
-
-        var villager_data: Dictionary = villager_variant
-
-        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
-            continue
-
-        if villager_has_belonging(villager_data, ProtectionLightData.SOURCE_TORCH):
-            return str(villager_data.get("name", "Villager")) + " already has a Torch."
-
-        var belongings: Array = villager_data.get("belongings", [])
-        var max_belongings: int = int(villager_data.get("max_belongings", get_current_max_belongings()))
-
-        if belongings.size() >= max_belongings:
-            return str(villager_data.get("name", "Villager")) + " has no open belonging slot for a Torch."
-
-        belongings.append({
-            "id": ProtectionLightData.SOURCE_TORCH,
-            "name": "Torch",
-            "type": "belonging"
-        })
-
-        villager_data["belongings"] = belongings
-        villagers[villager_index] = villager_data
-
-        return str(villager_data.get("name", "Villager")) + " received a Torch."
-
-    return "No living villager available for Torch."
-
 
 func get_villager_data_by_id(villager_id: int) -> Dictionary:
     for villager_index in range(villagers.size()):
@@ -1339,6 +1701,10 @@ func assign_villager_to_building_assignment(
     elif assignment_role == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
         villager_data["state"] = VILLAGER_STATE_PATROLLING
         villager_data["current_work_task"] = "hunting_placeholder"
+    elif assignment_role == StoneAgeVillagerAssignmentData.ROLE_FISHER:
+        villager_data["state"] = VILLAGER_STATE_WAITING_AT_BUILDING
+        villager_data["current_work_task"] = "fishing"
+        villager_data["harvest_timer"] = get_fishing_interval_for_villager(villager_data)
     elif assignment_role == StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
         villager_data["state"] = VILLAGER_STATE_PATROLLING
         villager_data["current_work_task"] = "patrolling"
@@ -1528,6 +1894,9 @@ func get_skill_ids_for_role(role_id: String) -> Array:
 
         StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
             return [SKILL_RITUALS]
+            
+        StoneAgeVillagerAssignmentData.ROLE_FISHER:
+            return [SKILL_FISHING]
 
         _:
             return []
@@ -1556,6 +1925,9 @@ func apply_slot_counts_for_role(villager_data: Dictionary) -> void:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
+            
+        StoneAgeVillagerAssignmentData.ROLE_FISHER:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_HUNTER:
@@ -1911,6 +2283,14 @@ func process_assigned_role_behavior(
                 delta,
                 "ritual_waiting",
                 VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+            return true
+            
+        StoneAgeVillagerAssignmentData.ROLE_FISHER:
+            process_fishing_villager(
+                villager_data,
+                delta,
+                inventory
             )
             return true
 
@@ -2318,13 +2698,12 @@ func process_hunter_travel_to_animal(
         next_tile = get_next_open_step_toward_tile(current_tile, target_tile)
 
     if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
-        if not is_living_villager_on_tile(next_tile) or next_tile == target_tile:
-            villager_data["tile"] = next_tile
-            villager_data["world_position"] = tile_to_world_center(next_tile)
-            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
-            return
+        villager_data["tile"] = next_tile
+        villager_data["world_position"] = tile_to_world_center(next_tile)
+        villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+    return
 
-    villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+
 
 
 func process_hunter_returning_from_hunt(
@@ -2359,11 +2738,10 @@ func process_hunter_returning_from_hunt(
     var next_tile: Vector2i = get_next_step_toward_tile(current_tile, return_tile)
 
     if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
-        if not is_living_villager_on_tile(next_tile) or next_tile == return_tile:
-            villager_data["tile"] = next_tile
-            villager_data["world_position"] = tile_to_world_center(next_tile)
-            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
-            return
+        villager_data["tile"] = next_tile
+        villager_data["world_position"] = tile_to_world_center(next_tile)
+        villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+    return
 
     villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
 
@@ -2761,6 +3139,87 @@ func process_thinking_villager(
         VILLAGER_STATE_THINKING
     )
 
+func process_fishing_villager(
+    villager_data: Dictionary,
+    delta: float,
+    inventory: RegionInventory
+) -> void:
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+
+    if assigned_building_instance_id <= 0:
+        villager_data["state"] = VILLAGER_STATE_IDLE
+        villager_data["current_work_task"] = ""
+        villager_data["harvest_timer"] = 0.0
+        return
+
+    villager_data["state"] = VILLAGER_STATE_WAITING_AT_BUILDING
+    villager_data["current_work_task"] = "fishing"
+    villager_data["target_tile"] = Vector2i(-1, -1)
+    villager_data["harvest_tile"] = Vector2i(-1, -1)
+
+    var fishing_timer: float = float(villager_data.get("harvest_timer", 0.0))
+
+    if fishing_timer <= 0.0:
+        fishing_timer = get_fishing_interval_for_villager(villager_data)
+
+    fishing_timer -= delta
+
+    if fishing_timer > 0.0:
+        villager_data["harvest_timer"] = fishing_timer
+        process_assigned_building_wander(
+            villager_data,
+            delta,
+            "fishing",
+            VILLAGER_STATE_WAITING_AT_BUILDING
+        )
+        return
+
+    var fish_resource_name: String = "Fish"
+
+    if can_accept_resource_after_pending(fish_resource_name, inventory):
+        if not harvested_resources_this_frame.has(fish_resource_name):
+            harvested_resources_this_frame[fish_resource_name] = 0
+
+        var fish_yield: int = get_fishing_yield_for_villager(villager_data)
+
+        harvested_resources_this_frame[fish_resource_name] = int(harvested_resources_this_frame[fish_resource_name]) + fish_yield
+
+        add_event_message(
+            str(villager_data.get("name", "Fisher"))
+            + " caught "
+            + str(fish_yield)
+            + " Fish."
+        )
+
+    villager_data["harvest_timer"] = get_fishing_interval_for_villager(villager_data)
+
+    process_assigned_building_wander(
+        villager_data,
+        delta,
+        "fishing",
+        VILLAGER_STATE_WAITING_AT_BUILDING
+    )
+
+
+func get_fishing_interval_for_villager(villager_data: Dictionary) -> float:
+    var fishing_level: int = get_villager_skill_level(
+        villager_data,
+        SKILL_FISHING
+    )
+
+    return max(
+        FISHER_MIN_FISHING_INTERVAL,
+        FISHER_BASE_FISHING_INTERVAL - float(fishing_level) * FISHER_SKILL_INTERVAL_REDUCTION_PER_LEVEL
+    )
+
+
+func get_fishing_yield_for_villager(villager_data: Dictionary) -> int:
+    var fishing_level: int = get_villager_skill_level(
+        villager_data,
+        SKILL_FISHING
+    )
+
+    return FISHER_BASE_YIELD + int(floor(float(fishing_level) / 5.0))
 
 func process_assigned_building_wander(
     villager_data: Dictionary,
@@ -3000,11 +3459,10 @@ func process_moving_villager(
     var next_tile: Vector2i = get_next_step_toward_tile(current_tile, target_tile)
 
     if is_tile_in_bounds(next_tile) and is_tile_walkable_for_villager(next_tile):
-        if not is_living_villager_on_tile(next_tile) or next_tile == target_tile:
-            villager_data["tile"] = next_tile
-            villager_data["world_position"] = tile_to_world_center(next_tile)
-            villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
-            return
+        villager_data["tile"] = next_tile
+        villager_data["world_position"] = tile_to_world_center(next_tile)
+        villager_data["move_timer"] = get_adjusted_move_interval_for_villager(villager_data)
+    return
 
     villager_data["state"] = VILLAGER_STATE_IDLE
     villager_data["target_tile"] = Vector2i(-1, -1)
@@ -3550,8 +4008,6 @@ func get_next_open_step_toward_tile(
         if not is_tile_walkable_for_villager(candidate_tile):
             continue
 
-        if is_living_villager_on_tile(candidate_tile) and candidate_tile != to_tile:
-            continue
 
         var candidate_distance: int = abs(to_tile.x - candidate_tile.x) + abs(to_tile.y - candidate_tile.y)
 

@@ -43,6 +43,7 @@ const SAVE_KEY_BUILDING_MANAGER: String = "building_manager"
 const SAVE_KEY_VILLAGER_MANAGER: String = "villager_manager"
 const SAVE_KEY_WILD_ANIMAL_MANAGER: String = "wild_animal_manager"
 const SAVE_KEY_HERO_MANAGER: String = "hero_manager"
+const SAVE_KEY_GAME_TIME_MANAGER: String = "game_time_manager"
 
 const SAVE_KEY_VILLAGE_LOG_MESSAGES: String = "village_log_messages"
 
@@ -75,6 +76,7 @@ var building_manager := RegionBuildingManager.new()
 var villager_manager := VillagerManager.new()
 var wild_animal_manager := RegionWildAnimalManager.new()
 var hero_manager := HeroManager.new()
+var game_time_manager := GameTimeManager.new()
 var renderer := RegionRenderer.new()
 var input_controller := RegionInputController.new()
 
@@ -163,6 +165,7 @@ func get_save_data() -> Dictionary:
         SAVE_KEY_VILLAGER_MANAGER: villager_manager.get_save_data(),
         SAVE_KEY_WILD_ANIMAL_MANAGER: wild_animal_manager.get_save_data(),
         SAVE_KEY_HERO_MANAGER: hero_manager.get_save_data(),
+        SAVE_KEY_GAME_TIME_MANAGER: game_time_manager.get_save_data(),
         SAVE_KEY_VILLAGE_LOG_MESSAGES: village_log_messages.duplicate(true)
     }
 
@@ -297,9 +300,15 @@ func load_save_data(save_data: Dictionary) -> void:
     setup_hero_manager()
 
     var hero_manager_save_data: Dictionary = get_dictionary_from_variant(
-    save_data.get(SAVE_KEY_HERO_MANAGER, {})
-)
+        save_data.get(SAVE_KEY_HERO_MANAGER, {})
+    )
     hero_manager.load_save_data(hero_manager_save_data)
+
+    var game_time_manager_save_data: Dictionary = get_dictionary_from_variant(
+        save_data.get(SAVE_KEY_GAME_TIME_MANAGER, {})
+    )
+    game_time_manager.load_save_data(game_time_manager_save_data)
+
     restore_runtime_unlocks_from_loaded_research()
 
     village_log_messages.clear()
@@ -320,8 +329,7 @@ func load_save_data(save_data: Dictionary) -> void:
     print_research_status()
 
     queue_redraw()
-
-
+    
 func setup_villager_manager_for_loaded_save() -> void:
     villager_manager.setup(
         region_tiles,
@@ -340,7 +348,8 @@ func setup_wild_animal_manager() -> void:
         REGION_WIDTH,
         REGION_HEIGHT
     )
-    
+
+
 func setup_hero_manager() -> void:
     hero_manager.setup(
         region_tiles,
@@ -412,7 +421,7 @@ func get_active_protection_light_sources() -> Array:
             "building_id": building_id,
             "building_instance_id": int(building_data.get("instance_id", 0))
         })
-        
+
     var villager_sources: Array = villager_manager.get_villager_protection_light_sources()
 
     for source_index in range(villager_sources.size()):
@@ -423,6 +432,7 @@ func get_active_protection_light_sources() -> Array:
 
 func get_campfire_center_tiles() -> Array:
     return get_active_protection_light_sources()
+
 
 func restore_runtime_unlocks_from_loaded_research() -> void:
     RegionBuildingData.reset_runtime_unlocks()
@@ -439,7 +449,8 @@ func get_dictionary_from_variant(value: Variant) -> Dictionary:
 
     var dictionary_value: Dictionary = value
     return dictionary_value
-    
+
+
 func get_save_safe_value(value: Variant) -> Variant:
     match typeof(value):
         TYPE_VECTOR2I:
@@ -540,6 +551,7 @@ func _process(delta: float) -> void:
         queue_redraw()
         return
 
+    update_game_time(delta)
     update_protection_light_fuel(delta)
     update_villager_manager(delta)
     update_hero_manager(delta)
@@ -547,6 +559,39 @@ func _process(delta: float) -> void:
     update_research(delta)
     update_wild_animal_manager(delta)
 
+    queue_redraw()
+
+
+func update_game_time(delta: float) -> void:
+    var time_result: Dictionary = game_time_manager.update(delta)
+    var days_advanced: int = int(time_result.get("days_advanced", 0))
+
+    if days_advanced <= 0:
+        return
+
+    # Stone Age date stays hidden for now.
+    # This is the hook point for hunger, seasons, events, quests, and future era systems.
+    print(
+        "Game date advanced: Year ",
+        int(time_result.get("current_year", 1)),
+        ", Month ",
+        int(time_result.get("current_month", 1)),
+        ", Day ",
+        int(time_result.get("current_day", 1)),
+        ". Total days elapsed: ",
+        int(time_result.get("total_days_elapsed", 0))
+    )
+
+    var hunger_messages: Array = villager_manager.process_daily_hunger(
+        inventory,
+        days_advanced
+    )
+
+    if hunger_messages.is_empty():
+        return
+
+    add_village_log_messages(hunger_messages)
+    print_settlement_inventory()
     queue_redraw()
 
 
@@ -602,6 +647,7 @@ func generate_region() -> void:
     setup_villager_manager()
     setup_hero_manager()
     hero_manager.reset()
+    game_time_manager.reset()
     close_storage_selector()
     spawn_stone_age_wild_animals()
 
@@ -672,6 +718,7 @@ func generate_from_world_selection(
     setup_villager_manager()
     setup_hero_manager()
     hero_manager.reset()
+    game_time_manager.reset()
     spawn_stone_age_wild_animals()
 
     add_village_log_message("Settlement founded: " + region_name + ".")
@@ -682,7 +729,7 @@ func generate_from_world_selection(
         + str(source_selection_origin.y)
         + "."
     )
-
+    
     print("Region Seed: ", region_seed)
     print("Region Name: ", region_name)
     print("Source World Region Origin: ", source_selection_origin)
@@ -751,6 +798,7 @@ func regenerate_region() -> void:
     setup_villager_manager()
     setup_hero_manager()
     hero_manager.reset()
+    game_time_manager.reset()
     spawn_stone_age_wild_animals()
 
     add_village_log_message("Settlement regenerated: " + region_name + ".")
@@ -790,6 +838,7 @@ func setup_building_manager() -> void:
 func setup_villager_manager() -> void:
     setup_villager_manager_for_loaded_save()
     villager_manager.reset_and_spawn_starting_villagers()
+
 
 func update_hero_manager(delta: float) -> void:
     setup_hero_manager()
@@ -837,6 +886,7 @@ func update_villager_manager(delta: float) -> void:
 
     if villager_manager.has_tile_changes():
         queue_redraw()
+
 
 func update_hunting_jobs(delta: float) -> void:
     var reserved_hunts: Array = wild_animal_manager.get_reserved_hunts_ready_to_check()
@@ -966,7 +1016,8 @@ func handle_dangerous_hunt_tick(
 
     if bool(tick_result.get("replacement_sent", false)):
         queue_redraw()
-        
+
+
 func update_research(delta: float) -> void:
     research.update(
         delta,
@@ -1038,6 +1089,7 @@ func handle_hero_spawn_from_placed_building(origin_tile: Vector2i) -> void:
     if spawn_message != "":
         add_village_log_message(spawn_message)
 
+
 func try_place_current_building(origin_tile: Vector2i) -> void:
     close_storage_selector()
     close_assignment_panel()
@@ -1097,17 +1149,6 @@ func try_handle_village_log_click(mouse_screen_position: Vector2) -> bool:
         queue_redraw()
 
         print("Show Village Log Panel: ", show_village_log_panel)
-        return true
-
-    if get_debug_button_screen_rect().has_point(mouse_screen_position):
-        show_debug_panel = not show_debug_panel
-
-        if show_debug_panel:
-            show_village_log_panel = false
-
-        queue_redraw()
-
-        print("Show Debug Panel: ", show_debug_panel)
         return true
 
     if show_debug_panel:
@@ -1370,12 +1411,22 @@ func execute_debug_action(action_id: String) -> void:
         var research_amount: int = RegionDebugPanel.get_research_amount_for_action(action_id)
         research.add_research(research_amount)
         add_village_log_message("Debug: added " + str(research_amount) + " research.")
+
         print_research_status()
 
     elif action_id == RegionDebugPanel.ACTION_ADD_TEST_ITEMS:
         var item_count: int = RegionDebugPanel.add_test_items(item_inventory)
         add_village_log_message("Debug: added " + str(item_count) + " test items.")
         item_inventory.print_inventory()
+
+    elif RegionDebugPanel.is_belonging_debug_action(action_id):
+        var belonging_id: String = RegionDebugPanel.get_belonging_id_for_debug_action(action_id)
+        var belonging_message: String = villager_manager.give_belonging_to_first_living_villager(
+            belonging_id
+        )
+
+        if belonging_message != "":
+            add_village_log_message(belonging_message)
 
     elif RegionDebugPanel.is_villager_action(action_id):
         var villager_amount: int = RegionDebugPanel.get_villager_amount_for_action(action_id)
@@ -1903,8 +1954,7 @@ func cancel_villager_drag() -> void:
     is_dragging_villager = false
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
-
-
+    
 func try_open_storage_selector_at_tile(tile_position: Vector2i) -> bool:
     if not is_tile_in_bounds(tile_position):
         return false
@@ -2009,7 +2059,8 @@ func close_storage_selector() -> void:
     storage_selector_anchor_tile = Vector2i(-1, -1)
     storage_selector_options = []
     queue_redraw()
-    
+
+
 func try_open_assignment_panel_at_tile(tile_position: Vector2i) -> bool:
     if not is_tile_in_bounds(tile_position):
         return false
@@ -2271,7 +2322,6 @@ func _draw() -> void:
     draw_crafting_panel()
     draw_assignment_panel()
     draw_village_log_button()
-    draw_debug_button()
     draw_village_log_panel()
     draw_debug_panel()
     draw_hover_panels()
@@ -2523,7 +2573,8 @@ func draw_grave_hover_panel(villager_data: Dictionary) -> void:
         self,
         villager_data
     )
-    
+
+
 func draw_hero_hover_panel(hero_data: Dictionary) -> void:
     RegionDraw.draw_hero_hover_panel(
         self,
@@ -2760,11 +2811,13 @@ func get_visible_inventory_resource_names() -> Array:
 
     return visible_resources
 
+
 func get_animal_kill_count_for_hover(animal_id: String) -> int:
     if animal_id == "":
         return 0
 
     return wild_animal_manager.get_animal_kill_count(animal_id)
+
 
 func is_tile_in_bounds(tile_position: Vector2i) -> bool:
     return (
@@ -2773,6 +2826,7 @@ func is_tile_in_bounds(tile_position: Vector2i) -> bool:
         and tile_position.x < REGION_WIDTH
         and tile_position.y < REGION_HEIGHT
     )
+
 
 func debug_give_torch_to_first_living_villager() -> void:
     var message: String = villager_manager.debug_give_torch_to_first_living_villager()

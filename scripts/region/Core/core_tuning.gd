@@ -4,7 +4,12 @@ class_name CoreTuning
 const BASE_VILLAGER_HEALTH: int = 5
 
 const HUNGER_FULL: int = 100
-const HUNGER_EAT_THRESHOLD: int = 40
+const HUNGER_EAT_THRESHOLD: int = 50
+const HUNGER_LOSS_PER_DAY: int = 25
+const FOOD_RESTORE_AMOUNT: int = 35
+const STARVATION_HUNGER_THRESHOLD: int = 0
+const STARVATION_HEALTH_LOSS_PER_DAY: int = 1
+const STARVATION_SICKNESS_CHANCE_PER_DAY: float = 0.20
 
 const BASE_SPEED: int = 100
 const MIN_BASE_SPEED: int = 90
