@@ -37,7 +37,7 @@ static func get_all_belongings() -> Dictionary:
             "source_item_id": BELONGING_CLOTH_SHOES,
             "allowed_roles": [],
             "description": "Simple foot wraps that make movement easier over rough ground.",
-            "effect_notes": "Future speed belonging. Bonus not active yet."
+            "effect_notes": "+5 Speed while equipped."
         },
 
         BELONGING_WOVEN_POUCH: {
@@ -49,14 +49,9 @@ static func get_all_belongings() -> Dictionary:
             "source_item_id": BELONGING_WOVEN_POUCH,
             "allowed_roles": [
                 StoneAgeVillagerAssignmentData.ROLE_VILLAGER,
-                StoneAgeVillagerAssignmentData.ROLE_MAKER,
-                StoneAgeVillagerAssignmentData.ROLE_STONEWORKER,
-                StoneAgeVillagerAssignmentData.ROLE_WOODWORKER,
-                StoneAgeVillagerAssignmentData.ROLE_HUNTER,
-                StoneAgeVillagerAssignmentData.ROLE_FISHER
             ],
             "description": "A small woven pouch for carrying gathered materials.",
-            "effect_notes": "Future gathering/storage belonging. Bonus not active yet."
+            "effect_notes": "+1 Gathering for harvest speed. This means gathering is 2% faster."
         },
 
         BELONGING_WARM_WRAP: {
@@ -68,7 +63,7 @@ static func get_all_belongings() -> Dictionary:
             "source_item_id": BELONGING_WARM_WRAP,
             "allowed_roles": [],
             "description": "A rough wrap that helps protect a villager from exposure.",
-            "effect_notes": "Future survival belonging. Bonus not active yet."
+            "effect_notes": "Reduces starvation sickness risk by 5%."
         },
 
         BELONGING_BONE_CHARM: {
@@ -83,7 +78,7 @@ static func get_all_belongings() -> Dictionary:
                 StoneAgeVillagerAssignmentData.ROLE_RITUALIST
             ],
             "description": "A small charm used as an early symbol of belief, luck, or memory.",
-            "effect_notes": "Future thinker/ritualist belonging. Bonus not active yet."
+            "effect_notes": "+1 Thinking if equipped by a Thinker. +1 Rituals if equipped by a Ritualist. Rituals bonus is placeholder until ritual systems are active."
         }
     }
 

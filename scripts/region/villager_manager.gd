@@ -381,7 +381,7 @@ func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
     if not villager_data.has("belongings"):
         villager_data["belongings"] = []
 
-        villager_data["belongings"] = normalize_belongings(
+    villager_data["belongings"] = normalize_belongings(
         villager_data.get("belongings", [])
     )
 
@@ -423,7 +423,7 @@ func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
 
     if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) != HEALTH_STATE_DEAD:
         refresh_role_stats_for_villager(villager_data)
-
+        update_villager_speed_stat(villager_data)
 
 func get_save_safe_value(value: Variant) -> Variant:
     match typeof(value):
@@ -635,10 +635,14 @@ func update_all_villager_speed_stats() -> void:
 
 func update_villager_speed_stat(villager_data: Dictionary) -> void:
     var base_speed: int = int(villager_data.get("base_speed", BASE_SPEED))
-    var bonus_speed: int = int(round(float(BASE_SPEED) * global_movement_speed_bonus))
+    var global_bonus_speed: int = int(round(float(BASE_SPEED) * global_movement_speed_bonus))
+    var belonging_bonus_speed: int = get_belonging_speed_bonus_for_villager(villager_data)
 
     villager_data["base_speed"] = base_speed
-    villager_data["speed"] = max(MIN_SPEED, base_speed + bonus_speed)
+    villager_data["speed"] = max(
+        MIN_SPEED,
+        base_speed + global_bonus_speed + belonging_bonus_speed
+    )
 
 
 func get_skill_cap(_villager_data: Dictionary, _skill_id: String) -> int:
@@ -1217,7 +1221,9 @@ func apply_starvation_to_villager(
 
         return starvation_messages
 
-    if rng.randf() <= STARVATION_SICKNESS_CHANCE_PER_DAY:
+    var sickness_chance: float = get_starvation_sickness_chance_for_villager(villager_data)
+
+    if rng.randf() <= sickness_chance:
         villager_data["health_state"] = HEALTH_STATE_SICK
         starvation_messages.append(villager_name + " became sick from starvation.")
     else:
@@ -1326,6 +1332,47 @@ func villager_has_belonging(
             return true
 
     return false
+    
+func get_belonging_speed_bonus_for_villager(villager_data: Dictionary) -> int:
+    var bonus_speed: int = 0
+
+    if villager_has_belonging(villager_data, StoneAgeBelongingData.BELONGING_CLOTH_SHOES):
+        bonus_speed += CoreTuning.BELONGING_CLOTH_SHOES_SPEED_BONUS
+
+    return bonus_speed
+
+
+func get_belonging_skill_bonus_for_villager(
+    villager_data: Dictionary,
+    skill_id: String
+) -> int:
+    var bonus: int = 0
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+
+    if skill_id == SKILL_GATHERING:
+        if villager_has_belonging(villager_data, StoneAgeBelongingData.BELONGING_WOVEN_POUCH):
+            bonus += CoreTuning.BELONGING_WOVEN_POUCH_GATHERING_BONUS
+
+    if skill_id == SKILL_THINKING:
+        if role == StoneAgeVillagerAssignmentData.ROLE_THINKER:
+            if villager_has_belonging(villager_data, StoneAgeBelongingData.BELONGING_BONE_CHARM):
+                bonus += CoreTuning.BELONGING_BONE_CHARM_THINKING_BONUS
+
+    if skill_id == SKILL_RITUALS:
+        if role == StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
+            if villager_has_belonging(villager_data, StoneAgeBelongingData.BELONGING_BONE_CHARM):
+                bonus += CoreTuning.BELONGING_BONE_CHARM_RITUALS_BONUS
+
+    return bonus
+
+
+func get_starvation_sickness_chance_for_villager(villager_data: Dictionary) -> float:
+    var sickness_chance: float = STARVATION_SICKNESS_CHANCE_PER_DAY
+
+    if villager_has_belonging(villager_data, StoneAgeBelongingData.BELONGING_WARM_WRAP):
+        sickness_chance -= CoreTuning.BELONGING_WARM_WRAP_SICKNESS_CHANCE_REDUCTION
+
+    return clampf(sickness_chance, 0.0, 1.0)
 
 
 func get_belonging_display_text_for_villager(villager_data: Dictionary) -> String:
@@ -1410,6 +1457,7 @@ func give_belonging_to_villager(
 
     belongings.append(belonging_instance)
     villager_data["belongings"] = belongings
+    update_villager_speed_stat(villager_data)
     villagers[villager_index] = villager_data
 
     result["success"] = true
@@ -1462,6 +1510,7 @@ func remove_belonging_from_villager(
 
         belongings.remove_at(belonging_index)
         villager_data["belongings"] = belongings
+        update_villager_speed_stat(villager_data)
         villagers[villager_index] = villager_data
 
         result["success"] = true
@@ -1475,6 +1524,7 @@ func remove_belonging_from_villager(
         return result
 
     villager_data["belongings"] = belongings
+    update_villager_speed_stat(villager_data)
     villagers[villager_index] = villager_data
 
     result["message"] = (
@@ -3709,14 +3759,17 @@ func get_villager_skill_level(
     skill_id: String
 ) -> int:
     var skills: Dictionary = villager_data.get("skills", {})
-    var skill_level: int = int(skills.get(skill_id, 0))
+    var base_skill_level: int = int(skills.get(skill_id, 0))
+    var belonging_bonus: int = get_belonging_skill_bonus_for_villager(
+        villager_data,
+        skill_id
+    )
 
     return clamp_skill_level(
         villager_data,
         skill_id,
-        skill_level
+        base_skill_level + belonging_bonus
     )
-
 
 func get_skill_speed_multiplier(skill_level: int) -> float:
     return 1.0 + float(skill_level) * SKILL_HARVEST_SPEED_BONUS_PER_LEVEL
