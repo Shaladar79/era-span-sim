@@ -41,6 +41,7 @@ func draw_all(
     region_tile_size: int,
     show_resource_markers: bool,
     show_campfire_radius: bool,
+    protection_light_sources: Array,
     building_manager: RegionBuildingManager,
     villager_manager: VillagerManager,
     wild_animals: Array,
@@ -78,9 +79,9 @@ func draw_all(
         )
 
     if show_campfire_radius:
-        draw_protection_light_radius_markers(
+     draw_protection_light_radius_markers(
         canvas,
-        building_manager,
+        protection_light_sources,
         region_tile_size
     )
 
@@ -321,65 +322,59 @@ func draw_plus_marker(
 
 func draw_protection_light_radius_markers(
     canvas: CanvasItem,
-    building_manager: RegionBuildingManager,
+    protection_light_sources: Array,
     region_tile_size: int
 ) -> void:
-    var manager_buildings: Array = building_manager.get_buildings()
+    for source_index in range(protection_light_sources.size()):
+        var source_variant: Variant = protection_light_sources[source_index]
 
-    for building_index in range(manager_buildings.size()):
-        var building_variant: Variant = manager_buildings[building_index]
-
-        if typeof(building_variant) != TYPE_DICTIONARY:
+        if typeof(source_variant) != TYPE_DICTIONARY:
             continue
 
-        var building_data: Dictionary = building_variant
-        var building_id: String = str(building_data.get("id", ""))
-
-        if not ProtectionLightData.is_protection_light_building(building_id):
-            continue
-
-        if not building_manager.is_protection_light_building_lit(building_data):
-            continue
+        var source_data: Dictionary = source_variant
 
         draw_protection_light_radius_marker(
             canvas,
-            building_data,
+            source_data,
             region_tile_size
         )
 
 func draw_protection_light_radius_marker(
     canvas: CanvasItem,
-    building_data: Dictionary,
+    source_data: Dictionary,
     region_tile_size: int
 ) -> void:
-    var building_id: String = str(building_data.get("id", ""))
-    var tile_x: int = int(building_data.get("x", 0))
-    var tile_y: int = int(building_data.get("y", 0))
-    var width: int = int(building_data.get("width", 2))
-    var height: int = int(building_data.get("height", 2))
+    var source_tile: Vector2i = source_data.get("tile", Vector2i(-1, -1))
 
-    var base_radius: int = int(building_data.get("campfire_radius", RegionBuildingData.CAMPFIRE_BUILD_RADIUS))
-    var radius_scale: float = ProtectionLightData.get_radius_scale_for_building(building_id)
+    if source_tile.x < 0 or source_tile.y < 0:
+        return
+
+    var radius_scale: float = max(0.0, float(source_data.get("radius_scale", 1.0)))
+
+    if radius_scale <= 0.0:
+        return
+
+    var base_radius: int = RegionBuildingData.CAMPFIRE_BUILD_RADIUS
     var scaled_radius: float = float(base_radius) * radius_scale
 
-    var center_tile := Vector2(
-        float(tile_x) + float(width) / 2.0,
-        float(tile_y) + float(height) / 2.0
-    )
-
     var center_world := Vector2(
-        center_tile.x * region_tile_size,
-        center_tile.y * region_tile_size
+        float(source_tile.x) * float(region_tile_size) + float(region_tile_size) / 2.0,
+        float(source_tile.y) * float(region_tile_size) + float(region_tile_size) / 2.0
     )
 
     var radius_pixels: float = scaled_radius * float(region_tile_size)
+    var source_id: String = str(source_data.get("source_id", ""))
 
     var fill_color := Color(1.0, 0.55, 0.12, 0.12)
     var outline_color := Color(1.0, 0.65, 0.20, 0.85)
 
-    if building_id == RegionBuildingData.BUILDING_BONFIRE:
+    if source_id == ProtectionLightData.SOURCE_BONFIRE:
         fill_color = Color(1.0, 0.30, 0.08, 0.10)
         outline_color = Color(1.0, 0.42, 0.12, 0.92)
+
+    elif source_id == ProtectionLightData.SOURCE_TORCH:
+        fill_color = Color(1.0, 0.92, 0.25, 0.10)
+        outline_color = Color(1.0, 0.92, 0.35, 0.90)
 
     canvas.draw_circle(
         center_world,

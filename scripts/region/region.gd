@@ -412,6 +412,11 @@ func get_active_protection_light_sources() -> Array:
             "building_id": building_id,
             "building_instance_id": int(building_data.get("instance_id", 0))
         })
+        
+    var villager_sources: Array = villager_manager.get_villager_protection_light_sources()
+
+    for source_index in range(villager_sources.size()):
+        protection_sources.append(villager_sources[source_index])
 
     return protection_sources
 
@@ -570,6 +575,13 @@ func update_wild_animal_manager(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+    if event is InputEventKey:
+        var key_event := event as InputEventKey
+
+        if key_event.pressed and not key_event.echo and key_event.keycode == KEY_T:
+            debug_give_torch_to_first_living_villager()
+            return
+
     input_controller.handle_unhandled_input(event)
 
 
@@ -2236,6 +2248,7 @@ func _draw() -> void:
         REGION_TILE_SIZE,
         show_resource_markers,
         show_campfire_radius,
+        get_active_protection_light_sources(),
         building_manager,
         villager_manager,
         wild_animal_manager.get_active_animals(),
@@ -2760,3 +2773,11 @@ func is_tile_in_bounds(tile_position: Vector2i) -> bool:
         and tile_position.x < REGION_WIDTH
         and tile_position.y < REGION_HEIGHT
     )
+
+func debug_give_torch_to_first_living_villager() -> void:
+    var message: String = villager_manager.debug_give_torch_to_first_living_villager()
+
+    if message != "":
+        add_village_log_message(message)
+
+    queue_redraw()

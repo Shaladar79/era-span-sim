@@ -1096,6 +1096,100 @@ func get_population_count() -> int:
 
 func get_villagers() -> Array:
     return villagers
+    
+func villager_has_belonging(
+    villager_data: Dictionary,
+    item_id: String
+) -> bool:
+    if item_id == "":
+        return false
+
+    var belongings: Array = villager_data.get("belongings", [])
+
+    for belonging_index in range(belongings.size()):
+        var belonging_variant: Variant = belongings[belonging_index]
+
+        if typeof(belonging_variant) == TYPE_STRING:
+            if str(belonging_variant) == item_id:
+                return true
+
+        elif typeof(belonging_variant) == TYPE_DICTIONARY:
+            var belonging_data: Dictionary = belonging_variant
+            var belonging_id: String = str(belonging_data.get("id", belonging_data.get("item_id", "")))
+
+            if belonging_id == item_id:
+                return true
+
+    return false
+
+
+func get_villager_protection_light_sources() -> Array:
+    var protection_sources: Array = []
+
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
+        if not villager_has_belonging(villager_data, ProtectionLightData.SOURCE_TORCH):
+            continue
+
+        var villager_tile: Vector2i = villager_data.get("tile", Vector2i(-1, -1))
+
+        if not is_tile_in_bounds(villager_tile):
+            continue
+
+        protection_sources.append({
+            "tile": villager_tile,
+            "radius_scale": ProtectionLightData.TORCH_RADIUS_SCALE,
+            "source_id": ProtectionLightData.SOURCE_TORCH,
+            "source_type": ProtectionLightData.SOURCE_TYPE_BELONGING,
+            "villager_id": int(villager_data.get("id", 0)),
+            "villager_name": str(villager_data.get("name", "Villager"))
+        })
+
+    return protection_sources
+
+
+func debug_give_torch_to_first_living_villager() -> String:
+    for villager_index in range(villagers.size()):
+        var villager_variant: Variant = villagers[villager_index]
+
+        if typeof(villager_variant) != TYPE_DICTIONARY:
+            continue
+
+        var villager_data: Dictionary = villager_variant
+
+        if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+            continue
+
+        if villager_has_belonging(villager_data, ProtectionLightData.SOURCE_TORCH):
+            return str(villager_data.get("name", "Villager")) + " already has a Torch."
+
+        var belongings: Array = villager_data.get("belongings", [])
+        var max_belongings: int = int(villager_data.get("max_belongings", get_current_max_belongings()))
+
+        if belongings.size() >= max_belongings:
+            return str(villager_data.get("name", "Villager")) + " has no open belonging slot for a Torch."
+
+        belongings.append({
+            "id": ProtectionLightData.SOURCE_TORCH,
+            "name": "Torch",
+            "type": "belonging"
+        })
+
+        villager_data["belongings"] = belongings
+        villagers[villager_index] = villager_data
+
+        return str(villager_data.get("name", "Villager")) + " received a Torch."
+
+    return "No living villager available for Torch."
 
 
 func get_villager_data_by_id(villager_id: int) -> Dictionary:
