@@ -61,11 +61,14 @@ const SELECTED_VILLAGER_PANEL_HEIGHT: int = 560
 const SELECTED_VILLAGER_PANEL_MARGIN: int = 12
 const SELECTED_VILLAGER_CLOSE_BUTTON_SIZE: int = 22
 
-const SELECTED_VILLAGER_SKILLS_START_Y: int = 116
+const SELECTED_VILLAGER_ACTION_START_Y: int = 88
+const SELECTED_VILLAGER_ACTION_ROW_HEIGHT: int = 28
+
+const SELECTED_VILLAGER_SKILLS_START_Y: int = 140
 const SELECTED_VILLAGER_SKILL_ROW_HEIGHT: int = 20
 
-const SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y: int = 244
-const SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y: int = 386
+const SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y: int = 272
+const SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y: int = 414
 const SELECTED_VILLAGER_BELONGING_ROW_HEIGHT: int = 34
 const SELECTED_VILLAGER_REMOVE_BUTTON_WIDTH: int = 24
 const SELECTED_VILLAGER_REMOVE_BUTTON_HEIGHT: int = 22
@@ -426,6 +429,36 @@ static func get_selected_villager_close_button_screen_rect(viewport_size: Vector
         Vector2(
             SELECTED_VILLAGER_CLOSE_BUTTON_SIZE,
             SELECTED_VILLAGER_CLOSE_BUTTON_SIZE
+        )
+    )
+
+static func get_selected_villager_action_button_screen_rect(
+    viewport_size: Vector2,
+    action_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            SELECTED_VILLAGER_ACTION_START_Y + action_index * SELECTED_VILLAGER_ACTION_ROW_HEIGHT
+        ),
+        Vector2(
+            SELECTED_VILLAGER_PANEL_WIDTH - 20,
+            SELECTED_VILLAGER_ACTION_ROW_HEIGHT - 4
+        )
+    )
+
+
+static func get_selected_villager_action_visible_row_count() -> int:
+    return int(
+        floor(
+            float(
+                SELECTED_VILLAGER_SKILLS_START_Y
+                - SELECTED_VILLAGER_ACTION_START_Y
+                - 10
+            )
+            / float(SELECTED_VILLAGER_ACTION_ROW_HEIGHT)
         )
     )
 

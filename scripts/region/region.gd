@@ -54,6 +54,7 @@ const SAVE_TYPE_VECTOR2: String = "Vector2"
 const BUILDING_ACTION_ASSIGN: String = "assign"
 const BUILDING_ACTION_CRAFT: String = "craft"
 const BUILDING_ACTION_STORAGE: String = "storage"
+const VILLAGER_ACTION_SELECT_HARVEST_AREA: String = "select_harvest_area"
 @export var region_seed: int = 12345
 
 var region_name: String = "New Settlement"
@@ -110,6 +111,9 @@ var selected_assignment_building_instance_id: int = 0
 
 var show_selected_villager_panel: bool = false
 var selected_villager_id: int = 0
+
+var harvest_area_selection_active: bool = false
+var harvest_area_selection_villager_id: int = 0
 
 var show_selected_building_panel: bool = false
 var selected_building_instance_id: int = 0
@@ -1077,6 +1081,7 @@ func start_building_placement(building_id: String) -> void:
     show_research_panel = false
     close_crafting_panel()
     close_assignment_panel()
+    cancel_harvest_area_selection()
 
     building_manager.start_building_placement(building_id)
     queue_redraw()
@@ -1491,6 +1496,9 @@ func try_handle_selected_villager_panel_click(mouse_screen_position: Vector2) ->
         close_selected_villager_panel()
         return true
 
+    if try_execute_selected_villager_action_from_mouse(mouse_screen_position):
+        return true
+
     if try_remove_selected_villager_belonging_from_mouse(mouse_screen_position):
         return true
 
@@ -1499,6 +1507,134 @@ func try_handle_selected_villager_panel_click(mouse_screen_position: Vector2) ->
 
     return false
 
+func get_selected_villager_actions() -> Array:
+    var actions: Array = []
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        return actions
+
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
+    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
+    var health_state: String = str(villager_data.get("health_state", VillagerManager.HEALTH_STATE_HEALTHY))
+
+    if role == default_role:
+        if assigned_building_instance_id <= 0:
+            if health_state != VillagerManager.HEALTH_STATE_DEAD:
+                actions.append({
+                    "id": VILLAGER_ACTION_SELECT_HARVEST_AREA,
+                    "label": "Select Harvesting Area"
+                })
+
+    return actions
+
+
+func try_execute_selected_villager_action_from_mouse(mouse_screen_position: Vector2) -> bool:
+    var actions: Array = get_selected_villager_actions()
+    var visible_count: int = min(
+        actions.size(),
+        RegionUI.get_selected_villager_action_visible_row_count()
+    )
+
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+
+    for action_index in range(visible_count):
+        var action_button_rect: Rect2 = RegionUI.get_selected_villager_action_button_screen_rect(
+            viewport_size,
+            action_index
+        )
+
+        if not action_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var action_data: Dictionary = actions[action_index]
+        execute_selected_villager_action(str(action_data.get("id", "")))
+        return true
+
+    return false
+
+
+func execute_selected_villager_action(action_id: String) -> void:
+    if action_id == VILLAGER_ACTION_SELECT_HARVEST_AREA:
+        start_harvest_area_selection_for_selected_villager()
+        return
+
+    add_village_log_message("Unknown villager action.")
+    queue_redraw()
+
+
+func start_harvest_area_selection_for_selected_villager() -> void:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return
+
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+
+    if role != default_role:
+        add_village_log_message(villager_name + " is not a basic Villager and cannot select a manual harvesting area.")
+        queue_redraw()
+        return
+
+    if int(villager_data.get("assigned_building_instance_id", 0)) > 0:
+        add_village_log_message(villager_name + " is assigned to a building and cannot select a manual harvesting area.")
+        queue_redraw()
+        return
+
+    harvest_area_selection_active = true
+    harvest_area_selection_villager_id = selected_villager_id
+    drag_assignment_tile = hovered_tile
+
+    close_selected_villager_panel()
+    close_selected_building_panel()
+    close_crafting_panel()
+    close_assignment_panel()
+    close_storage_selector()
+
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    show_build_panel = false
+
+    add_village_log_message("Select a harvesting area for " + villager_name + ".")
+    queue_redraw()
+
+
+func cancel_harvest_area_selection() -> void:
+    harvest_area_selection_active = false
+    harvest_area_selection_villager_id = 0
+    drag_assignment_tile = Vector2i(-1, -1)
+    queue_redraw()
+
+
+func finish_harvest_area_selection_at_tile(tile_position: Vector2i) -> void:
+    if not harvest_area_selection_active:
+        return
+
+    var villager_id: int = harvest_area_selection_villager_id
+
+    if villager_id <= 0:
+        cancel_harvest_area_selection()
+        return
+
+    if not is_tile_in_bounds(tile_position):
+        add_village_log_message("Invalid harvesting area.")
+        cancel_harvest_area_selection()
+        return
+
+    villager_manager.assign_harvest_area(
+        villager_id,
+        tile_position,
+        HARVEST_ASSIGN_RADIUS
+    )
+
+    add_village_log_messages(villager_manager.get_event_messages())
+    cancel_harvest_area_selection()
+    queue_redraw()
 
 func try_remove_selected_villager_belonging_from_mouse(mouse_screen_position: Vector2) -> bool:
     var villager_data: Dictionary = get_selected_villager_data()
@@ -2201,6 +2337,10 @@ func try_start_hunt_at_hovered_animal() -> bool:
 
 
 func try_start_villager_drag_or_select() -> void:
+    if harvest_area_selection_active:
+        finish_harvest_area_selection_at_tile(hovered_tile)
+        return
+
     if try_start_hunt_at_hovered_animal():
         return
 
@@ -2224,7 +2364,7 @@ func try_start_villager_drag_or_select() -> void:
         return
 
     select_hovered_tile()
-
+    
 func finish_villager_drag_assignment() -> void:
     if dragged_villager_id <= 0:
         cancel_villager_drag()
@@ -2535,11 +2675,10 @@ func update_hovered_tile() -> void:
     if new_hovered_tile != hovered_tile:
         hovered_tile = new_hovered_tile
 
-        if is_dragging_villager:
+        if is_dragging_villager or harvest_area_selection_active:
             drag_assignment_tile = hovered_tile
 
         queue_redraw()
-
 
 func select_hovered_tile() -> void:
     if not is_tile_in_bounds(hovered_tile):
@@ -2602,7 +2741,7 @@ func _draw() -> void:
         hero_manager.get_heroes(),
         hovered_tile,
         selected_tile,
-        is_dragging_villager,
+        is_dragging_villager or harvest_area_selection_active,
         drag_assignment_tile,
         HARVEST_ASSIGN_RADIUS,
         simulation_paused
@@ -2809,7 +2948,8 @@ func open_selected_building_panel(building_instance_id: int) -> void:
     close_crafting_panel()
     close_assignment_panel()
     close_storage_selector()
-
+    cancel_harvest_area_selection()
+    
     print("Opened building panel for: " + str(building_data.get("name", "Building")))
 
     queue_redraw()
@@ -2960,6 +3100,7 @@ func open_selected_villager_panel(villager_id: int) -> void:
     close_assignment_panel()
     close_storage_selector()
     close_selected_building_panel()
+    cancel_harvest_area_selection()
     
     print("Opened villager panel for: " + str(villager_data.get("name", "Villager")))
 
@@ -3012,7 +3153,8 @@ func draw_selected_villager_panel() -> void:
         self,
         villager_data,
         get_selected_villager_available_belonging_items(),
-        get_selected_villager_skill_rows()
+        get_selected_villager_skill_rows(),
+        get_selected_villager_actions()
     )
 
 func draw_village_log_button() -> void:

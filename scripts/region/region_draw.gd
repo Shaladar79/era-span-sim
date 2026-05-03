@@ -1796,7 +1796,8 @@ static func draw_selected_villager_panel(
     node: CanvasItem,
     villager_data: Dictionary,
     available_belonging_items: Array,
-    skill_rows: Array
+    skill_rows: Array,
+    villager_actions: Array
 ) -> void:
     if villager_data.is_empty():
         return
@@ -1837,6 +1838,13 @@ static func draw_selected_villager_panel(
         villager_data,
         panel_screen_rect,
         title_font_size,
+        body_font_size,
+        small_font_size
+    )
+
+    draw_selected_villager_action_buttons(
+        node,
+        villager_actions,
         body_font_size,
         small_font_size
     )
@@ -1979,6 +1987,93 @@ static func draw_selected_villager_panel_header(
         -1,
         small_font_size,
         Color(0.92, 0.92, 0.88, 1.0)
+    )
+
+static func draw_selected_villager_action_buttons(
+    node: CanvasItem,
+    villager_actions: Array,
+    body_font_size: int,
+    small_font_size: int
+) -> void:
+    if villager_actions.is_empty():
+        return
+
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_rect.position + Vector2(
+                10,
+                RegionUI.SELECTED_VILLAGER_ACTION_START_Y - 8
+            )
+        ),
+        "Actions",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    var visible_count: int = min(
+        villager_actions.size(),
+        RegionUI.get_selected_villager_action_visible_row_count()
+    )
+
+    for action_index in range(visible_count):
+        draw_selected_villager_action_button(
+            node,
+            villager_actions[action_index],
+            action_index,
+            small_font_size
+        )
+
+
+static func draw_selected_villager_action_button(
+    node: CanvasItem,
+    action_data: Dictionary,
+    action_index: int,
+    small_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var button_screen_rect: Rect2 = RegionUI.get_selected_villager_action_button_screen_rect(
+        viewport_size,
+        action_index
+    )
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var action_label: String = str(action_data.get("label", "Action"))
+
+    node.draw_rect(
+        button_world_rect,
+        Color(0.12, 0.10, 0.07, 0.95),
+        true
+    )
+
+    node.draw_rect(
+        button_world_rect,
+        Color(0.75, 0.62, 0.24, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(8, 18)
+        ),
+        action_label,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
     )
 
 static func draw_selected_villager_skill_rows(
