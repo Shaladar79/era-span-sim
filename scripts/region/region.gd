@@ -2235,7 +2235,7 @@ func _draw() -> void:
     draw_debug_button()
     draw_village_log_panel()
     draw_debug_panel()
-    draw_paused_villager_hover_panel()
+    draw_hover_panels()
 
 
 func draw_storage_selector() -> void:
@@ -2431,10 +2431,7 @@ func draw_debug_panel() -> void:
     )
 
 
-func draw_paused_villager_hover_panel() -> void:
-    if not simulation_paused:
-        return
-
+func draw_hover_panels() -> void:
     if is_dragging_villager:
         return
 
@@ -2442,6 +2439,20 @@ func draw_paused_villager_hover_panel() -> void:
 
     if not grave_data.is_empty():
         draw_grave_hover_panel(grave_data)
+        return
+
+    var mouse_world_position: Vector2 = get_global_mouse_position()
+
+    var hero_data: Dictionary = hero_manager.get_hero_at_world_position(
+        mouse_world_position,
+        HeroManager.HERO_HIT_RADIUS
+    )
+
+    if hero_data.is_empty():
+        hero_data = hero_manager.get_hero_at_tile(hovered_tile)
+
+    if not hero_data.is_empty():
+        draw_hero_hover_panel(hero_data)
         return
 
     var animal_data: Dictionary = wild_animal_manager.get_animal_at_tile(hovered_tile)
@@ -2457,7 +2468,6 @@ func draw_paused_villager_hover_panel() -> void:
         draw_villager_hover_panel(assignment_hover_villager)
         return
 
-    var mouse_world_position: Vector2 = get_global_mouse_position()
     var villager_data: Dictionary = villager_manager.get_villager_data_at_world_position(
         mouse_world_position,
         VILLAGER_DRAG_HIT_RADIUS
@@ -2473,6 +2483,12 @@ func draw_grave_hover_panel(villager_data: Dictionary) -> void:
     RegionDraw.draw_grave_hover_panel(
         self,
         villager_data
+    )
+    
+func draw_hero_hover_panel(hero_data: Dictionary) -> void:
+    RegionDraw.draw_hero_hover_panel(
+        self,
+        hero_data
     )
 
 

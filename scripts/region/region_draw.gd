@@ -1496,6 +1496,137 @@ static func draw_wild_animal_hover_panel(
         panel_screen_rect
     )
     
+static func draw_hero_hover_panel(
+    node: CanvasItem,
+    hero_data: Dictionary
+) -> void:
+    if hero_data.is_empty():
+        return
+
+    var mouse_screen_position: Vector2 = node.get_viewport().get_mouse_position()
+    var panel_width: float = 270.0
+    var panel_height: float = 132.0
+    var panel_offset := Vector2(18.0, 18.0)
+
+    var panel_screen_position: Vector2 = mouse_screen_position + panel_offset
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+
+    if panel_screen_position.x + panel_width > viewport_size.x:
+        panel_screen_position.x = mouse_screen_position.x - panel_width - panel_offset.x
+
+    if panel_screen_position.y + panel_height > viewport_size.y:
+        panel_screen_position.y = mouse_screen_position.y - panel_height - panel_offset.y
+
+    var panel_screen_rect := Rect2(
+        panel_screen_position,
+        Vector2(panel_width, panel_height)
+    )
+
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var hero_type: String = str(hero_data.get(HeroManager.KEY_HERO_TYPE, ""))
+    var border_color: Color = HeroData.get_hero_color(hero_type)
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.95),
+        true
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        border_color,
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    draw_hero_hover_panel_text(
+        node,
+        hero_data,
+        panel_screen_rect
+    )
+
+
+static func draw_hero_hover_panel_text(
+    node: CanvasItem,
+    hero_data: Dictionary,
+    panel_screen_rect: Rect2
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var title_font_size: int = get_title_font_size(world_per_screen_y)
+    var body_font_size: int = get_small_font_size(world_per_screen_y)
+
+    var hero_name: String = str(hero_data.get(HeroManager.KEY_NAME, "Hero"))
+    var display_type: String = str(hero_data.get(HeroManager.KEY_DISPLAY_TYPE, "Hero"))
+    var state: String = str(hero_data.get(HeroManager.KEY_STATE, HeroData.HERO_STATE_WANDERING))
+    var visual_piece: String = str(hero_data.get(HeroManager.KEY_VISUAL_PIECE, "marker"))
+    var source_building_instance_id: int = int(hero_data.get(HeroManager.KEY_SOURCE_BUILDING_INSTANCE_ID, 0))
+
+    var text_x: float = panel_screen_rect.position.x + 10.0
+    var text_y: float = panel_screen_rect.position.y + 20.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        hero_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        title_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    text_y += 22.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Hero Type: " + display_type,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "State: " + state.capitalize() + " | Piece: " + visual_piece.capitalize(),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Source Building #: " + str(source_building_instance_id),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    text_y += 22.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Hero system coming later.",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.88, 0.62, 1.0)
+    )
+    
 static func draw_grave_hover_panel(
     canvas: CanvasItem,
     villager_data: Dictionary
