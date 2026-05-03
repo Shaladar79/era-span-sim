@@ -56,14 +56,17 @@ const ASSIGNMENT_ROW_HEIGHT: int = 34
 const ASSIGNMENT_LIST_START_Y: int = 94
 const ASSIGNMENT_HEADER_HEIGHT: int = 84
 
-const SELECTED_VILLAGER_PANEL_WIDTH: int = 390
-const SELECTED_VILLAGER_PANEL_HEIGHT: int = 420
+const SELECTED_VILLAGER_PANEL_WIDTH: int = 430
+const SELECTED_VILLAGER_PANEL_HEIGHT: int = 560
 const SELECTED_VILLAGER_PANEL_MARGIN: int = 12
 const SELECTED_VILLAGER_CLOSE_BUTTON_SIZE: int = 22
 
-const SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y: int = 142
-const SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y: int = 264
-const SELECTED_VILLAGER_BELONGING_ROW_HEIGHT: int = 30
+const SELECTED_VILLAGER_SKILLS_START_Y: int = 116
+const SELECTED_VILLAGER_SKILL_ROW_HEIGHT: int = 20
+
+const SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y: int = 244
+const SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y: int = 386
+const SELECTED_VILLAGER_BELONGING_ROW_HEIGHT: int = 34
 const SELECTED_VILLAGER_REMOVE_BUTTON_WIDTH: int = 24
 const SELECTED_VILLAGER_REMOVE_BUTTON_HEIGHT: int = 22
 
@@ -418,6 +421,35 @@ static func get_selected_villager_close_button_screen_rect(viewport_size: Vector
         )
     )
 
+static func get_selected_villager_skill_row_screen_rect(
+    viewport_size: Vector2,
+    skill_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            SELECTED_VILLAGER_SKILLS_START_Y + skill_index * SELECTED_VILLAGER_SKILL_ROW_HEIGHT
+        ),
+        Vector2(
+            SELECTED_VILLAGER_PANEL_WIDTH - 20,
+            SELECTED_VILLAGER_SKILL_ROW_HEIGHT - 2
+        )
+    )
+
+
+static func get_selected_villager_skill_visible_row_count() -> int:
+    return int(
+        floor(
+            float(
+                SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y
+                - SELECTED_VILLAGER_SKILLS_START_Y
+                - 20
+            )
+            / float(SELECTED_VILLAGER_SKILL_ROW_HEIGHT)
+        )
+    )
 
 static func get_selected_villager_current_belonging_row_screen_rect(
     viewport_size: Vector2,

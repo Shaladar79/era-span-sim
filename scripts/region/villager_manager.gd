@@ -3753,6 +3753,89 @@ func get_harvest_skill_for_resource(resource_id: String) -> String:
 
     return SKILL_GATHERING
 
+func get_skill_display_name(skill_id: String) -> String:
+    match skill_id:
+        SKILL_GATHERING:
+            return "Gathering"
+        SKILL_BUILDING:
+            return "Building"
+        SKILL_MINING:
+            return "Mining"
+        SKILL_WOODCUTTING:
+            return "Woodcutting"
+        SKILL_CRAFTING:
+            return "Crafting"
+        SKILL_THINKING:
+            return "Thinking"
+        SKILL_STONEWORKING:
+            return "Stoneworking"
+        SKILL_WOODWORKING:
+            return "Woodworking"
+        SKILL_RITUALS:
+            return "Rituals"
+        SKILL_FISHING:
+            return "Fishing"
+        SKILL_HUNTING:
+            return "Hunting"
+        SKILL_RANGED_WEAPONS:
+            return "Ranged"
+        SKILL_MELEE_WEAPONS:
+            return "Melee"
+        SKILL_EVADE:
+            return "Evade"
+        SKILL_PARRY:
+            return "Parry"
+        _:
+            return skill_id.capitalize()
+
+
+func get_villager_panel_skill_rows(villager_data: Dictionary) -> Array:
+    var skill_rows: Array = []
+
+    if villager_data.is_empty():
+        return skill_rows
+
+    var skills_to_show: Array = [
+        SKILL_GATHERING,
+        SKILL_BUILDING,
+        SKILL_MINING,
+        SKILL_WOODCUTTING
+    ]
+
+    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var role_skills: Array = get_skill_ids_for_role(role)
+
+    for role_skill_index in range(role_skills.size()):
+        var role_skill_id: String = str(role_skills[role_skill_index])
+
+        if skills_to_show.has(role_skill_id):
+            continue
+
+        skills_to_show.append(role_skill_id)
+
+    var skills: Dictionary = villager_data.get("skills", {})
+
+    for skill_index in range(skills_to_show.size()):
+        var skill_id: String = str(skills_to_show[skill_index])
+        var base_skill: int = int(skills.get(skill_id, 0))
+        var bonus_skill: int = get_belonging_skill_bonus_for_villager(
+            villager_data,
+            skill_id
+        )
+        var effective_skill: int = get_villager_skill_level(
+            villager_data,
+            skill_id
+        )
+
+        skill_rows.append({
+            "id": skill_id,
+            "name": get_skill_display_name(skill_id),
+            "base": base_skill,
+            "bonus": bonus_skill,
+            "effective": effective_skill
+        })
+
+    return skill_rows
 
 func get_villager_skill_level(
     villager_data: Dictionary,

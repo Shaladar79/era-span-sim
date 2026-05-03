@@ -1423,7 +1423,8 @@ static func get_selected_panel_used_belonging_slots(belongings: Array) -> int:
 static func draw_selected_villager_panel(
     node: CanvasItem,
     villager_data: Dictionary,
-    available_belonging_items: Array
+    available_belonging_items: Array,
+    skill_rows: Array
 ) -> void:
     if villager_data.is_empty():
         return
@@ -1466,6 +1467,14 @@ static func draw_selected_villager_panel(
         title_font_size,
         body_font_size,
         small_font_size
+    )
+
+    draw_selected_villager_skill_rows(
+        node,
+        skill_rows,
+        body_font_size,
+        small_font_size,
+        tiny_font_size
     )
 
     draw_selected_villager_current_belongings(
@@ -1600,6 +1609,117 @@ static func draw_selected_villager_panel_header(
         Color(0.92, 0.92, 0.88, 1.0)
     )
 
+static func draw_selected_villager_skill_rows(
+    node: CanvasItem,
+    skill_rows: Array,
+    body_font_size: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_rect.position + Vector2(
+                10,
+                RegionUI.SELECTED_VILLAGER_SKILLS_START_Y - 12
+            )
+        ),
+        "Skills",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if skill_rows.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(
+                    10,
+                    RegionUI.SELECTED_VILLAGER_SKILLS_START_Y + 14
+                )
+            ),
+            "No skills found.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    var visible_count: int = min(
+        skill_rows.size(),
+        RegionUI.get_selected_villager_skill_visible_row_count()
+    )
+
+    for skill_index in range(visible_count):
+        var skill_data: Dictionary = skill_rows[skill_index]
+        draw_selected_villager_skill_row(
+            node,
+            skill_data,
+            skill_index,
+            small_font_size,
+            tiny_font_size
+        )
+
+
+static func draw_selected_villager_skill_row(
+    node: CanvasItem,
+    skill_data: Dictionary,
+    skill_index: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var row_screen_rect: Rect2 = RegionUI.get_selected_villager_skill_row_screen_rect(
+        viewport_size,
+        skill_index
+    )
+    var row_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        row_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.10, 0.09, 0.065, 0.86),
+        true
+    )
+
+    var skill_name: String = str(skill_data.get("name", "Skill"))
+    var base_skill: int = int(skill_data.get("base", 0))
+    var bonus_skill: int = int(skill_data.get("bonus", 0))
+    var effective_skill: int = int(skill_data.get("effective", base_skill + bonus_skill))
+
+    var skill_text: String = skill_name + ": " + str(base_skill)
+
+    if bonus_skill > 0:
+        skill_text += " (+" + str(bonus_skill) + ") = " + str(effective_skill)
+    elif bonus_skill < 0:
+        skill_text += " (" + str(bonus_skill) + ") = " + str(effective_skill)
+    else:
+        skill_text += " = " + str(effective_skill)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            row_screen_rect.position + Vector2(8, 14)
+        ),
+        skill_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(0.92, 0.92, 0.88, 1.0)
+    )
 
 static func draw_selected_villager_current_belongings(
     node: CanvasItem,
@@ -1868,6 +1988,7 @@ static func draw_selected_villager_available_belonging_row(
     var amount: int = int(item_data.get("amount", 0))
     var slot_cost: int = int(item_data.get("slot_cost", 1))
     var role_text: String = str(item_data.get("allowed_roles_text", "Any role"))
+    var effect_notes: String = str(item_data.get("effect_notes", ""))
 
     node.draw_string(
         ThemeDB.fallback_font,
@@ -1882,17 +2003,31 @@ static func draw_selected_villager_available_belonging_row(
         Color(1.0, 1.0, 1.0, 1.0)
     )
 
+    if effect_notes != "":
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                row_screen_rect.position + Vector2(8, 25)
+            ),
+            "Effect: " + effect_notes,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            tiny_font_size,
+            Color(0.82, 0.90, 0.78, 1.0)
+        )
+
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(
             node,
-            row_screen_rect.position + Vector2(8, 25)
+            row_screen_rect.position + Vector2(8, 36)
         ),
         "Allowed: " + role_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         tiny_font_size,
-        Color(0.82, 0.90, 0.78, 1.0)
+        Color(0.78, 0.86, 0.72, 1.0)
     )
 
 static func draw_villager_hover_panel(

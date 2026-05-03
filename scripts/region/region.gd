@@ -2741,6 +2741,13 @@ func get_selected_villager_data() -> Dictionary:
 
     return villager_manager.get_villager_data_by_id(selected_villager_id)
 
+func get_selected_villager_skill_rows() -> Array:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        return []
+
+    return villager_manager.get_villager_panel_skill_rows(villager_data)
 
 func get_selected_villager_available_belonging_items() -> Array:
     var villager_data: Dictionary = get_selected_villager_data()
@@ -2764,9 +2771,9 @@ func draw_selected_villager_panel() -> void:
     RegionDraw.draw_selected_villager_panel(
         self,
         villager_data,
-        get_selected_villager_available_belonging_items()
+        get_selected_villager_available_belonging_items(),
+        get_selected_villager_skill_rows()
     )
-
 
 func draw_village_log_button() -> void:
     RegionDraw.draw_village_log_button(
