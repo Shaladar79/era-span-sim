@@ -1392,6 +1392,378 @@ static func draw_village_log_panel(
 
         draw_row += 1
 
+static func draw_selected_building_panel(
+    node: CanvasItem,
+    building_data: Dictionary,
+    assigned_villager_data: Array,
+    storage_current_amount: int,
+    building_actions: Array
+) -> void:
+    if building_data.is_empty():
+        return
+
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_screen_rect: Rect2 = RegionUI.get_selected_building_panel_screen_rect(viewport_size)
+    var panel_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        panel_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var title_font_size: int = get_title_font_size(world_per_screen_y)
+    var body_font_size: int = get_body_font_size(world_per_screen_y)
+    var small_font_size: int = get_small_font_size(world_per_screen_y)
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.04, 0.035, 0.025, 0.96),
+        true
+    )
+
+    node.draw_rect(
+        panel_world_rect,
+        Color(0.85, 0.75, 0.45, 0.98),
+        false,
+        get_panel_border_width(world_per_screen_y)
+    )
+
+    draw_selected_building_panel_close_button(node)
+
+    draw_selected_building_panel_text(
+        node,
+        building_data,
+        assigned_villager_data,
+        storage_current_amount,
+        panel_screen_rect,
+        title_font_size,
+        body_font_size,
+        small_font_size
+    )
+
+    draw_selected_building_action_buttons(
+        node,
+        building_actions,
+        body_font_size,
+        small_font_size
+    )
+
+
+static func draw_selected_building_panel_close_button(node: CanvasItem) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var close_button_screen_rect: Rect2 = RegionUI.get_selected_building_close_button_screen_rect(
+        viewport_size
+    )
+    var close_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        close_button_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    node.draw_rect(
+        close_button_world_rect,
+        Color(0.28, 0.08, 0.06, 0.98),
+        true
+    )
+
+    node.draw_rect(
+        close_button_world_rect,
+        Color(1.0, 0.55, 0.45, 1.0),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            close_button_screen_rect.position + Vector2(6, 16)
+        ),
+        "X",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_small_font_size(world_per_screen_y),
+        Color(1.0, 0.95, 0.90, 1.0)
+    )
+
+
+static func draw_selected_building_panel_text(
+    node: CanvasItem,
+    building_data: Dictionary,
+    assigned_villager_data: Array,
+    storage_current_amount: int,
+    panel_screen_rect: Rect2,
+    title_font_size: int,
+    body_font_size: int,
+    small_font_size: int
+) -> void:
+    var building_name: String = str(building_data.get("name", "Building"))
+    var building_id: String = str(building_data.get("id", ""))
+    var instance_id: int = int(building_data.get("instance_id", 0))
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 1))
+    var height: int = int(building_data.get("height", 1))
+    var center_tile := Vector2i(
+        tile_x + int(floor(float(width) / 2.0)),
+        tile_y + int(floor(float(height) / 2.0))
+    )
+
+    var text_x: float = panel_screen_rect.position.x + 10.0
+    var text_y: float = panel_screen_rect.position.y + 20.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        building_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        title_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    text_y += 22.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "ID: " + building_id + " | #" + str(instance_id),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(0.90, 0.95, 1.0, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Origin: " + str(tile_x) + ", " + str(tile_y) + " | Size: " + str(width) + "x" + str(height),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(0.92, 0.92, 0.88, 1.0)
+    )
+
+    text_y += 18.0
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
+        "Center: " + str(center_tile.x) + ", " + str(center_tile.y),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(0.92, 0.92, 0.88, 1.0)
+    )
+
+    text_y += 22.0
+
+    draw_selected_building_summary_lines(
+        node,
+        building_data,
+        assigned_villager_data,
+        storage_current_amount,
+        Vector2(text_x, text_y),
+        body_font_size,
+        small_font_size
+    )
+
+
+static func draw_selected_building_summary_lines(
+    node: CanvasItem,
+    building_data: Dictionary,
+    assigned_villager_data: Array,
+    storage_current_amount: int,
+    screen_position: Vector2,
+    body_font_size: int,
+    small_font_size: int
+) -> void:
+    var text_y: float = screen_position.y
+
+    if bool(building_data.get("assignment_enabled", false)):
+        var assignment_role: String = str(building_data.get("assignment_role", ""))
+        var assignment_role_name: String = StoneAgeVillagerAssignmentData.get_role_display_name(assignment_role)
+        var assignment_slots: int = int(building_data.get("assignment_slots", 0))
+        var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+        var assigned_names: String = get_assigned_villager_names_text(assigned_villager_data)
+
+        if assigned_names == "":
+            assigned_names = "None"
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(node, Vector2(screen_position.x, text_y)),
+            "Assignment: " + assignment_role_name + " " + str(assigned_villagers.size()) + "/" + str(assignment_slots),
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.90, 0.95, 1.0, 1.0)
+        )
+
+        text_y += 18.0
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(node, Vector2(screen_position.x, text_y)),
+            "Assigned: " + assigned_names,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.92, 0.92, 0.88, 1.0)
+        )
+
+        text_y += 20.0
+
+    if str(building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA:
+        var storage_resource: String = str(building_data.get("storage_resource", ""))
+        var storage_capacity: int = int(building_data.get("storage_capacity", RegionBuildingData.STORAGE_AREA_CAPACITY))
+
+        if storage_resource == "":
+            storage_resource = "Unassigned"
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(node, Vector2(screen_position.x, text_y)),
+            "Storage: " + storage_resource + " " + str(storage_current_amount) + "/" + str(storage_capacity),
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.90, 0.95, 1.0, 1.0)
+        )
+
+        text_y += 20.0
+
+    var building_id: String = str(building_data.get("id", ""))
+
+    if ProtectionLightData.is_protection_light_building(building_id):
+        var is_lit: bool = bool(
+            building_data.get(
+                RegionBuildingManager.KEY_IS_LIT,
+                building_data.get(RegionBuildingManager.KEY_ACTIVE, true)
+            )
+        )
+        var light_state: String = "Lit"
+
+        if not is_lit:
+            light_state = "Unlit"
+
+        var radius_scale: float = ProtectionLightData.get_radius_scale_for_building(building_id)
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(node, Vector2(screen_position.x, text_y)),
+            "Light: " + light_state + " | Radius Scale: " + str(radius_scale),
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.90, 0.95, 1.0, 1.0)
+        )
+
+
+static func draw_selected_building_action_buttons(
+    node: CanvasItem,
+    building_actions: Array,
+    body_font_size: int,
+    small_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_building_panel_screen_rect(viewport_size)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_rect.position + Vector2(
+                10,
+                RegionUI.SELECTED_BUILDING_ACTION_START_Y - 10
+            )
+        ),
+        "Actions",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if building_actions.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(
+                    10,
+                    RegionUI.SELECTED_BUILDING_ACTION_START_Y + 18
+                )
+            ),
+            "No actions available.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    var visible_count: int = min(
+        building_actions.size(),
+        RegionUI.get_selected_building_action_visible_row_count()
+    )
+
+    for action_index in range(visible_count):
+        draw_selected_building_action_button(
+            node,
+            building_actions[action_index],
+            action_index,
+            small_font_size
+        )
+
+
+static func draw_selected_building_action_button(
+    node: CanvasItem,
+    action_data: Dictionary,
+    action_index: int,
+    small_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var button_screen_rect: Rect2 = RegionUI.get_selected_building_action_button_screen_rect(
+        viewport_size,
+        action_index
+    )
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var action_label: String = str(action_data.get("label", "Action"))
+
+    node.draw_rect(
+        button_world_rect,
+        Color(0.12, 0.10, 0.07, 0.95),
+        true
+    )
+
+    node.draw_rect(
+        button_world_rect,
+        Color(0.65, 0.55, 0.32, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(8, 19)
+        ),
+        action_label,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
 static func get_selected_panel_belonging_id_from_variant(belonging_variant: Variant) -> String:
     if typeof(belonging_variant) == TYPE_STRING:
         return str(belonging_variant)

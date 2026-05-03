@@ -70,6 +70,14 @@ const SELECTED_VILLAGER_BELONGING_ROW_HEIGHT: int = 34
 const SELECTED_VILLAGER_REMOVE_BUTTON_WIDTH: int = 24
 const SELECTED_VILLAGER_REMOVE_BUTTON_HEIGHT: int = 22
 
+const SELECTED_BUILDING_PANEL_WIDTH: int = 390
+const SELECTED_BUILDING_PANEL_HEIGHT: int = 340
+const SELECTED_BUILDING_PANEL_MARGIN: int = 12
+const SELECTED_BUILDING_CLOSE_BUTTON_SIZE: int = 22
+
+const SELECTED_BUILDING_ACTION_START_Y: int = 230
+const SELECTED_BUILDING_ACTION_ROW_HEIGHT: int = 30
+
 const VILLAGER_HOVER_PANEL_WIDTH: int = 270
 const VILLAGER_HOVER_PANEL_HEIGHT: int = 310
 const VILLAGER_HOVER_PANEL_OFFSET: Vector2 = Vector2(18, 18)
@@ -418,6 +426,64 @@ static func get_selected_villager_close_button_screen_rect(viewport_size: Vector
         Vector2(
             SELECTED_VILLAGER_CLOSE_BUTTON_SIZE,
             SELECTED_VILLAGER_CLOSE_BUTTON_SIZE
+        )
+    )
+
+static func get_selected_building_panel_screen_rect(viewport_size: Vector2) -> Rect2:
+    return Rect2(
+        Vector2(
+            SELECTED_BUILDING_PANEL_MARGIN,
+            SELECTED_BUILDING_PANEL_MARGIN
+        ),
+        Vector2(
+            SELECTED_BUILDING_PANEL_WIDTH,
+            SELECTED_BUILDING_PANEL_HEIGHT
+        )
+    )
+
+
+static func get_selected_building_close_button_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_selected_building_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x + panel_rect.size.x - SELECTED_BUILDING_CLOSE_BUTTON_SIZE - 8,
+            panel_rect.position.y + 8
+        ),
+        Vector2(
+            SELECTED_BUILDING_CLOSE_BUTTON_SIZE,
+            SELECTED_BUILDING_CLOSE_BUTTON_SIZE
+        )
+    )
+
+
+static func get_selected_building_action_button_screen_rect(
+    viewport_size: Vector2,
+    action_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_selected_building_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            SELECTED_BUILDING_ACTION_START_Y + action_index * SELECTED_BUILDING_ACTION_ROW_HEIGHT
+        ),
+        Vector2(
+            SELECTED_BUILDING_PANEL_WIDTH - 20,
+            SELECTED_BUILDING_ACTION_ROW_HEIGHT - 4
+        )
+    )
+
+
+static func get_selected_building_action_visible_row_count() -> int:
+    return int(
+        floor(
+            float(
+                SELECTED_BUILDING_PANEL_HEIGHT
+                - SELECTED_BUILDING_ACTION_START_Y
+                - 10
+            )
+            / float(SELECTED_BUILDING_ACTION_ROW_HEIGHT)
         )
     )
 
