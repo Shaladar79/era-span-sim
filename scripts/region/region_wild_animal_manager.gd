@@ -608,21 +608,52 @@ func is_tile_inside_campfire_avoidance(
     tile: Vector2i,
     campfire_tiles: Array
 ) -> bool:
-    if campfire_tiles.is_empty():
+    return is_tile_inside_protection_light_avoidance(
+        tile,
+        campfire_tiles
+    )
+
+
+func is_tile_inside_protection_light_avoidance(
+    tile: Vector2i,
+    protection_sources: Array
+) -> bool:
+    if protection_sources.is_empty():
         return false
 
-    var avoid_radius: int = get_campfire_avoidance_radius()
+    var base_avoid_radius: int = get_campfire_avoidance_radius()
 
-    for campfire_index in range(campfire_tiles.size()):
-        var campfire_variant: Variant = campfire_tiles[campfire_index]
+    for source_index in range(protection_sources.size()):
+        var source_variant: Variant = protection_sources[source_index]
+        var source_tile: Vector2i = Vector2i(-1, -1)
+        var radius_scale: float = 1.0
 
-        if typeof(campfire_variant) != TYPE_VECTOR2I:
+        if typeof(source_variant) == TYPE_VECTOR2I:
+            source_tile = source_variant
+
+        elif typeof(source_variant) == TYPE_DICTIONARY:
+            var source_data: Dictionary = source_variant
+            var tile_variant: Variant = source_data.get("tile", Vector2i(-1, -1))
+
+            if typeof(tile_variant) != TYPE_VECTOR2I:
+                continue
+
+            source_tile = tile_variant
+            radius_scale = max(0.0, float(source_data.get("radius_scale", 1.0)))
+
+        else:
             continue
 
-        var campfire_tile: Vector2i = campfire_variant
-        var distance: int = abs(campfire_tile.x - tile.x) + abs(campfire_tile.y - tile.y)
+        if not is_tile_in_bounds(source_tile):
+            continue
 
-        if distance <= avoid_radius:
+        if radius_scale <= 0.0:
+            continue
+
+        var scaled_radius: int = int(ceil(float(base_avoid_radius) * radius_scale))
+        var distance: int = abs(source_tile.x - tile.x) + abs(source_tile.y - tile.y)
+
+        if distance <= scaled_radius:
             return true
 
     return false

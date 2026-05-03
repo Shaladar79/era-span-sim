@@ -78,11 +78,11 @@ func draw_all(
         )
 
     if show_campfire_radius:
-        draw_campfire_radius_markers(
-            canvas,
-            building_manager,
-            region_tile_size
-        )
+        draw_protection_light_radius_markers(
+        canvas,
+        building_manager,
+        region_tile_size
+    )
 
     draw_buildings(
         canvas,
@@ -319,7 +319,7 @@ func draw_plus_marker(
     )
 
 
-func draw_campfire_radius_markers(
+func draw_protection_light_radius_markers(
     canvas: CanvasItem,
     building_manager: RegionBuildingManager,
     region_tile_size: int
@@ -335,26 +335,32 @@ func draw_campfire_radius_markers(
         var building_data: Dictionary = building_variant
         var building_id: String = str(building_data.get("id", ""))
 
-        if building_id != BUILDING_CAMPFIRE:
+        if not ProtectionLightData.is_protection_light_building(building_id):
             continue
 
-        draw_campfire_radius_marker(
+        if not building_manager.is_protection_light_building_lit(building_data):
+            continue
+
+        draw_protection_light_radius_marker(
             canvas,
             building_data,
             region_tile_size
         )
 
-
-func draw_campfire_radius_marker(
+func draw_protection_light_radius_marker(
     canvas: CanvasItem,
     building_data: Dictionary,
     region_tile_size: int
 ) -> void:
+    var building_id: String = str(building_data.get("id", ""))
     var tile_x: int = int(building_data.get("x", 0))
     var tile_y: int = int(building_data.get("y", 0))
     var width: int = int(building_data.get("width", 2))
     var height: int = int(building_data.get("height", 2))
-    var radius: int = int(building_data.get("campfire_radius", RegionBuildingData.CAMPFIRE_BUILD_RADIUS))
+
+    var base_radius: int = int(building_data.get("campfire_radius", RegionBuildingData.CAMPFIRE_BUILD_RADIUS))
+    var radius_scale: float = ProtectionLightData.get_radius_scale_for_building(building_id)
+    var scaled_radius: float = float(base_radius) * radius_scale
 
     var center_tile := Vector2(
         float(tile_x) + float(width) / 2.0,
@@ -366,22 +372,28 @@ func draw_campfire_radius_marker(
         center_tile.y * region_tile_size
     )
 
-    var radius_pixels: float = float(radius * region_tile_size)
+    var radius_pixels: float = scaled_radius * float(region_tile_size)
+
+    var fill_color := Color(1.0, 0.55, 0.12, 0.12)
+    var outline_color := Color(1.0, 0.65, 0.20, 0.85)
+
+    if building_id == RegionBuildingData.BUILDING_BONFIRE:
+        fill_color = Color(1.0, 0.30, 0.08, 0.10)
+        outline_color = Color(1.0, 0.42, 0.12, 0.92)
 
     canvas.draw_circle(
         center_world,
         radius_pixels,
-        Color(1.0, 0.55, 0.12, 0.12)
+        fill_color
     )
 
     canvas.draw_circle(
         center_world,
         radius_pixels,
-        Color(1.0, 0.65, 0.20, 0.85),
+        outline_color,
         false,
         2.0
     )
-
 
 func draw_buildings(
     canvas: CanvasItem,

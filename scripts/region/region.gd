@@ -376,8 +376,8 @@ func relocate_wild_animals_away_from_campfires() -> void:
     print("Wild animals moved away from campfires: ", moved_count)
 
 
-func get_campfire_center_tiles() -> Array:
-    var campfire_tiles: Array = []
+func get_active_protection_light_sources() -> Array:
+    var protection_sources: Array = []
     var manager_buildings: Array = building_manager.get_buildings()
 
     for building_index in range(manager_buildings.size()):
@@ -389,7 +389,10 @@ func get_campfire_center_tiles() -> Array:
         var building_data: Dictionary = building_variant
         var building_id: String = str(building_data.get("id", ""))
 
-        if building_id != BUILDING_CAMPFIRE:
+        if not ProtectionLightData.is_protection_light_building(building_id):
+            continue
+
+        if not building_manager.is_protection_light_building_lit(building_data):
             continue
 
         var tile_x: int = int(building_data.get("x", 0))
@@ -402,10 +405,19 @@ func get_campfire_center_tiles() -> Array:
             tile_y + int(floor(float(height) / 2.0))
         )
 
-        campfire_tiles.append(center_tile)
+        protection_sources.append({
+            "tile": center_tile,
+            "radius_scale": ProtectionLightData.get_radius_scale_for_building(building_id),
+            "source_id": ProtectionLightData.get_building_source_id(building_id),
+            "building_id": building_id,
+            "building_instance_id": int(building_data.get("instance_id", 0))
+        })
 
-    return campfire_tiles
+    return protection_sources
 
+
+func get_campfire_center_tiles() -> Array:
+    return get_active_protection_light_sources()
 
 func restore_runtime_unlocks_from_loaded_research() -> void:
     RegionBuildingData.reset_runtime_unlocks()
