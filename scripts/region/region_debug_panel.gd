@@ -9,6 +9,9 @@ const ACTION_ADD_RESEARCH_100: String = "add_research_100"
 const ACTION_ADD_TEST_ITEMS: String = "add_test_items"
 const ACTION_ADD_VILLAGER_1: String = "add_villager_1"
 const ACTION_ADD_VILLAGER_5: String = "add_villager_5"
+const ACTION_ADD_MAMMOTH_KILLS_5: String = "add_mammoth_kills_5"
+const ACTION_ADD_BEAR_KILLS_6: String = "add_bear_kills_6"
+const ACTION_SHOW_ANIMAL_KILL_COUNTS: String = "show_animal_kill_counts"
 const ACTION_CLOSE: String = "close"
 
 const DEBUG_PANEL_TITLE: String = "Debug Tools"
@@ -72,6 +75,18 @@ static func get_actions() -> Array:
         {
             "id": ACTION_ADD_VILLAGER_5,
             "label": "+5 Villagers"
+        },
+                {
+            "id": ACTION_ADD_MAMMOTH_KILLS_5,
+            "label": "+5 Mammoth Kills"
+        },
+        {
+            "id": ACTION_ADD_BEAR_KILLS_6,
+            "label": "+6 Bear Kills"
+        },
+        {
+            "id": ACTION_SHOW_ANIMAL_KILL_COUNTS,
+            "label": "Show Kill Counts"
         },
         {
             "id": ACTION_CLOSE,
@@ -140,6 +155,40 @@ static func is_villager_action(action_id: String) -> bool:
 
 static func is_animal_resource_action(action_id: String) -> bool:
     return action_id == ACTION_ADD_ANIMAL_RESOURCES
+    
+static func is_animal_kill_debug_action(action_id: String) -> bool:
+    return (
+        action_id == ACTION_ADD_MAMMOTH_KILLS_5
+        or action_id == ACTION_ADD_BEAR_KILLS_6
+    )
+
+
+static func get_animal_kill_debug_animal_id(action_id: String) -> String:
+    match action_id:
+        ACTION_ADD_MAMMOTH_KILLS_5:
+            return RegionWildAnimalData.ANIMAL_MAMMOTH
+
+        ACTION_ADD_BEAR_KILLS_6:
+            return RegionWildAnimalData.ANIMAL_BROWN_BEAR
+
+        _:
+            return ""
+
+
+static func get_animal_kill_debug_amount(action_id: String) -> int:
+    match action_id:
+        ACTION_ADD_MAMMOTH_KILLS_5:
+            return 5
+
+        ACTION_ADD_BEAR_KILLS_6:
+            return 6
+
+        _:
+            return 0
+
+
+static func is_show_animal_kill_counts_action(action_id: String) -> bool:
+    return action_id == ACTION_SHOW_ANIMAL_KILL_COUNTS
 
 
 static func get_test_item_outputs() -> Array:

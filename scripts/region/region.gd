@@ -1310,6 +1310,30 @@ func execute_debug_action(action_id: String) -> void:
 
         print("Debug villager add result: ", result)
 
+    elif RegionDebugPanel.is_animal_kill_debug_action(action_id):
+        var animal_id: String = RegionDebugPanel.get_animal_kill_debug_animal_id(action_id)
+        var kill_amount: int = RegionDebugPanel.get_animal_kill_debug_amount(action_id)
+
+        var kill_result: Dictionary = wild_animal_manager.debug_add_animal_kills(
+            animal_id,
+            kill_amount
+        )
+
+        var kill_messages: Array = kill_result.get("messages", [])
+
+        if not kill_messages.is_empty():
+            add_village_log_messages(kill_messages)
+
+        var animal_event_messages: Array = wild_animal_manager.get_event_messages()
+
+        if not animal_event_messages.is_empty():
+            add_village_log_messages(animal_event_messages)
+
+    elif RegionDebugPanel.is_show_animal_kill_counts_action(action_id):
+        add_village_log_messages(
+            wild_animal_manager.debug_get_kill_count_summary()
+        )
+
     elif action_id == RegionDebugPanel.ACTION_CLOSE:
         show_debug_panel = false
 

@@ -133,27 +133,30 @@ func load_save_data(save_data: Dictionary) -> void:
     next_instance_id = max(1, int(save_data.get(SAVE_KEY_NEXT_INSTANCE_ID, 1)))
 
     animal_kill_counts = get_dictionary_from_variant(
-    save_data.get(SAVE_KEY_ANIMAL_KILL_COUNTS, {})
-).duplicate(true)
+        save_data.get(SAVE_KEY_ANIMAL_KILL_COUNTS, {})
+    ).duplicate(true)
 
     var restored_pending_respawns_variant: Variant = restore_save_safe_value(
-    save_data.get(SAVE_KEY_PENDING_RESPAWNS, [])
-)
+        save_data.get(SAVE_KEY_PENDING_RESPAWNS, [])
+    )
 
     if typeof(restored_pending_respawns_variant) == TYPE_ARRAY:
         pending_respawns = restored_pending_respawns_variant
     else:
         pending_respawns = []
 
-        respawn_check_timer = max(0.0, float(save_data.get(SAVE_KEY_RESPAWN_CHECK_TIMER, 0.0)))
+    respawn_check_timer = max(
+        0.0,
+        float(save_data.get(SAVE_KEY_RESPAWN_CHECK_TIMER, 0.0))
+    )
 
-        unique_spawn_counts = get_dictionary_from_variant(
+    unique_spawn_counts = get_dictionary_from_variant(
         save_data.get(SAVE_KEY_UNIQUE_SPAWN_COUNTS, {})
-        ).duplicate(true)
+    ).duplicate(true)
 
-        unique_last_trigger_counts = get_dictionary_from_variant(
+    unique_last_trigger_counts = get_dictionary_from_variant(
         save_data.get(SAVE_KEY_UNIQUE_LAST_TRIGGER_COUNTS, {})
-        ).duplicate(true)
+    ).duplicate(true)
 
     var saved_animals_variant: Variant = save_data.get(SAVE_KEY_WILD_ANIMALS, [])
     var restored_animals_variant: Variant = restore_save_safe_value(saved_animals_variant)
@@ -1086,6 +1089,78 @@ func get_animal_kill_count(animal_id: String) -> int:
 func get_all_animal_kill_counts() -> Dictionary:
     return animal_kill_counts.duplicate(true)
 
+func debug_add_animal_kills(
+    animal_id: String,
+    amount: int
+) -> Dictionary:
+    var result: Dictionary = {
+        "messages": []
+    }
+
+    if animal_id == "":
+        result["messages"].append("Debug kill add failed: missing animal id.")
+        return result
+
+    if amount <= 0:
+        result["messages"].append("Debug kill add failed: amount must be greater than 0.")
+        return result
+
+    for kill_index in range(amount):
+        increment_animal_kill_count(animal_id)
+
+    var new_kill_count: int = get_animal_kill_count(animal_id)
+    var animal_base_data: Dictionary = RegionWildAnimalData.get_animal(animal_id)
+    var animal_name: String = animal_id
+
+    if not animal_base_data.is_empty():
+        animal_name = str(animal_base_data.get(RegionWildAnimalData.KEY_NAME, animal_id))
+
+    result["messages"].append(
+        "Debug: added "
+        + str(amount)
+        + " "
+        + animal_name
+        + " kills. Total: "
+        + str(new_kill_count)
+        + "."
+    )
+
+    var unique_messages: Array = check_unique_animal_triggers()
+
+    for message_index in range(unique_messages.size()):
+        result["messages"].append(str(unique_messages[message_index]))
+
+    return result
+
+
+func debug_get_kill_count_summary() -> Array:
+    var messages: Array = []
+
+    if animal_kill_counts.is_empty():
+        messages.append("Animal kill counts: none.")
+        return messages
+
+    var animal_ids: Array = animal_kill_counts.keys()
+    animal_ids.sort()
+
+    messages.append("Animal kill counts:")
+
+    for animal_index in range(animal_ids.size()):
+        var animal_id: String = str(animal_ids[animal_index])
+        var animal_base_data: Dictionary = RegionWildAnimalData.get_animal(animal_id)
+        var animal_name: String = animal_id
+
+        if not animal_base_data.is_empty():
+            animal_name = str(animal_base_data.get(RegionWildAnimalData.KEY_NAME, animal_id))
+
+        messages.append(
+            "- "
+            + animal_name
+            + ": "
+            + str(int(animal_kill_counts.get(animal_id, 0)))
+        )
+
+    return messages
 
 func schedule_respawn_from_hunt_result(hunt_result: Dictionary) -> String:
     var animal_id: String = str(hunt_result.get("animal_id", ""))
