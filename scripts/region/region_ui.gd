@@ -76,6 +76,7 @@ const SELECTED_VILLAGER_REMOVE_BUTTON_HEIGHT: int = 22
 const SELECTED_BUILDING_PANEL_WIDTH: int = 390
 const SELECTED_BUILDING_PANEL_HEIGHT: int = 340
 const SELECTED_BUILDING_PANEL_MARGIN: int = 12
+const SELECTED_BUILDING_PANEL_BOTTOM_OFFSET: int = 56
 const SELECTED_BUILDING_CLOSE_BUTTON_SIZE: int = 22
 
 const SELECTED_BUILDING_ACTION_START_Y: int = 230
@@ -465,15 +466,14 @@ static func get_selected_villager_action_visible_row_count() -> int:
 static func get_selected_building_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     return Rect2(
         Vector2(
-            SELECTED_BUILDING_PANEL_MARGIN,
-            SELECTED_BUILDING_PANEL_MARGIN
+            viewport_size.x - SELECTED_BUILDING_PANEL_WIDTH - SELECTED_BUILDING_PANEL_MARGIN,
+            viewport_size.y - SELECTED_BUILDING_PANEL_HEIGHT - SELECTED_BUILDING_PANEL_MARGIN - SELECTED_BUILDING_PANEL_BOTTOM_OFFSET
         ),
         Vector2(
             SELECTED_BUILDING_PANEL_WIDTH,
             SELECTED_BUILDING_PANEL_HEIGHT
         )
     )
-
 
 static func get_selected_building_close_button_screen_rect(viewport_size: Vector2) -> Rect2:
     var panel_rect: Rect2 = get_selected_building_panel_screen_rect(viewport_size)
