@@ -29,10 +29,15 @@ static func get_small_font_size(world_per_screen_y: float) -> int:
 static func get_tiny_font_size(world_per_screen_y: float) -> int:
     return int(max(7.0, 10.0 * world_per_screen_y))
 
+static func get_display_amount(amount: float) -> String:
+    if is_equal_approx(amount, round(amount)):
+        return str(int(round(amount)))
+
+    return "%.1f" % amount
 
 static func draw_top_info_panel(
     node: CanvasItem,
-    research_points: int,
+    research_points: float,
     villager_count: int,
     available_shelter: int,
     show_resource_inventory_panel: bool,
@@ -79,7 +84,7 @@ static func draw_top_info_panel(
     if settlement_name == "":
         settlement_name = "New Settlement"
 
-    var research_text := "Research: " + str(research_points)
+    var ideas_text := "Ideas: " + get_display_amount(research_points)
     var villager_text := "Villagers: " + str(villager_count)
     var shelter_text := "Shelter: " + str(available_shelter) + " open"
 
@@ -102,7 +107,7 @@ static func draw_top_info_panel(
             node,
             panel_screen_rect.position + Vector2(10, 40)
         ),
-        research_text,
+        ideas_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         font_size,
@@ -160,7 +165,7 @@ static func draw_top_info_panel(
         },
         {
             "rect": research_button_screen_rect,
-            "label": "Research",
+            "label": "Ideas",
             "active": show_research_panel
         }
     ]
@@ -566,7 +571,7 @@ static func draw_research_panel(
             node,
             panel_screen_rect.position + Vector2(10, 20)
         ),
-        "Available Research",
+        "Available Ideas",
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         get_title_font_size(world_per_screen_y),
@@ -580,7 +585,7 @@ static func draw_research_panel(
                 node,
                 panel_screen_rect.position + Vector2(10, 48)
             ),
-            "No affordable research available.",
+            "No affordable ideas available.",
             HORIZONTAL_ALIGNMENT_LEFT,
             -1,
             get_body_font_size(world_per_screen_y),
@@ -613,9 +618,9 @@ static func draw_research_panel(
             get_small_border_width(world_per_screen_y)
         )
 
-        var plan_name: String = str(plan.get("name", "Research"))
+        var plan_name: String = str(plan.get("name", "Idea"))
         var plan_cost: int = int(plan.get("cost", 0))
-        var plan_text: String = plan_name + " — " + str(plan_cost) + " Research"
+        var plan_text: String = plan_name + " — " + str(plan_cost) + " Ideas"
 
         node.draw_string(
             ThemeDB.fallback_font,

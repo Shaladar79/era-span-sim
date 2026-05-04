@@ -1035,7 +1035,8 @@ func handle_dangerous_hunt_tick(
 func update_research(delta: float) -> void:
     research.update(
         delta,
-        building_manager
+        building_manager,
+        villager_manager
     )
 
 

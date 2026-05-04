@@ -436,16 +436,6 @@ func try_place_current_building(
         )
         return false
 
-    if not meets_campfire_range_requirement(
-        building_data,
-        origin_tile,
-        footprint_width,
-        footprint_height
-    ):
-        print("Cannot place " + building_name + " here.")
-        print("- Building must be within active fire range.")
-        return false
-
     if not inventory.has_cost(cost):
         print("Not enough resources to build " + building_name + ".")
         print("Need resources: " + get_cost_text_from_dictionary(cost))

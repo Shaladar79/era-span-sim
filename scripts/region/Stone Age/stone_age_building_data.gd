@@ -78,7 +78,7 @@ static func get_all_buildings() -> Dictionary:
             "movable": false,
             "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
-            "description": "The center of a Stone Age camp. It gives warmth, comfort, and security, keeping wild animals away. Building a Campfire unlocks Shelter and Storage Area construction nearby."
+            "description": "The center of a Stone Age camp. It gives warmth, comfort, and security, keeping wild animals away."
         },
 
         BUILDING_STORAGE_AREA: {
@@ -93,11 +93,11 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "storage_capacity": STORAGE_AREA_CAPACITY,
             "storage_resource": "",
-            "description": "A cleared storage area for one selected resource type. Each Storage Area increases that resource's cap by 50. It must be built within range of a Campfire."
+            "description": "A cleared storage area for one selected resource type. Each Storage Area increases that resource's cap by 50."
         },
 
         BUILDING_MAKING_SPOT: {
@@ -113,7 +113,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "assignment_enabled": true,
             "assignment_slots": 1,
@@ -136,7 +136,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "research_per_minute": THINKERS_SPOT_RESEARCH_PER_MINUTE,
             "assignment_enabled": true,
@@ -160,7 +160,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": BONFIRE_BUILD_RADIUS,
             "provides_bonfire_radius": true,
@@ -180,10 +180,10 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": true,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": SHELTER_CAPACITY,
-            "description": "A basic temporary dwelling. It shelters 2 normal villagers. It must be built within range of a Campfire. Building 3 Shelters unlocks the Chieftain's Shelter."
+            "description": "A basic temporary dwelling. It shelters 2 normal villagers."
         },
 
         BUILDING_CHIEFTAINS_SHELTER: {
@@ -200,7 +200,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": true,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": CHIEFTAINS_SHELTER_CAPACITY,
             "houses_chieftain": true,
@@ -209,7 +209,7 @@ static func get_all_buildings() -> Dictionary:
             "hero_placeholder_role": HERO_PLACEHOLDER_CHIEFTAIN,
             "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_CROWN,
             "hero_placeholder_color": Color(1.0, 0.85, 0.25, 1.0),
-            "description": "A larger, more respected shelter used by the village leader. Building it grants a generic Chieftain for now and unlocks the Making Spot and Thinker's Spot."
+            "description": "A larger, more respected shelter used by the village leader. Building it grants a generic Chieftain for now."
         },
 
         BUILDING_TENT: {
@@ -226,7 +226,7 @@ static func get_all_buildings() -> Dictionary:
                 RegionRecipeData.ITEM_TENT_KIT: 1
             },
             "movable": true,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": TENT_CAPACITY,
@@ -248,7 +248,7 @@ static func get_all_buildings() -> Dictionary:
                 RegionRecipeData.ITEM_TENT_KIT: 2
             },
             "movable": true,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": CHIEFTAINS_TENT_CAPACITY,
@@ -274,7 +274,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": true,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": WARLEADER_SHELTER_CAPACITY,
@@ -302,7 +302,7 @@ static func get_all_buildings() -> Dictionary:
                 RegionRecipeData.ITEM_TENT_KIT: 2
             },
             "movable": true,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "housing_capacity": SPIRITUAL_LEADER_TENT_CAPACITY,
@@ -328,7 +328,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "stoneworking",
@@ -355,7 +355,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "woodworking",
@@ -383,7 +383,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "specialist_role": ASSIGNMENT_ROLE_HUNTER,
@@ -395,8 +395,8 @@ static func get_all_buildings() -> Dictionary:
             "assigned_villagers": [],
             "description": "A dedicated Stone Age hut for future hunters. Up to 3 villagers can be assigned here as Hunters, and the hut replaces normal shelter for those villagers."
         },
-        
-                BUILDING_FISHING_HUT: {
+
+        BUILDING_FISHING_HUT: {
             "id": BUILDING_FISHING_HUT,
             "name": "Fishing Hut",
             "age": AGE_STONE,
@@ -410,7 +410,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "specialist_role": ASSIGNMENT_ROLE_FISHER,
@@ -437,7 +437,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "specialist_role": ASSIGNMENT_ROLE_WARRIOR,
@@ -464,7 +464,7 @@ static func get_all_buildings() -> Dictionary:
             },
             "item_cost": {},
             "movable": false,
-            "requires_campfire_range": true,
+            "requires_campfire_range": false,
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "assignment_enabled": true,

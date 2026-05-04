@@ -1,7 +1,10 @@
 extends RefCounted
 class_name RegionResearch
 
-const RESEARCH_TICK_INTERVAL: float = 60.0
+const RESEARCH_TICK_INTERVAL: float = 30.0
+
+const THINKERS_SPOT_BASE_IDEAS_PER_TICK: float = 0.5
+const THINKERS_SPOT_IDEAS_PER_THINKING_LEVEL: float = 0.25
 
 const SAVE_KEY_RESEARCH_POINTS: String = "research_points"
 const SAVE_KEY_RESEARCH_TIMER: String = "research_timer"
@@ -10,7 +13,7 @@ const SAVE_KEY_UNLOCKED_RECIPES: String = "unlocked_recipes"
 const SAVE_KEY_UNLOCKED_BUILDINGS: String = "unlocked_buildings"
 const SAVE_KEY_GLOBAL_BONUSES: String = "global_bonuses"
 
-var research_points: int = 0
+var research_points: float = 0.0
 var research_timer: float = 0.0
 
 var learned_research: Array = []
@@ -20,7 +23,7 @@ var global_bonuses: Dictionary = {}
 
 
 func reset() -> void:
-    research_points = 0
+    research_points = 0.0
     research_timer = 0.0
     learned_research.clear()
     unlocked_recipes.clear()
@@ -45,7 +48,7 @@ func load_save_data(save_data: Dictionary) -> void:
     if save_data.is_empty():
         return
 
-    research_points = max(0, int(save_data.get(SAVE_KEY_RESEARCH_POINTS, 0)))
+    research_points = max(0.0, float(save_data.get(SAVE_KEY_RESEARCH_POINTS, 0.0)))
     research_timer = max(0.0, float(save_data.get(SAVE_KEY_RESEARCH_TIMER, 0.0)))
 
     var saved_learned_research: Variant = save_data.get(SAVE_KEY_LEARNED_RESEARCH, [])
@@ -94,32 +97,43 @@ func get_unique_string_array(value: Variant) -> Array:
 
 func update(
     delta: float,
-    building_manager: RegionBuildingManager
+    building_manager: RegionBuildingManager,
+    villager_manager: VillagerManager = null
 ) -> void:
     research_timer += delta
 
-    if research_timer < RESEARCH_TICK_INTERVAL:
+    var did_gain_research: bool = false
+
+    while research_timer >= RESEARCH_TICK_INTERVAL:
+        research_timer -= RESEARCH_TICK_INTERVAL
+
+        var ideas_per_tick: float = get_total_ideas_per_tick(
+            building_manager,
+            villager_manager
+        )
+
+        if ideas_per_tick <= 0.0:
+            continue
+
+        add_research(ideas_per_tick)
+        did_gain_research = true
+
+        print(
+            "Ideas gained: ",
+            get_display_amount(ideas_per_tick),
+            ". Total Ideas: ",
+            get_display_amount(research_points)
+        )
+
+    if did_gain_research:
         return
 
-    research_timer -= RESEARCH_TICK_INTERVAL
 
-    var research_per_minute: int = get_total_research_per_minute(building_manager)
-
-    if research_per_minute <= 0:
-        return
-
-    add_research(research_per_minute)
-
-    print(
-        "Research gained: ",
-        research_per_minute,
-        ". Total Research: ",
-        research_points
-    )
-
-
-func get_total_research_per_minute(building_manager: RegionBuildingManager) -> int:
-    var total_research: int = 0
+func get_total_ideas_per_tick(
+    building_manager: RegionBuildingManager,
+    villager_manager: VillagerManager = null
+) -> float:
+    var total_ideas: float = 0.0
     var buildings: Array = building_manager.get_buildings()
 
     for building_index in range(buildings.size()):
@@ -137,23 +151,71 @@ func get_total_research_per_minute(building_manager: RegionBuildingManager) -> i
         if not bool(building_data.get("active", true)):
             continue
 
-        total_research += int(building_data.get(
-            "research_per_minute",
-            RegionBuildingData.THINKERS_SPOT_RESEARCH_PER_MINUTE
-        ))
+        total_ideas += get_thinkers_spot_ideas_per_tick(
+            building_data,
+            villager_manager
+        )
 
-    return total_research
+    return total_ideas
 
 
-func add_research(amount: int) -> void:
-    if amount <= 0:
+func get_thinkers_spot_ideas_per_tick(
+    building_data: Dictionary,
+    villager_manager: VillagerManager = null
+) -> float:
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+    if assigned_villagers.is_empty():
+        return THINKERS_SPOT_BASE_IDEAS_PER_TICK
+
+    if villager_manager == null:
+        return THINKERS_SPOT_BASE_IDEAS_PER_TICK
+
+    var total_ideas: float = 0.0
+    var counted_assigned_villagers: int = 0
+
+    for assigned_index in range(assigned_villagers.size()):
+        var villager_id: int = int(assigned_villagers[assigned_index])
+
+        if villager_id <= 0:
+            continue
+
+        var villager_data: Dictionary = villager_manager.get_villager_data_by_id(villager_id)
+
+        if villager_data.is_empty():
+            continue
+
+        if str(villager_data.get("health_state", VillagerManager.HEALTH_STATE_HEALTHY)) == VillagerManager.HEALTH_STATE_DEAD:
+            continue
+
+        var thinking_level: int = villager_manager.get_villager_skill_level(
+            villager_data,
+            VillagerManager.SKILL_THINKING
+        )
+
+        total_ideas += THINKERS_SPOT_BASE_IDEAS_PER_TICK
+        total_ideas += float(thinking_level) * THINKERS_SPOT_IDEAS_PER_THINKING_LEVEL
+        counted_assigned_villagers += 1
+
+    if counted_assigned_villagers <= 0:
+        return THINKERS_SPOT_BASE_IDEAS_PER_TICK
+
+    return total_ideas
+
+
+func get_total_research_per_minute(building_manager: RegionBuildingManager) -> float:
+    return get_total_ideas_per_tick(building_manager, null) * 2.0
+
+
+func add_research(amount: float) -> void:
+    if amount <= 0.0:
         return
 
     research_points += amount
 
 
-func spend_research(amount: int) -> bool:
-    if amount <= 0:
+func spend_research(amount: float) -> bool:
+    if amount <= 0.0:
         return true
 
     if research_points < amount:
@@ -163,12 +225,16 @@ func spend_research(amount: int) -> bool:
     return true
 
 
-func get_research_points() -> int:
+func get_research_points() -> float:
     return research_points
 
 
-func set_research_points(amount: int) -> void:
-    research_points = max(0, amount)
+func get_research_points_display_text() -> String:
+    return get_display_amount(research_points)
+
+
+func set_research_points(amount: float) -> void:
+    research_points = max(0.0, amount)
 
 
 func get_buyable_research_plans(
@@ -210,7 +276,7 @@ func can_buy_research_plan(
     if has_learned_research(research_id):
         return false
 
-    var cost: int = int(plan.get("cost", 0))
+    var cost: float = float(plan.get("cost", 0))
 
     if research_points < cost:
         return false
@@ -244,7 +310,7 @@ func buy_research_plan(
     var plan: Dictionary = RegionResearchData.get_research_plan(research_id)
 
     if plan.is_empty():
-        result["message"] = "Research plan not found: " + research_id
+        result["message"] = "Idea not found: " + research_id
         return result
 
     if not can_buy_research_plan(
@@ -252,13 +318,13 @@ func buy_research_plan(
         building_manager,
         inventory
     ):
-        result["message"] = "Research is not currently available: " + str(plan.get("name", research_id))
+        result["message"] = "Idea is not currently available: " + str(plan.get("name", research_id))
         return result
 
-    var cost: int = int(plan.get("cost", 0))
+    var cost: float = float(plan.get("cost", 0))
 
     if not spend_research(cost):
-        result["message"] = "Not enough Research."
+        result["message"] = "Not enough Ideas."
         return result
 
     learn_research_plan(plan)
@@ -480,6 +546,13 @@ func get_array_copy(value: Variant) -> Array:
     return output
 
 
+func get_display_amount(amount: float) -> String:
+    if is_equal_approx(amount, round(amount)):
+        return str(int(round(amount)))
+
+    return "%.1f" % amount
+
+
 func _sort_research_plans_by_cost_then_name(a: Dictionary, b: Dictionary) -> bool:
     var cost_a: int = int(a.get("cost", 0))
     var cost_b: int = int(b.get("cost", 0))
@@ -495,10 +568,10 @@ func _sort_research_plans_by_cost_then_name(a: Dictionary, b: Dictionary) -> boo
 
 func print_research_status(building_manager: RegionBuildingManager) -> void:
     print("")
-    print("Research:")
-    print("Stored Research: " + str(research_points))
-    print("Research per Minute: " + str(get_total_research_per_minute(building_manager)))
-    print("Learned Research: " + str(learned_research))
+    print("Ideas:")
+    print("Stored Ideas: " + get_display_amount(research_points))
+    print("Ideas per 30 seconds: " + get_display_amount(get_total_ideas_per_tick(building_manager, null)))
+    print("Learned Ideas: " + str(learned_research))
     print("Unlocked Recipes: " + str(unlocked_recipes))
     print("Unlocked Buildings: " + str(unlocked_buildings))
     print("Global Bonuses: " + str(global_bonuses))
