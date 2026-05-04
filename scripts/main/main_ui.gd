@@ -5,6 +5,7 @@ extends CanvasLayer
 signal main_menu_new_game_requested
 signal main_menu_load_game_requested
 signal main_menu_options_requested
+signal main_menu_close_application_requested
 
 signal debug_action_requested(action_id: String)
 signal debug_mode_changed(is_enabled: bool)
@@ -24,6 +25,7 @@ signal pause_resume_requested
 signal pause_save_requested
 signal pause_load_requested
 signal pause_return_to_main_requested
+signal pause_close_application_requested
 
 @onready var build_button: Button = get_node_or_null("BuildButton")
 @onready var build_menu: Panel = get_node_or_null("BuildMenu")
@@ -552,8 +554,12 @@ func setup_main_menu() -> void:
     main_menu_panel.add_child(options_button)
     generated_main_menu_buttons.append(options_button)
 
-    setup_main_menu_layout()
+    var close_button := create_menu_button("Close Application", Vector2(80, 202))
+    close_button.pressed.connect(_on_main_menu_close_application_pressed)
+    main_menu_panel.add_child(close_button)
+    generated_main_menu_buttons.append(close_button)
 
+    setup_main_menu_layout()
 
 func setup_options_panel() -> void:
     if options_panel != null:
@@ -1014,6 +1020,12 @@ func setup_pause_menu() -> void:
     pause_menu_panel.add_child(pause_return_to_main_button)
     generated_pause_menu_buttons.append(pause_return_to_main_button)
 
+    var close_button := create_menu_button("Close Application", Vector2(80, 264))
+    close_button.name = "CloseApplicationButton"
+    close_button.pressed.connect(_on_pause_close_application_pressed)
+    pause_menu_panel.add_child(close_button)
+    generated_pause_menu_buttons.append(close_button)
+
     setup_pause_menu_layout()
 
 
@@ -1079,12 +1091,11 @@ func setup_main_menu_layout() -> void:
         return
 
     var viewport_size := get_viewport().get_visible_rect().size
-    main_menu_panel.size = Vector2(320, 224)
+    main_menu_panel.size = Vector2(320, 262)
     main_menu_panel.position = Vector2(
         viewport_size.x * 0.5 - main_menu_panel.size.x * 0.5,
         viewport_size.y * 0.5 - main_menu_panel.size.y * 0.5
     )
-
 
 func setup_options_panel_layout() -> void:
     if options_panel == null:
@@ -1096,7 +1107,6 @@ func setup_options_panel_layout() -> void:
         viewport_size.x * 0.5 - options_panel.size.x * 0.5,
         viewport_size.y * 0.5 - options_panel.size.y * 0.5
     )
-
 
 func setup_debug_tools_panel_layout() -> void:
     if debug_tools_panel == null:
@@ -1139,11 +1149,12 @@ func setup_pause_menu_layout() -> void:
         return
 
     var viewport_size := get_viewport().get_visible_rect().size
-    pause_menu_panel.size = Vector2(320, 286)
+    pause_menu_panel.size = Vector2(320, 324)
     pause_menu_panel.position = Vector2(
         viewport_size.x * 0.5 - pause_menu_panel.size.x * 0.5,
         viewport_size.y * 0.5 - pause_menu_panel.size.y * 0.5
     )
+    
 
 
 func setup_load_game_panel_layout() -> void:
@@ -1649,6 +1660,8 @@ func _on_options_back_pressed() -> void:
     hide_options_panel()
     show_main_menu()
 
+func _on_main_menu_close_application_pressed() -> void:
+    main_menu_close_application_requested.emit()
 
 func _on_debug_mode_toggled(is_enabled: bool) -> void:
     debug_mode_enabled = is_enabled
@@ -1722,6 +1735,8 @@ func _on_pause_load_pressed() -> void:
 func _on_pause_return_to_main_pressed() -> void:
     pause_return_to_main_requested.emit()
 
+func _on_pause_close_application_pressed() -> void:
+    pause_close_application_requested.emit()
 
 func _on_load_save_file_pressed(save_file_name: String) -> void:
     var save_label: String = save_file_name

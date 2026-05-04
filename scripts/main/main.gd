@@ -78,6 +78,9 @@ func connect_ui_signals() -> void:
     if ui.has_signal("main_menu_options_requested"):
         ui.connect("main_menu_options_requested", Callable(self, "_on_main_menu_options_requested"))
 
+    if ui.has_signal("main_menu_close_application_requested"):
+       ui.connect("main_menu_close_application_requested", Callable(self, "_on_main_menu_close_application_requested"))
+    
     if ui.has_signal("debug_action_requested"):
         ui.connect("debug_action_requested", Callable(self, "_on_debug_action_requested"))
 
@@ -107,6 +110,9 @@ func connect_ui_signals() -> void:
 
     if ui.has_signal("pause_return_to_main_requested"):
         ui.connect("pause_return_to_main_requested", Callable(self, "_on_pause_return_to_main_requested"))
+        
+    if ui.has_signal("pause_close_application_requested"):
+       ui.connect("pause_close_application_requested", Callable(self, "_on_pause_close_application_requested"))
 
     if ui.has_signal("load_save_file_requested"):
         ui.connect("load_save_file_requested", Callable(self, "_on_load_save_file_requested"))
@@ -674,6 +680,9 @@ func _on_main_menu_options_requested() -> void:
         return
 
     print("Options requested, but Options panel is not available.")
+    
+func _on_main_menu_close_application_requested() -> void:
+    get_tree().quit()
 
 
 func _on_debug_action_requested(action_id: String) -> void:
@@ -726,6 +735,8 @@ func _on_pause_load_requested() -> void:
 func _on_pause_return_to_main_requested() -> void:
     enter_main_menu_mode()
 
+func _on_pause_close_application_requested() -> void:
+    get_tree().quit()
 
 func _on_load_save_file_requested(save_file_name: String) -> void:
     load_save_file(save_file_name)

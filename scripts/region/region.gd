@@ -54,6 +54,7 @@ const SAVE_TYPE_VECTOR2: String = "Vector2"
 const BUILDING_ACTION_ASSIGN: String = "assign"
 const BUILDING_ACTION_CRAFT: String = "craft"
 const BUILDING_ACTION_STORAGE: String = "storage"
+const BUILDING_ACTION_DESTROY: String = "destroy"
 const VILLAGER_ACTION_SELECT_HARVEST_AREA: String = "select_harvest_area"
 @export var region_seed: int = 12345
 
@@ -1225,8 +1226,111 @@ func execute_selected_building_action(action_id: String) -> void:
         queue_redraw()
         return
 
+    if action_id == BUILDING_ACTION_DESTROY:
+        destroy_selected_building()
+        return
+
     add_village_log_message("Unknown building action.")
     queue_redraw()
+
+func destroy_selected_building() -> void:
+    var building_data: Dictionary = get_selected_building_data()
+
+    # Destroy should never leave any placement or panel interaction half-active.
+    cancel_harvest_area_selection()
+    close_storage_selector()
+    close_crafting_panel()
+    close_assignment_panel()
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    show_build_panel = false
+    building_manager.cancel_build_mode()
+
+    if building_data.is_empty():
+        close_selected_building_panel()
+        queue_redraw()
+        return
+
+    var building_instance_id: int = int(building_data.get("instance_id", 0))
+
+    if building_instance_id <= 0:
+        add_village_log_message("Could not destroy building. Invalid building instance.")
+        close_selected_building_panel()
+        queue_redraw()
+        return
+
+    var storage_block_message: String = get_storage_destroy_block_message(building_data)
+
+    if storage_block_message != "":
+        add_village_log_message(storage_block_message)
+        close_selected_building_panel()
+        queue_redraw()
+        return
+
+    var destroy_result: Dictionary = building_manager.destroy_building_by_instance_id(
+        building_instance_id
+    )
+
+    var destroy_message: String = str(destroy_result.get("message", ""))
+
+    if destroy_message != "":
+        add_village_log_message(destroy_message)
+
+    if not bool(destroy_result.get("success", false)):
+        close_selected_building_panel()
+        queue_redraw()
+        return
+
+    var assigned_villagers: Array = destroy_result.get("assigned_villagers", [])
+
+    for assigned_index in range(assigned_villagers.size()):
+        var villager_id: int = int(assigned_villagers[assigned_index])
+
+        if villager_id <= 0:
+            continue
+
+        var unassign_result: Dictionary = villager_manager.clear_villager_building_assignment(
+            villager_id
+        )
+
+        var unassign_message: String = str(unassign_result.get("message", ""))
+
+        if unassign_message != "":
+            add_village_log_message(unassign_message)
+
+    close_selected_building_panel()
+
+    var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
+    villager_manager.auto_assign_villager_housing(normal_housing_capacity)
+
+    relocate_wild_animals_away_from_campfires()
+    print_settlement_inventory()
+    print_research_status()
+    queue_redraw()
+
+
+func get_storage_destroy_block_message(building_data: Dictionary) -> String:
+    if str(building_data.get("id", "")) != RegionBuildingData.BUILDING_STORAGE_AREA:
+        return ""
+
+    var storage_resource: String = str(building_data.get("storage_resource", ""))
+
+    if storage_resource == "":
+        return ""
+
+    var current_amount: int = inventory.get_amount(storage_resource)
+
+    if current_amount <= 0:
+        return ""
+
+    return (
+        "Storage Area cannot be destroyed while it stores "
+        + storage_resource
+        + ": "
+        + str(current_amount)
+        + "."
+    )
 
 func try_handle_village_log_click(mouse_screen_position: Vector2) -> bool:
     if get_village_log_button_screen_rect().has_point(mouse_screen_position):
@@ -2350,9 +2454,6 @@ func try_start_villager_drag_or_select() -> void:
 
         close_storage_selector()
 
-    if try_open_selected_building_panel_at_tile(hovered_tile):
-        return
-
     var mouse_world_position := get_global_mouse_position()
     var villager_id: int = villager_manager.get_villager_at_world_position(
         mouse_world_position,
@@ -2361,6 +2462,9 @@ func try_start_villager_drag_or_select() -> void:
 
     if villager_id > 0:
         open_selected_villager_panel(villager_id)
+        return
+
+    if try_open_selected_building_panel_at_tile(hovered_tile):
         return
 
     select_hovered_tile()
@@ -3037,6 +3141,11 @@ func get_selected_building_actions() -> Array:
             "id": BUILDING_ACTION_CRAFT,
             "label": "Craft Recipes"
         })
+
+    actions.append({
+        "id": BUILDING_ACTION_DESTROY,
+        "label": "Destroy Building"
+    })
 
     return actions
 

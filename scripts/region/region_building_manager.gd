@@ -1132,6 +1132,82 @@ func get_building_by_instance_id(building_instance_id: int) -> Dictionary:
 
     return {}
 
+func destroy_building_by_instance_id(building_instance_id: int) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": "",
+        "building_instance_id": building_instance_id,
+        "building_id": "",
+        "building_name": "",
+        "assigned_villagers": []
+    }
+
+    # Destroy should always leave placement mode.
+    cancel_build_mode()
+
+    if building_instance_id <= 0:
+        result["message"] = "Invalid building."
+        return result
+
+    var building_index: int = get_building_index_by_instance_id(building_instance_id)
+
+    if building_index < 0:
+        result["message"] = "Building not found."
+        return result
+
+    var building_data: Dictionary = region_buildings[building_index]
+    var building_id: String = str(building_data.get("id", ""))
+    var building_name: String = str(building_data.get("name", "Building"))
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+    result["building_id"] = building_id
+    result["building_name"] = building_name
+    result["assigned_villagers"] = assigned_villagers.duplicate(true)
+
+    if is_hero_placeholder_building(building_data):
+        result["message"] = building_name + " cannot be destroyed yet because it is tied to a hero placeholder."
+        return result
+
+    region_buildings.remove_at(building_index)
+
+    # Safer than partial tile cleanup: rebuild map occupancy from remaining buildings.
+    rebuild_occupied_tiles_from_buildings()
+
+    result["success"] = true
+    result["message"] = building_name + " destroyed."
+
+    return result
+
+
+func clear_building_occupied_tiles(building_data: Dictionary) -> void:
+    if region_tiles.is_empty():
+        return
+
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var footprint_width: int = int(building_data.get("width", 1))
+    var footprint_height: int = int(building_data.get("height", 1))
+    var building_instance_id: int = int(building_data.get("instance_id", 0))
+
+    for y_offset in range(footprint_height):
+        for x_offset in range(footprint_width):
+            var tile_position := Vector2i(
+                tile_x + x_offset,
+                tile_y + y_offset
+            )
+
+            if not is_tile_in_bounds(tile_position):
+                continue
+
+            var tile_data: Dictionary = region_tiles[tile_position.y][tile_position.x]
+
+            if int(tile_data.get("building_instance_id", 0)) != building_instance_id:
+                continue
+
+            tile_data["occupied"] = false
+            tile_data.erase("building_id")
+            tile_data.erase("building_instance_id")
+            region_tiles[tile_position.y][tile_position.x] = tile_data
 
 func get_building_index_by_instance_id(building_instance_id: int) -> int:
     for building_index in range(region_buildings.size()):
@@ -1151,6 +1227,8 @@ func get_building_index_by_instance_id(building_instance_id: int) -> int:
 func is_storage_area_building(building_data: Dictionary) -> bool:
     return str(building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA
 
+func is_hero_placeholder_building(building_data: Dictionary) -> bool:
+    return bool(building_data.get("hero_placeholder_enabled", false))
 
 func is_assignment_enabled_building(building_data: Dictionary) -> bool:
     return bool(building_data.get("assignment_enabled", false))
