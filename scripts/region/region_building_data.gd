@@ -54,7 +54,8 @@ static var runtime_unlocked_buildings: Dictionary = {}
 
 static func reset_runtime_unlocks() -> void:
     runtime_unlocked_buildings = {
-        BUILDING_THINKERS_SPOT: true
+        BUILDING_THINKERS_SPOT: true,
+        BUILDING_MAKING_SPOT: true
     }
 
 

@@ -2092,7 +2092,8 @@ func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
     var recipe_rows: Array = crafting.get_known_recipe_display_rows_for_building(
         selected_crafting_building_id,
         research,
-        inventory
+        inventory,
+        item_inventory
     )
 
     var visible_count: int = min(
@@ -3149,7 +3150,8 @@ func draw_crafting_panel() -> void:
     var recipe_rows: Array = crafting.get_known_recipe_display_rows_for_building(
         selected_crafting_building_id,
         research,
-        inventory
+        inventory,
+        item_inventory
     )
 
     RegionDraw.draw_crafting_panel(
