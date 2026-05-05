@@ -32,7 +32,8 @@ const CAMPFIRE_BUILD_RADIUS: int = 6
 const BONFIRE_BUILD_RADIUS: int = 15
 
 const STORAGE_BASE_RESOURCE_CAP: int = 20
-const STORAGE_AREA_CAPACITY: int = 50
+const STORAGE_AREA_CAPACITY: int = 20
+const GATHERERS_HUT_SELECTED_RESOURCE_CAPACITY: int = 50
 
 const SHELTER_CAPACITY: int = 2
 const TENT_CAPACITY: int = 2
@@ -106,14 +107,14 @@ static func get_all_buildings() -> Dictionary:
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "storage_capacity": STORAGE_AREA_CAPACITY,
             "storage_resource": "",
-            "description": "A cleared storage area for one selected resource type. Each Storage Area increases that resource's cap by 50."
+            "description": "A cleared storage area for one selected resource type. Each Storage Area increases that resource's cap by 20."
         },
 
         BUILDING_MAKING_SPOT: {
             "id": BUILDING_MAKING_SPOT,
             "name": "Making Spot",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_CORE,
+            "category": RegionAgeData.CATEGORY_WORK,
             "width": 1,
             "height": 1,
             "cost": {
@@ -294,7 +295,7 @@ static func get_all_buildings() -> Dictionary:
             "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_ROOK,
             "hero_placeholder_color": Color(0.25, 0.45, 1.0, 1.0),
             "description": "A marked command shelter used by a future Warleader. Building it grants a placeholder Warleader for now, shown as a blue rook-style marker."
-            },
+        },
 
         BUILDING_WARLEADER_TENT: {
             "id": BUILDING_WARLEADER_TENT,
@@ -382,7 +383,7 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_STONEWORKING_BENCH,
             "name": "Stoneworker's Hut",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_CRAFTING,
+            "category": RegionAgeData.CATEGORY_WORK,
             "width": 2,
             "height": 1,
             "cost": {
@@ -409,7 +410,7 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_WOODWORKING_BENCH,
             "name": "Woodcarver's Hut",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_CRAFTING,
+            "category": RegionAgeData.CATEGORY_WORK,
             "width": 2,
             "height": 1,
             "cost": {
@@ -436,9 +437,9 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_GATHERERS_HUT,
             "name": "Gatherer's Hut",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_SPECIAL,
-            "width": 2,
-            "height": 1,
+            "category": RegionAgeData.CATEGORY_WORK,
+            "width": 1,
+            "height": 2,
             "cost": {
                 "Wood": 8,
                 "Fiber": 4
@@ -455,14 +456,18 @@ static func get_all_buildings() -> Dictionary:
             "assignment_role": ASSIGNMENT_ROLE_GATHERER,
             "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age hut for organized gatherers. Up to 3 villagers can be assigned here as Gatherers, and the hut replaces normal shelter for those villagers."
+            "resource_selector_enabled": true,
+            "resource_selector_type": "non_animal",
+            "selected_resource": "",
+            "selected_resource_storage_capacity": GATHERERS_HUT_SELECTED_RESOURCE_CAPACITY,
+            "description": "A dedicated Stone Age work hut for organized gatherers. It will later allow the player to select a non-animal resource for assigned Gatherers to collect. The selected resource gains +50 storage capacity from this hut. Up to 3 villagers can be assigned here as Gatherers, and the hut replaces normal shelter for those villagers."
         },
 
         BUILDING_BONECARVERS_HUT: {
             "id": BUILDING_BONECARVERS_HUT,
             "name": "Bonecarver's Hut",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_CRAFTING,
+            "category": RegionAgeData.CATEGORY_WORK,
             "width": 2,
             "height": 1,
             "cost": {
@@ -490,7 +495,7 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_HUNTERS_HUT,
             "name": "Hunter's Hut",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_SPECIAL,
+            "category": RegionAgeData.CATEGORY_FOOD,
             "width": 2,
             "height": 1,
             "cost": {
@@ -517,7 +522,7 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_FISHING_HUT,
             "name": "Fishing Hut",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_SPECIAL,
+            "category": RegionAgeData.CATEGORY_FOOD,
             "width": 2,
             "height": 1,
             "cost": {
@@ -544,7 +549,7 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_WARRIOR_HUT,
             "name": "Warrior's Hut",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_SPECIAL,
+            "category": RegionAgeData.CATEGORY_DEFENSE,
             "width": 2,
             "height": 1,
             "cost": {
@@ -571,7 +576,7 @@ static func get_all_buildings() -> Dictionary:
             "id": BUILDING_RITUAL_SITE,
             "name": "Ritual Site",
             "age": AGE_STONE,
-            "category": RegionAgeData.CATEGORY_SPECIAL,
+            "category": RegionAgeData.CATEGORY_SPIRITUAL,
             "width": 3,
             "height": 3,
             "cost": {
