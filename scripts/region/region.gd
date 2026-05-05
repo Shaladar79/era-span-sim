@@ -50,6 +50,7 @@ const SAVE_KEY_VILLAGE_LOG_MESSAGES: String = "village_log_messages"
 const SAVE_TYPE_KEY: String = "__save_type"
 const SAVE_TYPE_VECTOR2I: String = "Vector2i"
 const SAVE_TYPE_VECTOR2: String = "Vector2"
+const BUILDING_ACTION_GATHER_RESOURCE: String = "gather_resource"
 
 const BUILDING_ACTION_ASSIGN: String = "assign"
 const BUILDING_ACTION_CRAFT: String = "craft"
@@ -345,6 +346,15 @@ func load_save_data(save_data: Dictionary) -> void:
     print_research_status()
 
     queue_redraw()
+    
+func is_gatherer_resource_building(building_data: Dictionary) -> bool:
+    if building_data.is_empty():
+        return false
+
+    if str(building_data.get("id", "")) != RegionBuildingData.BUILDING_GATHERERS_HUT:
+        return false
+
+    return bool(building_data.get("resource_selector_enabled", false)) 
     
 func setup_villager_manager_for_loaded_save() -> void:
     villager_manager.setup(
@@ -1241,9 +1251,29 @@ func execute_selected_building_action(action_id: String) -> void:
     if action_id == BUILDING_ACTION_DESTROY:
         destroy_selected_building()
         return
+        
+    if action_id == BUILDING_ACTION_GATHER_RESOURCE:
+        close_selected_building_panel()
+        try_open_storage_selector_at_tile(origin_tile)
+        queue_redraw()
+        return   
 
     add_village_log_message("Unknown building action.")
     queue_redraw()
+
+func get_building_center_tile_from_data(building_data: Dictionary) -> Vector2i:
+    if building_data.is_empty():
+        return Vector2i(-1, -1)
+
+    var tile_x: int = int(building_data.get("x", 0))
+    var tile_y: int = int(building_data.get("y", 0))
+    var width: int = int(building_data.get("width", 1))
+    var height: int = int(building_data.get("height", 1))
+
+    return Vector2i(
+        tile_x + int(floor(float(width) / 2.0)),
+        tile_y + int(floor(float(height) / 2.0))
+    )
 
 func destroy_selected_building() -> void:
     var building_data: Dictionary = get_selected_building_data()
@@ -2260,13 +2290,43 @@ func assign_villager_to_selected_assignment_building(villager_id: int) -> void:
         add_village_log_message(villager_message)
 
     if bool(villager_result.get("success", false)):
-        var building_center_tile: Vector2i = building_manager.get_building_center_tile(selected_building)
-
-        villager_manager.set_villager_assigned_work_anchor(
-            villager_id,
-            building_center_tile,
-            VillagerManager.DEFAULT_ASSIGNED_WORK_RADIUS
+        var current_building: Dictionary = building_manager.get_building_by_instance_id(
+            building_instance_id
         )
+
+        var building_center_tile: Vector2i = get_building_center_tile_from_data(
+            current_building
+        )
+
+        if is_tile_in_bounds(building_center_tile):
+            villager_manager.set_villager_assigned_work_anchor(
+                villager_id,
+                building_center_tile,
+                villager_manager.DEFAULT_ASSIGNED_WORK_RADIUS
+            )
+
+        if not current_building.is_empty():
+            if str(current_building.get("id", "")) == RegionBuildingData.BUILDING_GATHERERS_HUT:
+                var selected_resource: String = str(current_building.get("selected_resource", "")).strip_edges()
+
+                if selected_resource != "":
+                    villager_manager.set_villager_assigned_building_harvest_area(
+                        villager_id,
+                        building_center_tile,
+                        HARVEST_ASSIGN_RADIUS,
+                        selected_resource
+                    )
+
+                    add_village_log_message(
+                        str(villager_data.get("name", "Gatherer"))
+                        + " will gather "
+                        + selected_resource
+                        + " near the Gatherer's Hut."
+                    )
+                else:
+                    add_village_log_message(
+                        "Gatherer's Hut has no selected resource yet. Choose a gather resource for this hut."
+                    )
 
     var normal_housing_capacity: int = building_manager.get_normal_housing_capacity()
     villager_manager.auto_assign_villager_housing(normal_housing_capacity)
@@ -3296,6 +3356,12 @@ func get_selected_building_actions() -> Array:
         actions.append({
             "id": BUILDING_ACTION_STORAGE,
             "label": "Choose Storage Resource"
+        })
+
+    if is_gatherer_resource_building(building_data):
+        actions.append({
+            "id": BUILDING_ACTION_GATHER_RESOURCE,
+            "label": "Choose Gather Resource"
         })
 
     if bool(building_data.get("assignment_enabled", false)):

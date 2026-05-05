@@ -450,9 +450,9 @@ static func get_all_buildings() -> Dictionary:
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "specialist_role": ASSIGNMENT_ROLE_GATHERER,
-            "specialist_housing_capacity": LARGE_SPECIALIST_HUT_CAPACITY,
+            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
             "assignment_enabled": true,
-            "assignment_slots": 3,
+            "assignment_slots": 1,
             "assignment_role": ASSIGNMENT_ROLE_GATHERER,
             "assignment_replaces_shelter": true,
             "assigned_villagers": [],
@@ -460,8 +460,7 @@ static func get_all_buildings() -> Dictionary:
             "resource_selector_type": "non_animal",
             "selected_resource": "",
             "selected_resource_storage_capacity": GATHERERS_HUT_SELECTED_RESOURCE_CAPACITY,
-            "description": "A dedicated Stone Age work hut for organized gatherers. It will later allow the player to select a non-animal resource for assigned Gatherers to collect. The selected resource gains +50 storage capacity from this hut. Up to 3 villagers can be assigned here as Gatherers, and the hut replaces normal shelter for those villagers."
-        },
+            "description": "A dedicated Stone Age work hut for an organized Gatherer. It allows the player to select a non-animal resource for the assigned Gatherer to collect. The selected resource gains +50 storage capacity from this hut. One villager can be assigned here as a Gatherer, and the hut replaces normal shelter for that villager."},
 
         BUILDING_BONECARVERS_HUT: {
             "id": BUILDING_BONECARVERS_HUT,
