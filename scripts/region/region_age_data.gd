@@ -8,6 +8,9 @@ const CATEGORY_HOUSING: String = "housing"
 const CATEGORY_WORK: String = "work"
 const CATEGORY_FOOD: String = "food"
 const CATEGORY_DEFENSE: String = "defense"
+
+# Legacy category kept so older files and delayed spiritual buildings do not break.
+# Spiritual systems are not active in the current Stone Age build menu.
 const CATEGORY_SPIRITUAL: String = "spiritual"
 
 # Legacy aliases kept so older files do not break while we clean categories.
@@ -46,10 +49,6 @@ static func get_build_categories_for_age(age_id: String) -> Array:
             {
                 "id": CATEGORY_DEFENSE,
                 "name": "Defense"
-            },
-            {
-                "id": CATEGORY_SPIRITUAL,
-                "name": "Spiritual"
             }
         ]
 
