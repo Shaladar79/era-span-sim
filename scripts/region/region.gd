@@ -894,7 +894,8 @@ func update_villager_manager(delta: float) -> void:
     var harvested_resources: Dictionary = villager_manager.update(
         delta,
         inventory,
-        normal_housing_capacity
+        normal_housing_capacity,
+        research
     )
 
     var villager_event_messages: Array = villager_manager.get_event_messages()
@@ -976,22 +977,24 @@ func update_hunting_jobs(delta: float) -> void:
             add_village_log_message(hunt_message)
 
         if bool(hunt_result.get("success", false)):
-            var hunt_yields: Dictionary = get_dictionary_from_variant(
-                hunt_result.get("yields", {})
-            )
+           var hunt_yields: Dictionary = get_dictionary_from_variant(
+           hunt_result.get("yields", {})
+           )
 
-            if not hunt_yields.is_empty():
-                inventory.add_resources(hunt_yields)
-                print_settlement_inventory()
+           hunt_yields = filter_hunt_yields_for_research(hunt_yields)
 
-            var kill_record_result: Dictionary = wild_animal_manager.record_animal_kill_from_hunt_result(
+           if not hunt_yields.is_empty():
+              inventory.add_resources(hunt_yields)
+        print_settlement_inventory()
+
+        var kill_record_result: Dictionary = wild_animal_manager.record_animal_kill_from_hunt_result(
                 hunt_result
             )
 
-            var kill_record_messages: Array = kill_record_result.get("messages", [])
+        var kill_record_messages: Array = kill_record_result.get("messages", [])
 
-            if not kill_record_messages.is_empty():
-                add_village_log_messages(kill_record_messages)
+        if not kill_record_messages.is_empty():
+            add_village_log_messages(kill_record_messages)
 
             var animal_event_messages: Array = wild_animal_manager.get_event_messages()
 
@@ -2519,6 +2522,24 @@ func buy_research_plan(research_id: String) -> void:
     print_research_status()
     queue_redraw()
 
+func filter_hunt_yields_for_research(hunt_yields: Dictionary) -> Dictionary:
+    var filtered_yields: Dictionary = {}
+    var resource_names: Array = hunt_yields.keys()
+
+    for resource_index in range(resource_names.size()):
+        var resource_name: String = str(resource_names[resource_index])
+        var resource_amount: int = int(hunt_yields.get(resource_name, 0))
+
+        if resource_amount <= 0:
+            continue
+
+        if resource_name.strip_edges().to_lower() == VillagerManager.RESOURCE_HIDE:
+            if not research.has_learned_research(StoneAgeResearchData.RESEARCH_SKINNING):
+                continue
+
+        filtered_yields[resource_name] = resource_amount
+
+    return filtered_yields
 
 func try_start_hunt_at_hovered_animal() -> bool:
     if not simulation_paused:

@@ -318,7 +318,7 @@ static func get_all_recipes() -> Dictionary:
             VillagerManager.SKILL_CRAFTING,
             10.0,
             {
-                RESOURCE_FLINT_NAME: 1,
+                RESOURCE_STONE_NAME: 2,
                 RESOURCE_WOOD_NAME: 1
             },
             [
@@ -448,8 +448,7 @@ static func get_all_recipes() -> Dictionary:
             VillagerManager.SKILL_STONEWORKING,
             12.0,
             {
-                RESOURCE_STONE_NAME: 2,
-                RESOURCE_FLINT_NAME: 1,
+                RESOURCE_STONE_NAME: 3,
                 RESOURCE_FIBER_NAME: 1
             },
             [
@@ -582,8 +581,7 @@ static func get_all_recipes() -> Dictionary:
             VillagerManager.SKILL_STONEWORKING,
             10.0,
             {
-                RESOURCE_STONE_NAME: 2,
-                RESOURCE_FLINT_NAME: 1
+                RESOURCE_STONE_NAME: 3
             },
             [
                 make_item_output(

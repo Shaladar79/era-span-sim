@@ -225,6 +225,8 @@ var event_messages_this_frame: Array = []
 var did_change_tiles: bool = false
 var research_progress_this_frame: float = 0.0
 
+var learned_research_ids: Array = []
+
 var rng := RandomNumberGenerator.new()
 
 var harvest_speed_multiplier: float = 1.0
@@ -1059,12 +1061,18 @@ func find_nearest_available_spawn_tile(origin_tile: Vector2i) -> Vector2i:
 func update(
     delta: float,
     inventory: RegionInventory,
-    normal_housing_capacity: int
+    normal_housing_capacity: int,
+    research_manager: RegionResearch = null
 ) -> Dictionary:
     harvested_resources_this_frame.clear()
     event_messages_this_frame.clear()
     did_change_tiles = false
     research_progress_this_frame = 0.0
+
+    if research_manager == null:
+        learned_research_ids = []
+    else:
+        learned_research_ids = research_manager.get_learned_research()
 
     update_all_villager_speed_stats()
     auto_assign_villager_housing(normal_housing_capacity)
@@ -4038,6 +4046,20 @@ func is_tile_harvestable_at_position(
 
     return is_tile_harvestable(tile_data, inventory)
 
+func has_research_for_resource(resource_name: String) -> bool:
+    var normalized_resource_name: String = resource_name.strip_edges().to_lower()
+
+    if normalized_resource_name == RESOURCE_FLINT:
+        return learned_research_ids.has(StoneAgeResearchData.RESEARCH_RECOGNIZE_FLINT)
+
+    if normalized_resource_name == RESOURCE_HIDE:
+        return learned_research_ids.has(StoneAgeResearchData.RESEARCH_SKINNING)
+
+    return true
+
+
+func is_resource_unlocked_for_harvest(resource_name: String) -> bool:
+    return has_research_for_resource(resource_name)
 
 func is_tile_harvestable(
     tile_data: Dictionary,
@@ -4061,6 +4083,9 @@ func is_tile_harvestable(
 
         var resource_dict: Dictionary = resource_variant
         var resource_name: String = str(resource_dict.get("name", "Unknown"))
+
+        if not is_resource_unlocked_for_harvest(resource_name):
+            continue
 
         if can_accept_resource_after_pending(resource_name, inventory):
             return true
@@ -4219,6 +4244,10 @@ func harvest_resource_at_tile(
         if resource_amount <= 0:
             continue
 
+        if not is_resource_unlocked_for_harvest(resource_name):
+            remaining_resources.append(resource_dict)
+            continue
+
         var adjusted_amount: int = max(
             1,
             int(round(float(resource_amount) * get_resource_yield_multiplier(resource_id)))
@@ -4253,16 +4282,18 @@ func harvest_resource_at_tile(
     if remaining_resources.is_empty():
         tile_data["resources"] = []
         tile_data["feature"] = feature_none
-        tile_data["walkable"] = true
-        tile_data["buildable"] = true
-        tile_data["terrain"] = terrain_grass
+        did_change_tiles = true
     else:
         tile_data["resources"] = remaining_resources
+        did_change_tiles = true
 
-    did_change_tiles = true
+    region_tiles[tile_position.y][tile_position.x] = tile_data
 
     add_event_message(
-        villager_name + " harvested " + ", ".join(harvested_parts) + "."
+        villager_name
+        + " harvested "
+        + ", ".join(harvested_parts)
+        + "."
     )
 
     return true

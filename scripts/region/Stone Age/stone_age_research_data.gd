@@ -16,6 +16,9 @@ const RESEARCH_FISHING: String = "fishing"
 const RESEARCH_GATHERING: String = "gathering"
 const RESEARCH_HUNTING: String = "hunting"
 
+const RESEARCH_RECOGNIZE_FLINT: String = "recognize_flint"
+const RESEARCH_SKINNING: String = "skinning"
+
 const RESEARCH_DEFEND_THE_PEOPLE: String = "defend_the_people"
 const RESEARCH_TO_WAR: String = "to_war"
 const RESEARCH_BONE_CARVING: String = "bone_carving"
@@ -406,6 +409,27 @@ static func get_all_research_plans() -> Dictionary:
             ]
         ),
 
+        RESEARCH_RECOGNIZE_FLINT: make_plan(
+            RESEARCH_RECOGNIZE_FLINT,
+            "Recognize Flint",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village learns to recognize useful flint deposits. This prepares Gatherers to collect Flint and unlocks later flint tool chains.",
+            [
+                RESEARCH_GATHERING
+            ],
+            [
+                RegionBuildingData.BUILDING_GATHERERS_HUT
+            ],
+            [],
+            [],
+            [],
+            [
+                "flint_gathering_available"
+            ]
+        ),
+
         RESEARCH_HUNTING: make_plan(
             RESEARCH_HUNTING,
             "Hunting",
@@ -419,6 +443,27 @@ static func get_all_research_plans() -> Dictionary:
             [],
             [
                 RegionBuildingData.BUILDING_HUNTERS_HUT
+            ]
+        ),
+
+        RESEARCH_SKINNING: make_plan(
+            RESEARCH_SKINNING,
+            "Skinning",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village learns to recover useful hide from hunted animals. This prepares Hunters to produce Hide and unlocks later hide-based recipes.",
+            [
+                RESEARCH_HUNTING
+            ],
+            [
+                RegionBuildingData.BUILDING_HUNTERS_HUT
+            ],
+            [],
+            [],
+            [],
+            [
+                "hide_gathering_available"
             ]
         ),
 
@@ -750,9 +795,9 @@ static func get_all_research_plans() -> Dictionary:
             CATEGORY_BELONGINGS,
             RESEARCH_TIER_STONE_AGE_T2,
             6,
-            "The village learns to make protective hide wraps after organized hunting begins.",
+            "The village learns to make protective hide wraps after learning to recover usable hide.",
             [
-                RESEARCH_HUNTING
+                RESEARCH_SKINNING
             ],
             [],
             [],
@@ -787,7 +832,7 @@ static func get_all_research_plans() -> Dictionary:
             8,
             "The village learns to turn hide into basic armor for hunters and warriors.",
             [
-                RESEARCH_HUNTING,
+                RESEARCH_SKINNING,
                 RESEARCH_TO_WAR
             ],
             [],
@@ -820,8 +865,9 @@ static func get_all_research_plans() -> Dictionary:
             CATEGORY_TOOLS,
             RESEARCH_TIER_STONE_AGE_T3,
             10,
-            "The village learns to shape flint axe heads and flint pick heads.",
+            "The village learns to shape flint axe heads and flint pick heads after learning to recognize useful flint.",
             [
+                RESEARCH_RECOGNIZE_FLINT,
                 RESEARCH_STONE_WORKING,
                 RESEARCH_WOOD_GATHERING_TOOLS,
                 RESEARCH_STONE_GATHERING_TOOLS
@@ -840,8 +886,9 @@ static func get_all_research_plans() -> Dictionary:
             CATEGORY_EQUIPMENT,
             RESEARCH_TIER_STONE_AGE_T3,
             9,
-            "The village learns to shape sharper flint spear heads.",
+            "The village learns to shape sharper flint spear heads after learning to recognize useful flint.",
             [
+                RESEARCH_RECOGNIZE_FLINT,
                 RESEARCH_HUNTING,
                 RESEARCH_STONE_WORKING,
                 RESEARCH_STONE_SPEAR_COMPONENTS
@@ -971,8 +1018,9 @@ static func get_all_research_plans() -> Dictionary:
             CATEGORY_EQUIPMENT,
             RESEARCH_TIER_STONE_AGE_T3,
             9,
-            "The village improves hunter slings with hide reinforcement.",
+            "The village improves hunter slings with hide reinforcement after learning skinning.",
             [
+                RESEARCH_SKINNING,
                 RESEARCH_HUNTERS_SLING
             ],
             [],
@@ -988,10 +1036,10 @@ static func get_all_research_plans() -> Dictionary:
             CATEGORY_BELONGINGS,
             RESEARCH_TIER_STONE_AGE_T3,
             9,
-            "The village improves gathering belongings with durable hide pouches.",
+            "The village improves gathering belongings with durable hide pouches after learning skinning.",
             [
-                RESEARCH_FORAGERS_BASKETRY,
-                RESEARCH_HUNTING
+                RESEARCH_SKINNING,
+                RESEARCH_FORAGERS_BASKETRY
             ],
             [],
             [],
@@ -1008,6 +1056,7 @@ static func get_all_research_plans() -> Dictionary:
             9,
             "The village learns to assemble Tent Kits from Tent Frames, hide, and fiber.",
             [
+                RESEARCH_SKINNING,
                 RESEARCH_TENT_LIFE,
                 RESEARCH_TENT_FRAMING
             ],
