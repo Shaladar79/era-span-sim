@@ -95,6 +95,7 @@ const SKILL_CRAFTING: String = "crafting"
 const SKILL_THINKING: String = "thinking"
 const SKILL_STONEWORKING: String = "stoneworking"
 const SKILL_WOODWORKING: String = "woodworking"
+const SKILL_BONECARVING: String = "bonecarving"
 const SKILL_RITUALS: String = "rituals"
 
 const SKILL_FISHING: String = "fishing"
@@ -128,6 +129,7 @@ const ROLE_SKILL_IDS: Array = [
     SKILL_THINKING,
     SKILL_STONEWORKING,
     SKILL_WOODWORKING,
+    SKILL_BONECARVING,
     SKILL_RITUALS,
     SKILL_FISHING,
     SKILL_HUNTING,
@@ -146,6 +148,7 @@ const SKILL_IDS: Array = [
     SKILL_THINKING,
     SKILL_STONEWORKING,
     SKILL_WOODWORKING,
+    SKILL_BONECARVING,
     SKILL_RITUALS,
     SKILL_FISHING,
     SKILL_HUNTING,
@@ -1929,6 +1932,12 @@ func get_skill_ids_for_role(role_id: String) -> Array:
         StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
             return [SKILL_WOODWORKING]
 
+        StoneAgeVillagerAssignmentData.ROLE_GATHERER:
+            return [SKILL_GATHERING]
+
+        StoneAgeVillagerAssignmentData.ROLE_BONECARVER:
+            return [SKILL_BONECARVING]
+
         StoneAgeVillagerAssignmentData.ROLE_HUNTER:
             return [
                 SKILL_HUNTING,
@@ -1944,7 +1953,7 @@ func get_skill_ids_for_role(role_id: String) -> Array:
 
         StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
             return [SKILL_RITUALS]
-            
+
         StoneAgeVillagerAssignmentData.ROLE_FISHER:
             return [SKILL_FISHING]
 
@@ -1974,9 +1983,15 @@ func apply_slot_counts_for_role(villager_data: Dictionary) -> void:
         StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
+        StoneAgeVillagerAssignmentData.ROLE_GATHERER:
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
+
+        StoneAgeVillagerAssignmentData.ROLE_BONECARVER:
+            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
+
         StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
-            
+
         StoneAgeVillagerAssignmentData.ROLE_FISHER:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
@@ -1989,7 +2004,6 @@ func apply_slot_counts_for_role(villager_data: Dictionary) -> void:
             villager_data["tool_slots"] = DEFAULT_COMBAT_TOOL_SLOTS
             villager_data["weapon_slots"] = DEFAULT_COMBAT_WEAPON_SLOTS
             villager_data["armor_slots"] = DEFAULT_COMBAT_ARMOR_SLOTS
-
 
 func set_villager_assigned_work_anchor(
     villager_id: int,
@@ -2313,7 +2327,7 @@ func process_assigned_role_behavior(
             process_assigned_building_wander(
                 villager_data,
                 delta,
-                "waiting_at_building",
+                "woodcarving",
                 VILLAGER_STATE_WAITING_AT_BUILDING
             )
             return true
@@ -2322,7 +2336,25 @@ func process_assigned_role_behavior(
             process_assigned_building_wander(
                 villager_data,
                 delta,
-                "waiting_at_building",
+                "stoneworking",
+                VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_GATHERER:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "gathering",
+                VILLAGER_STATE_WAITING_AT_BUILDING
+            )
+            return true
+
+        StoneAgeVillagerAssignmentData.ROLE_BONECARVER:
+            process_assigned_building_wander(
+                villager_data,
+                delta,
+                "bonecarving",
                 VILLAGER_STATE_WAITING_AT_BUILDING
             )
             return true
@@ -2335,7 +2367,7 @@ func process_assigned_role_behavior(
                 VILLAGER_STATE_WAITING_AT_BUILDING
             )
             return true
-            
+
         StoneAgeVillagerAssignmentData.ROLE_FISHER:
             process_fishing_villager(
                 villager_data,
@@ -3770,7 +3802,9 @@ func get_skill_display_name(skill_id: String) -> String:
         SKILL_STONEWORKING:
             return "Stoneworking"
         SKILL_WOODWORKING:
-            return "Woodworking"
+            return "Woodcarving"
+        SKILL_BONECARVING:
+            return "Bonecarving"
         SKILL_RITUALS:
             return "Rituals"
         SKILL_FISHING:

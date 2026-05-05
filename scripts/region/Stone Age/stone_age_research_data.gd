@@ -108,7 +108,6 @@ const BONUS_BELONGING_SLOTS: String = "belonging_slots"
 
 # -------------------------------------------------------------------
 # Legacy recipe constants kept for compatibility.
-# These are not currently unlocked by this first-pass tree.
 # -------------------------------------------------------------------
 
 const RECIPE_POINTED_STICK: String = "pointed_stick"
@@ -183,10 +182,10 @@ static func get_all_research_plans() -> Dictionary:
     return {
         RESEARCH_LEARN_CAMPFIRE: make_plan(
             RESEARCH_LEARN_CAMPFIRE,
-            "Learn to Build a Campfire",
+            "The Gift of Fire",
             RESEARCH_TIER_STONE_AGE_T1,
             2,
-            "The village organizes the idea of a controlled central fire, allowing Campfire construction.",
+            "The village learns to preserve and use controlled fire, allowing Campfire construction.",
             [],
             [
                 RegionBuildingData.BUILDING_THINKERS_SPOT
@@ -252,9 +251,13 @@ static func get_all_research_plans() -> Dictionary:
             "Wood Carving",
             RESEARCH_TIER_STONE_AGE_T1,
             4,
-            "The village begins shaping wood with intent. Exact building and recipe unlocks will be filled in during the crafting/building pass.",
+            "The village begins shaping wood with intent, unlocking the Woodcarver's Hut.",
             [
                 RESEARCH_WE_NEED_A_LEADER
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_WOODWORKING_BENCH
             ]
         ),
 
@@ -263,9 +266,13 @@ static func get_all_research_plans() -> Dictionary:
             "Stone Working",
             RESEARCH_TIER_STONE_AGE_T1,
             4,
-            "The village begins shaping stone with intent. Exact building and recipe unlocks will be filled in during the crafting/building pass.",
+            "The village begins shaping stone with intent, unlocking the Stoneworker's Hut.",
             [
                 RESEARCH_WE_NEED_A_LEADER
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_STONEWORKING_BENCH
             ]
         ),
 
@@ -274,9 +281,13 @@ static func get_all_research_plans() -> Dictionary:
             "Fishing",
             RESEARCH_TIER_STONE_AGE_T1,
             4,
-            "The village begins developing fishing knowledge. Exact building and recipe unlocks will be filled in during the fishing pass.",
+            "The village begins developing fishing knowledge, unlocking the Fishing Hut.",
             [
                 RESEARCH_WE_NEED_A_LEADER
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_FISHING_HUT
             ]
         ),
 
@@ -285,9 +296,13 @@ static func get_all_research_plans() -> Dictionary:
             "Gathering",
             RESEARCH_TIER_STONE_AGE_T1,
             4,
-            "The village improves its understanding of useful plants, fibers, and natural materials. Exact unlocks will be filled in later.",
+            "The village improves its understanding of useful plants, fibers, and natural materials, unlocking the Gatherer's Hut.",
             [
                 RESEARCH_WE_NEED_A_LEADER
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_GATHERERS_HUT
             ]
         ),
 
@@ -296,9 +311,13 @@ static func get_all_research_plans() -> Dictionary:
             "Hunting",
             RESEARCH_TIER_STONE_AGE_T1,
             4,
-            "The village begins organizing dangerous animal hunting. Exact building and weapon unlocks will be filled in during the hunting pass.",
+            "The village begins organizing dangerous animal hunting, unlocking the Hunter's Hut.",
             [
                 RESEARCH_WE_NEED_A_LEADER
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_HUNTERS_HUT
             ]
         ),
 
@@ -307,7 +326,7 @@ static func get_all_research_plans() -> Dictionary:
             "T1 Ranged Weapons",
             RESEARCH_TIER_STONE_AGE_T1,
             4,
-            "The village begins developing basic ranged weapon ideas. Exact recipe unlocks will be filled in during the weapon pass.",
+            "Placeholder for future Tier 1 ranged weapon recipe unlocks.",
             [
                 RESEARCH_WE_NEED_A_LEADER
             ]
@@ -318,9 +337,13 @@ static func get_all_research_plans() -> Dictionary:
             "Defend the People",
             RESEARCH_TIER_STONE_AGE_T2,
             8,
-            "The village recognizes that danger must be answered with organization, opening the first defense branch.",
+            "The village recognizes that danger must be answered with organization, unlocking the Warleader's Camp.",
             [
                 RESEARCH_WE_NEED_A_LEADER
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_WARLEADER_SHELTER
             ]
         ),
 
@@ -329,9 +352,13 @@ static func get_all_research_plans() -> Dictionary:
             "To War",
             RESEARCH_TIER_STONE_AGE_T2,
             6,
-            "The village begins organizing warriors and conflict roles. Exact building unlocks will be filled in during the combat pass.",
+            "The village begins organizing warriors and conflict roles, unlocking the Warrior's Hut.",
             [
                 RESEARCH_DEFEND_THE_PEOPLE
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_WARRIOR_HUT
             ]
         ),
 
@@ -340,7 +367,7 @@ static func get_all_research_plans() -> Dictionary:
             "T2 Belongings",
             RESEARCH_TIER_STONE_AGE_T2,
             6,
-            "The village begins improving personal equipment beyond the first simple belongings. Exact recipes will be filled in later.",
+            "Placeholder for future Tier 2 belonging recipe unlocks.",
             [
                 RESEARCH_DEFEND_THE_PEOPLE
             ]
@@ -351,7 +378,7 @@ static func get_all_research_plans() -> Dictionary:
             "T1 Melee Weapons",
             RESEARCH_TIER_STONE_AGE_T2,
             6,
-            "The village begins developing basic melee weapons. Exact recipe unlocks will be filled in during the weapon pass.",
+            "Placeholder for future Tier 1 melee weapon recipe unlocks.",
             [
                 RESEARCH_DEFEND_THE_PEOPLE
             ]
@@ -362,7 +389,7 @@ static func get_all_research_plans() -> Dictionary:
             "T2 Ranged Weapons",
             RESEARCH_TIER_STONE_AGE_T2,
             6,
-            "The village improves its ranged weapon ideas. Exact recipe unlocks will be filled in during the weapon pass.",
+            "Placeholder for future Tier 2 ranged weapon recipe unlocks.",
             [
                 RESEARCH_DEFEND_THE_PEOPLE
             ]
@@ -373,9 +400,13 @@ static func get_all_research_plans() -> Dictionary:
             "Bone Carving",
             RESEARCH_TIER_STONE_AGE_T2,
             6,
-            "The village begins using bone as a shaped material. Exact crafting unlocks will be filled in during the bone crafting pass.",
+            "The village begins using bone as a shaped material, unlocking the Bonecarver's Hut.",
             [
                 RESEARCH_DEFEND_THE_PEOPLE
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_BONECARVERS_HUT
             ]
         ),
 
@@ -384,9 +415,13 @@ static func get_all_research_plans() -> Dictionary:
             "Fear of the Dark",
             RESEARCH_TIER_STONE_AGE_T3,
             12,
-            "The village begins to explain and organize its fear of the dark, opening later light, ritual, and cultural systems.",
+            "The village begins to explain and organize its fear of the dark, unlocking the Spiritual Leader's Hut.",
             [
                 RESEARCH_DEFEND_THE_PEOPLE
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_SPIRITUAL_LEADER_HUT
             ]
         ),
 
@@ -416,9 +451,17 @@ static func get_all_research_plans() -> Dictionary:
             "Tent Life",
             RESEARCH_TIER_STONE_AGE_T3,
             12,
-            "The village develops portable shelter ideas. Exact tent building unlocks will be filled in during the shelter pass.",
+            "The village develops portable shelter ideas, unlocking tents and the Tent Kit recipe.",
             [
                 RESEARCH_FEAR_OF_THE_DARK
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_TENT,
+               
+            ],
+            [
+                RECIPE_TENT_KIT
             ]
         ),
 
@@ -427,9 +470,13 @@ static func get_all_research_plans() -> Dictionary:
             "Light Up the Night",
             RESEARCH_TIER_STONE_AGE_T3,
             10,
-            "The village begins learning stronger ways to hold back the dark. Exact light and protection unlocks will be filled in later.",
+            "The village begins learning stronger ways to hold back the dark, unlocking the Bonfire.",
             [
                 RESEARCH_FEAR_OF_THE_DARK
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_BONFIRE
             ]
         ),
 
@@ -438,9 +485,13 @@ static func get_all_research_plans() -> Dictionary:
             "Whispers in the Dark",
             RESEARCH_TIER_STONE_AGE_T3,
             15,
-            "The village begins hearing meaning in the dark, opening future spiritual and ritual systems.",
+            "The village begins hearing meaning in the dark, unlocking the Ritual Site.",
             [
                 RESEARCH_FEAR_OF_THE_DARK
+            ],
+            [],
+            [
+                RegionBuildingData.BUILDING_RITUAL_SITE
             ]
         ),
 
@@ -449,7 +500,7 @@ static func get_all_research_plans() -> Dictionary:
             "T2 Melee Weapons",
             RESEARCH_TIER_STONE_AGE_T3,
             10,
-            "The village improves its melee weapon ideas. Exact recipe unlocks will be filled in during the weapon pass.",
+            "Placeholder for future Tier 2 melee weapon recipe unlocks.",
             [
                 RESEARCH_FEAR_OF_THE_DARK
             ]
@@ -493,7 +544,7 @@ static func get_all_research_plans() -> Dictionary:
             "Time to Move On",
             RESEARCH_TIER_STONE_AGE_TRANSITION,
             25,
-            "The village prepares to move beyond the first Stone Age systems. This will become the age-transition research later.",
+            "The village prepares to move beyond this region. Later this will unlock the Chieftain's Move On hero-panel option and preserve resources tagged for movement.",
             [
                 RESEARCH_FEAR_OF_THE_DARK
             ],
@@ -502,7 +553,8 @@ static func get_all_research_plans() -> Dictionary:
             [],
             [],
             [
-                "stone_age_transition_available"
+                "stone_age_transition_available",
+                "chieftain_move_region_available"
             ]
         )
     }

@@ -101,6 +101,7 @@ var show_research_panel: bool = false
 var show_build_panel: bool = false
 var selected_build_age: String = RegionBuildingData.get_default_build_age()
 var selected_build_category: String = RegionBuildingData.get_default_build_category_for_age(selected_build_age)
+var build_list_scroll_index: int = 0
 
 var show_crafting_panel: bool = false
 var selected_crafting_building_id: String = ""
@@ -828,6 +829,7 @@ func regenerate_region() -> void:
 func reset_build_panel_filters() -> void:
     selected_build_age = RegionBuildingData.get_default_build_age()
     selected_build_category = RegionBuildingData.get_default_build_category_for_age(selected_build_age)
+    build_list_scroll_index = 0
 
 
 func reset_test_inventory() -> void:
@@ -1460,6 +1462,9 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         if try_select_build_category_from_mouse(mouse_screen_position):
             return true
 
+        if try_scroll_build_panel_from_mouse(mouse_screen_position):
+            return true
+
         if try_start_building_from_mouse(mouse_screen_position):
             return true
 
@@ -1490,6 +1495,31 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
 
     return false
 
+func try_scroll_build_panel_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_build_panel:
+        return false
+
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    var filtered_buildings: Array = RegionBuildingData.get_unlocked_buildings_for_age_and_category(
+        selected_build_age,
+        selected_build_category
+    )
+
+    var visible_count: int = RegionUI.get_build_visible_row_count()
+    var max_scroll_index: int = max(0, filtered_buildings.size() - visible_count)
+
+    if RegionUI.get_build_scroll_up_button_screen_rect(viewport_size).has_point(mouse_screen_position):
+        build_list_scroll_index = max(0, build_list_scroll_index - 1)
+        queue_redraw()
+        return true
+
+    if RegionUI.get_build_scroll_down_button_screen_rect(viewport_size).has_point(mouse_screen_position):
+        build_list_scroll_index = min(max_scroll_index, build_list_scroll_index + 1)
+        queue_redraw()
+        return true
+
+    return false
+
 func try_select_build_age_from_mouse(mouse_screen_position: Vector2) -> bool:
     if not show_build_panel:
         return false
@@ -1515,6 +1545,7 @@ func try_select_build_age_from_mouse(mouse_screen_position: Vector2) -> bool:
         selected_build_category = RegionBuildingData.get_default_build_category_for_age(
             selected_build_age
         )
+        build_list_scroll_index = 0
 
         queue_redraw()
 
@@ -1550,6 +1581,7 @@ func try_select_build_category_from_mouse(mouse_screen_position: Vector2) -> boo
             return true
 
         selected_build_category = category_id
+        build_list_scroll_index = 0
 
         queue_redraw()
 
@@ -1558,6 +1590,8 @@ func try_select_build_category_from_mouse(mouse_screen_position: Vector2) -> boo
         return true
 
     return false
+    
+
 
 
 func try_start_building_from_mouse(mouse_screen_position: Vector2) -> bool:
@@ -1574,13 +1608,28 @@ func try_start_building_from_mouse(mouse_screen_position: Vector2) -> bool:
         RegionUI.get_build_visible_row_count()
     )
 
-    for building_index in range(visible_count):
-        var building_button_rect: Rect2 = get_building_button_screen_rect(building_index)
+    var max_scroll_index: int = max(0, unlocked_buildings.size() - visible_count)
+    build_list_scroll_index = clampi(
+        build_list_scroll_index,
+        0,
+        max_scroll_index
+    )
+
+    for visible_index in range(visible_count):
+        var building_button_rect: Rect2 = get_building_button_screen_rect(visible_index)
 
         if not building_button_rect.has_point(mouse_screen_position):
             continue
 
-        var building_data: Dictionary = unlocked_buildings[building_index]
+        var actual_building_index: int = build_list_scroll_index + visible_index
+
+        if actual_building_index < 0:
+            return true
+
+        if actual_building_index >= unlocked_buildings.size():
+            return true
+
+        var building_data: Dictionary = unlocked_buildings[actual_building_index]
         var building_id: String = str(building_data.get("id", ""))
 
         if building_id == "":
@@ -2987,13 +3036,23 @@ func draw_build_panel() -> void:
         selected_build_category
     )
 
+    var visible_count: int = RegionUI.get_build_visible_row_count()
+    var max_scroll_index: int = max(0, filtered_buildings.size() - visible_count)
+
+    build_list_scroll_index = clampi(
+        build_list_scroll_index,
+        0,
+        max_scroll_index
+    )
+
     RegionDraw.draw_build_panel(
         self,
         build_ages,
         selected_build_age,
         build_categories,
         selected_build_category,
-        filtered_buildings
+        filtered_buildings,
+        build_list_scroll_index
     )
 
 

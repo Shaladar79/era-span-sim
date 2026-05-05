@@ -334,7 +334,7 @@ static func draw_research_button(
             node,
             button_screen_rect.position + Vector2(8, 16)
         ),
-        "Research",
+        "Ideas",
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         get_body_font_size(world_per_screen_y),
@@ -642,7 +642,8 @@ static func draw_build_panel(
     selected_build_age: String,
     build_categories: Array,
     selected_build_category: String,
-    unlocked_buildings: Array
+    unlocked_buildings: Array,
+    build_list_scroll_index: int
 ) -> void:
     var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
 
@@ -704,18 +705,143 @@ static func draw_build_panel(
         )
         return
 
-    var visible_count: int = min(
-        unlocked_buildings.size(),
-        RegionUI.get_build_visible_row_count()
+    var visible_row_count: int = RegionUI.get_build_visible_row_count()
+    var max_scroll_index: int = max(0, unlocked_buildings.size() - visible_row_count)
+    var safe_scroll_index: int = clampi(
+        build_list_scroll_index,
+        0,
+        max_scroll_index
     )
 
-    for building_index in range(visible_count):
+    var visible_count: int = min(
+        visible_row_count,
+        unlocked_buildings.size() - safe_scroll_index
+    )
+
+    for visible_index in range(visible_count):
+        var actual_building_index: int = safe_scroll_index + visible_index
+
+        if actual_building_index < 0:
+            continue
+
+        if actual_building_index >= unlocked_buildings.size():
+            continue
+
         draw_building_button_row(
             node,
-            unlocked_buildings[building_index],
-            building_index
+            unlocked_buildings[actual_building_index],
+            visible_index
         )
 
+    draw_build_scroll_buttons(
+        node,
+        safe_scroll_index,
+        max_scroll_index,
+        unlocked_buildings.size(),
+        visible_row_count
+    )
+    
+static func draw_build_scroll_buttons(
+    node: CanvasItem,
+    build_list_scroll_index: int,
+    max_scroll_index: int,
+    total_buildings: int,
+    visible_row_count: int
+) -> void:
+    if total_buildings <= visible_row_count:
+        return
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+
+    var up_button_screen_rect: Rect2 = RegionUI.get_build_scroll_up_button_screen_rect(
+        viewport_size
+    )
+
+    var down_button_screen_rect: Rect2 = RegionUI.get_build_scroll_down_button_screen_rect(
+        viewport_size
+    )
+
+    draw_build_scroll_button(
+        node,
+        up_button_screen_rect,
+        "Up",
+        build_list_scroll_index > 0
+    )
+
+    draw_build_scroll_button(
+        node,
+        down_button_screen_rect,
+        "Down",
+        build_list_scroll_index < max_scroll_index
+    )
+
+    var panel_screen_rect: Rect2 = RegionUI.get_build_panel_screen_rect(viewport_size)
+    var range_start: int = build_list_scroll_index + 1
+    var range_end: int = min(total_buildings, build_list_scroll_index + visible_row_count)
+
+    var range_text: String = str(range_start) + "-" + str(range_end) + " / " + str(total_buildings)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, RegionUI.BUILD_PANEL_HEIGHT - 13)
+        ),
+        range_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        Color(0.88, 0.88, 0.82, 1.0)
+    )
+    
+static func draw_build_scroll_button(
+    node: CanvasItem,
+    button_screen_rect: Rect2,
+    label: String,
+    is_enabled: bool
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var fill_color := Color(0.12, 0.10, 0.07, 0.95)
+    var border_color := Color(0.65, 0.55, 0.32, 0.95)
+    var text_color := Color(1.0, 1.0, 1.0, 1.0)
+
+    if not is_enabled:
+        fill_color = Color(0.07, 0.065, 0.055, 0.80)
+        border_color = Color(0.28, 0.25, 0.18, 0.90)
+        text_color = Color(0.45, 0.45, 0.42, 1.0)
+
+    node.draw_rect(
+        button_world_rect,
+        fill_color,
+        true
+    )
+
+    node.draw_rect(
+        button_world_rect,
+        border_color,
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(9, 15)
+        ),
+        label,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        text_color
+    )
 
 static func draw_build_age_buttons(
     node: CanvasItem,
@@ -3202,9 +3328,13 @@ static func draw_villager_hover_panel_text(
                 "label": "Stoneworking",
                 "key": VillagerManager.SKILL_STONEWORKING
             },
-            {
-                "label": "Woodworking",
+                        {
+                "label": "Woodcarving",
                 "key": VillagerManager.SKILL_WOODWORKING
+            },
+            {
+                "label": "Bonecarving",
+                "key": VillagerManager.SKILL_BONECARVING
             },
             {
                 "label": "Rituals",

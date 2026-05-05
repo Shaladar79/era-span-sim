@@ -43,6 +43,10 @@ const BUILD_AGE_ROW_Y: int = 34
 const BUILD_CATEGORY_ROW_Y: int = 64
 const BUILD_LIST_START_Y: int = 98
 
+const BUILD_SCROLL_BUTTON_WIDTH: int = 52
+const BUILD_SCROLL_BUTTON_HEIGHT: int = 20
+const BUILD_SCROLL_BUTTON_GAP: int = 6
+
 const CRAFTING_PANEL_WIDTH: int = 360
 const CRAFTING_PANEL_HEIGHT: int = 260
 const CRAFTING_PANEL_GAP: int = 4
@@ -327,8 +331,49 @@ static func get_building_button_screen_rect(
     )
 
 
+static func get_build_scroll_up_button_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_build_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x + BUILD_PANEL_WIDTH - 10 - BUILD_SCROLL_BUTTON_WIDTH * 2 - BUILD_SCROLL_BUTTON_GAP,
+            panel_rect.position.y + BUILD_PANEL_HEIGHT - BUILD_SCROLL_BUTTON_HEIGHT - 8
+        ),
+        Vector2(
+            BUILD_SCROLL_BUTTON_WIDTH,
+            BUILD_SCROLL_BUTTON_HEIGHT
+        )
+    )
+
+
+static func get_build_scroll_down_button_screen_rect(viewport_size: Vector2) -> Rect2:
+    var panel_rect: Rect2 = get_build_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        Vector2(
+            panel_rect.position.x + BUILD_PANEL_WIDTH - 10 - BUILD_SCROLL_BUTTON_WIDTH,
+            panel_rect.position.y + BUILD_PANEL_HEIGHT - BUILD_SCROLL_BUTTON_HEIGHT - 8
+        ),
+        Vector2(
+            BUILD_SCROLL_BUTTON_WIDTH,
+            BUILD_SCROLL_BUTTON_HEIGHT
+        )
+    )
+
+
 static func get_build_visible_row_count() -> int:
-    return int(floor(float(BUILD_PANEL_HEIGHT - BUILD_LIST_START_Y - 10) / float(BUILD_ROW_HEIGHT)))
+    return int(
+        floor(
+            float(
+                BUILD_PANEL_HEIGHT
+                - BUILD_LIST_START_Y
+                - BUILD_SCROLL_BUTTON_HEIGHT
+                - 18
+            )
+            / float(BUILD_ROW_HEIGHT)
+        )
+    )
+
 
 
 static func get_crafting_panel_screen_rect(viewport_size: Vector2) -> Rect2:

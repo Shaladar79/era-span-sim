@@ -13,6 +13,7 @@
 script = ExtResource("1_dc040")
 
 [node name="Region" parent="." unique_id=453203254 instance=ExtResource("1_gyg6b")]
+region_seed = null
 
 [node name="World" parent="." unique_id=754916054 instance=ExtResource("1_u1xfj")]
 script = ExtResource("2_q24mn")

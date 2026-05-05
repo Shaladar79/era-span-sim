@@ -6,6 +6,8 @@ const ROLE_MAKER: String = "maker"
 const ROLE_THINKER: String = "thinker"
 const ROLE_STONEWORKER: String = "stoneworker"
 const ROLE_WOODWORKER: String = "woodworker"
+const ROLE_GATHERER: String = "gatherer"
+const ROLE_BONECARVER: String = "bonecarver"
 const ROLE_HUNTER: String = "hunter"
 const ROLE_WARRIOR: String = "warrior"
 const ROLE_RITUALIST: String = "ritualist"
@@ -25,7 +27,11 @@ static func get_role_display_name(role_id: String) -> String:
         ROLE_STONEWORKER:
             return "Stoneworker"
         ROLE_WOODWORKER:
-            return "Woodworker"
+            return "Woodcarver"
+        ROLE_GATHERER:
+            return "Gatherer"
+        ROLE_BONECARVER:
+            return "Bonecarver"
         ROLE_HUNTER:
             return "Hunter"
         ROLE_WARRIOR:

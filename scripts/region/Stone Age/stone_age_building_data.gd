@@ -12,14 +12,19 @@ const BUILDING_WOODWORKING_BENCH: String = "woodworking_bench"
 const BUILDING_STORAGE_AREA: String = "storage_area"
 const BUILDING_THINKERS_SPOT: String = "thinkers_spot"
 
+const BUILDING_GATHERERS_HUT: String = "gatherers_hut"
+const BUILDING_BONECARVERS_HUT: String = "bonecarvers_hut"
+
 const BUILDING_HUNTERS_HUT: String = "hunters_hut"
 const BUILDING_FISHING_HUT: String = "fishing_hut"
 const BUILDING_WARLEADER_SHELTER: String = "warleader_shelter"
+const BUILDING_WARLEADER_TENT: String = "warleader_tent"
 const BUILDING_WARRIOR_HUT: String = "warrior_hut"
 
 const BUILDING_TENT: String = "tent"
 const BUILDING_CHIEFTAINS_TENT: String = "chieftains_tent"
 const BUILDING_BONFIRE: String = "bonfire"
+const BUILDING_SPIRITUAL_LEADER_HUT: String = "spiritual_leader_hut"
 const BUILDING_SPIRITUAL_LEADER_TENT: String = "spiritual_leader_tent"
 const BUILDING_RITUAL_SITE: String = "ritual_site"
 
@@ -35,6 +40,7 @@ const TENT_CAPACITY: int = 2
 const CHIEFTAINS_SHELTER_REQUIRED_SHELTERS: int = 3
 const CHIEFTAINS_SHELTER_CAPACITY: int = 0
 const CHIEFTAINS_TENT_CAPACITY: int = 0
+const SPIRITUAL_LEADER_HUT_CAPACITY: int = 0
 const SPIRITUAL_LEADER_TENT_CAPACITY: int = 0
 
 const THINKERS_SPOT_RESEARCH_PER_MINUTE: int = 1
@@ -42,11 +48,14 @@ const THINKERS_SPOT_RESEARCH_PER_MINUTE: int = 1
 const SPECIALIST_HUT_CAPACITY: int = 1
 const LARGE_SPECIALIST_HUT_CAPACITY: int = 3
 const WARLEADER_SHELTER_CAPACITY: int = 0
+const WARLEADER_TENT_CAPACITY: int = 0
 
 const ASSIGNMENT_ROLE_MAKER: String = "maker"
 const ASSIGNMENT_ROLE_THINKER: String = "thinker"
 const ASSIGNMENT_ROLE_STONEWORKER: String = "stoneworker"
 const ASSIGNMENT_ROLE_WOODWORKER: String = "woodworker"
+const ASSIGNMENT_ROLE_GATHERER: String = "gatherer"
+const ASSIGNMENT_ROLE_BONECARVER: String = "bonecarver"
 const ASSIGNMENT_ROLE_HUNTER: String = "hunter"
 const ASSIGNMENT_ROLE_FISHER: String = "fisher"
 const ASSIGNMENT_ROLE_WARRIOR: String = "warrior"
@@ -262,7 +271,7 @@ static func get_all_buildings() -> Dictionary:
 
         BUILDING_WARLEADER_SHELTER: {
             "id": BUILDING_WARLEADER_SHELTER,
-            "name": "Warleader Shelter",
+            "name": "Warleader's Shelter",
             "age": AGE_STONE,
             "category": RegionAgeData.CATEGORY_HOUSING,
             "width": 2,
@@ -284,7 +293,61 @@ static func get_all_buildings() -> Dictionary:
             "hero_placeholder_role": HERO_PLACEHOLDER_WARLEADER,
             "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_ROOK,
             "hero_placeholder_color": Color(0.25, 0.45, 1.0, 1.0),
-            "description": "A larger shelter used by a future Warleader. Building it grants a placeholder Warleader for now, shown as a blue rook-style marker."
+            "description": "A marked command shelter used by a future Warleader. Building it grants a placeholder Warleader for now, shown as a blue rook-style marker."
+            },
+
+        BUILDING_WARLEADER_TENT: {
+            "id": BUILDING_WARLEADER_TENT,
+            "name": "Warleader's Tent",
+            "age": AGE_STONE,
+            "category": RegionAgeData.CATEGORY_HOUSING,
+            "width": 2,
+            "height": 2,
+            "cost": {
+                "Wood": 4,
+                "Stone": 4
+            },
+            "item_cost": {
+                RegionRecipeData.ITEM_TENT_KIT: 2
+            },
+            "movable": true,
+            "requires_campfire_range": false,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "housing_capacity": WARLEADER_TENT_CAPACITY,
+            "houses_warleader": true,
+            "hero_placeholder_enabled": true,
+            "hero_placeholder_role": HERO_PLACEHOLDER_WARLEADER,
+            "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_ROOK,
+            "hero_placeholder_color": Color(0.25, 0.45, 1.0, 1.0),
+            "description": "A portable command tent used by the Warleader. It supports future moving-camp systems."
+        },
+
+        BUILDING_SPIRITUAL_LEADER_HUT: {
+            "id": BUILDING_SPIRITUAL_LEADER_HUT,
+            "name": "Spiritual Leader's Hut",
+            "age": AGE_STONE,
+            "category": RegionAgeData.CATEGORY_HOUSING,
+            "width": 2,
+            "height": 2,
+            "cost": {
+                "Wood": 10,
+                "Fiber": 6,
+                "Stone": 4
+            },
+            "item_cost": {},
+            "movable": true,
+            "requires_campfire_range": false,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "housing_capacity": SPIRITUAL_LEADER_HUT_CAPACITY,
+            "houses_spiritual_leader": true,
+            "grants_generic_spiritual_leader": true,
+            "hero_placeholder_enabled": true,
+            "hero_placeholder_role": HERO_PLACEHOLDER_SPIRITUAL_LEADER,
+            "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_BISHOP,
+            "hero_placeholder_color": Color(1.0, 0.35, 0.80, 1.0),
+            "description": "A respected hut for a future Spiritual Leader. Building it grants a placeholder Spiritual Leader for now, shown as a pink bishop-style marker."
         },
 
         BUILDING_SPIRITUAL_LEADER_TENT: {
@@ -312,12 +375,12 @@ static func get_all_buildings() -> Dictionary:
             "hero_placeholder_role": HERO_PLACEHOLDER_SPIRITUAL_LEADER,
             "hero_placeholder_shape": HERO_PLACEHOLDER_SHAPE_BISHOP,
             "hero_placeholder_color": Color(1.0, 0.35, 0.80, 1.0),
-            "description": "A special tent for a future Spiritual Leader. Building it grants a placeholder Spiritual Leader for now, shown as a pink bishop-style marker."
+            "description": "A special portable tent for a future Spiritual Leader. Building it grants a placeholder Spiritual Leader for now, shown as a pink bishop-style marker."
         },
 
         BUILDING_STONEWORKING_BENCH: {
             "id": BUILDING_STONEWORKING_BENCH,
-            "name": "Stoneworking Hut",
+            "name": "Stoneworker's Hut",
             "age": AGE_STONE,
             "category": RegionAgeData.CATEGORY_CRAFTING,
             "width": 2,
@@ -344,7 +407,7 @@ static func get_all_buildings() -> Dictionary:
 
         BUILDING_WOODWORKING_BENCH: {
             "id": BUILDING_WOODWORKING_BENCH,
-            "name": "Woodworking Hut",
+            "name": "Woodcarver's Hut",
             "age": AGE_STONE,
             "category": RegionAgeData.CATEGORY_CRAFTING,
             "width": 2,
@@ -366,7 +429,61 @@ static func get_all_buildings() -> Dictionary:
             "assignment_role": ASSIGNMENT_ROLE_WOODWORKER,
             "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age work hut for shaping branches, poles, handles, frames, and later moving-camp parts. One villager can be assigned here as a Woodworker, and the hut replaces normal shelter for that villager."
+            "description": "A dedicated Stone Age work hut for shaping branches, poles, handles, frames, and later moving-camp parts. One villager can be assigned here as a Woodcarver, and the hut replaces normal shelter for that villager."
+        },
+
+        BUILDING_GATHERERS_HUT: {
+            "id": BUILDING_GATHERERS_HUT,
+            "name": "Gatherer's Hut",
+            "age": AGE_STONE,
+            "category": RegionAgeData.CATEGORY_SPECIAL,
+            "width": 2,
+            "height": 1,
+            "cost": {
+                "Wood": 8,
+                "Fiber": 4
+            },
+            "item_cost": {},
+            "movable": false,
+            "requires_campfire_range": false,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "specialist_role": ASSIGNMENT_ROLE_GATHERER,
+            "specialist_housing_capacity": LARGE_SPECIALIST_HUT_CAPACITY,
+            "assignment_enabled": true,
+            "assignment_slots": 3,
+            "assignment_role": ASSIGNMENT_ROLE_GATHERER,
+            "assignment_replaces_shelter": true,
+            "assigned_villagers": [],
+            "description": "A dedicated Stone Age hut for organized gatherers. Up to 3 villagers can be assigned here as Gatherers, and the hut replaces normal shelter for those villagers."
+        },
+
+        BUILDING_BONECARVERS_HUT: {
+            "id": BUILDING_BONECARVERS_HUT,
+            "name": "Bonecarver's Hut",
+            "age": AGE_STONE,
+            "category": RegionAgeData.CATEGORY_CRAFTING,
+            "width": 2,
+            "height": 1,
+            "cost": {
+                "Wood": 6,
+                "Stone": 2,
+                "Bone": 4
+            },
+            "item_cost": {},
+            "movable": false,
+            "requires_campfire_range": false,
+            "requires_research_unlock": true,
+            "campfire_radius": CAMPFIRE_BUILD_RADIUS,
+            "crafting_skill": "bonecarving",
+            "specialist_role": ASSIGNMENT_ROLE_BONECARVER,
+            "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
+            "assignment_enabled": true,
+            "assignment_slots": 1,
+            "assignment_role": ASSIGNMENT_ROLE_BONECARVER,
+            "assignment_replaces_shelter": true,
+            "assigned_villagers": [],
+            "description": "A dedicated Stone Age hut for shaping bone into charms, tools, fittings, and future ritual objects. One villager can be assigned here as a Bonecarver, and the hut replaces normal shelter for that villager."
         },
 
         BUILDING_HUNTERS_HUT: {
@@ -425,7 +542,7 @@ static func get_all_buildings() -> Dictionary:
 
         BUILDING_WARRIOR_HUT: {
             "id": BUILDING_WARRIOR_HUT,
-            "name": "Warrior Hut",
+            "name": "Warrior's Hut",
             "age": AGE_STONE,
             "category": RegionAgeData.CATEGORY_SPECIAL,
             "width": 2,
