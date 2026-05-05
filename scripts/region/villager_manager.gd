@@ -60,10 +60,13 @@ const MIN_BASE_SPEED: int = CoreTuning.MIN_BASE_SPEED
 const MAX_BASE_SPEED: int = CoreTuning.MAX_BASE_SPEED
 const MIN_SPEED: int = CoreTuning.MIN_SPEED
 
-const BASE_SKILL_START_MIN: int = StoneAgeTuning.BASE_SKILL_START_MIN
-const BASE_SKILL_START_MAX: int = StoneAgeTuning.BASE_SKILL_START_MAX
-const ROLE_SKILL_START_MIN: int = StoneAgeTuning.ROLE_SKILL_START_MIN
-const ROLE_SKILL_START_MAX: int = StoneAgeTuning.ROLE_SKILL_START_MAX
+
+const ROLE_STARTING_SKILL_MIN: int = StoneAgeTuning.ROLE_STARTING_SKILL_MIN
+const ROLE_STARTING_SKILL_MAX: int = StoneAgeTuning.ROLE_STARTING_SKILL_MAX
+const ROLE_STARTING_SKILL_LEVEL_1_WEIGHT: int = StoneAgeTuning.ROLE_STARTING_SKILL_LEVEL_1_WEIGHT
+const ROLE_STARTING_SKILL_LEVEL_2_WEIGHT: int = StoneAgeTuning.ROLE_STARTING_SKILL_LEVEL_2_WEIGHT
+const ROLE_STARTING_SKILL_LEVEL_3_WEIGHT: int = StoneAgeTuning.ROLE_STARTING_SKILL_LEVEL_3_WEIGHT
+const ROLE_STARTING_SKILL_LEVEL_4_WEIGHT: int = StoneAgeTuning.ROLE_STARTING_SKILL_LEVEL_4_WEIGHT
 
 const HUNTER_HEALTH_PER_LEVEL: int = StoneAgeTuning.HUNTER_HEALTH_PER_LEVEL
 const WARRIOR_HEALTH_PER_LEVEL: int = StoneAgeTuning.WARRIOR_HEALTH_PER_LEVEL
@@ -117,38 +120,12 @@ const SKILL_MEDICINE: String = "medicine"
 const SKILL_HARVEST_SPEED_BONUS_PER_LEVEL: float = CoreTuning.SKILL_HARVEST_SPEED_BONUS_PER_LEVEL
 const MAX_SKILL_LEVEL: int = CoreTuning.DEFAULT_SKILL_CAP
 
-const BASE_SKILL_IDS: Array = [
-    SKILL_GATHERING,
-    SKILL_BUILDING,
-    SKILL_MINING,
-    SKILL_WOODCUTTING
-]
-
-const ROLE_SKILL_IDS: Array = [
-    SKILL_CRAFTING,
-    SKILL_THINKING,
-    SKILL_STONEWORKING,
-    SKILL_WOODWORKING,
-    SKILL_BONECARVING,
-    SKILL_RITUALS,
-    SKILL_FISHING,
-    SKILL_HUNTING,
-    SKILL_RANGED_WEAPONS,
-    SKILL_MELEE_WEAPONS,
-    SKILL_EVADE,
-    SKILL_PARRY
-]
+const BASE_SKILL_IDS: Array = []
 
 const SKILL_IDS: Array = [
     SKILL_GATHERING,
-    SKILL_BUILDING,
-    SKILL_MINING,
-    SKILL_WOODCUTTING,
     SKILL_CRAFTING,
     SKILL_THINKING,
-    SKILL_STONEWORKING,
-    SKILL_WOODWORKING,
-    SKILL_BONECARVING,
     SKILL_RITUALS,
     SKILL_FISHING,
     SKILL_HUNTING,
@@ -157,6 +134,8 @@ const SKILL_IDS: Array = [
     SKILL_EVADE,
     SKILL_PARRY
 ]
+
+
 
 const RESOURCE_WOOD: String = "wood"
 const RESOURCE_BERRIES: String = "berries"
@@ -930,6 +909,7 @@ func spawn_villager_at_tile(
         "harvest_timer": 0.0,
         "assigned_harvest_center": NO_ASSIGNED_AREA,
         "assigned_harvest_radius": 0,
+        "assigned_harvest_resource": "",
         "is_housed": false,
         "skills": generated_skills,
         "level": villager_level,
@@ -956,33 +936,11 @@ func spawn_villager_at_tile(
 
 
 func generate_villager_skills(_forced_specialist_skill: String = "") -> Dictionary:
-    var generated_skills: Dictionary = {}
-
-    for skill_index in range(BASE_SKILL_IDS.size()):
-        var skill_id: String = str(BASE_SKILL_IDS[skill_index])
-        generated_skills[skill_id] = rng.randi_range(
-            BASE_SKILL_START_MIN,
-            BASE_SKILL_START_MAX
-        )
-
-    return generated_skills
+    return {}
 
 
-func get_random_skill_excluding(excluded_skills: Array) -> String:
-    var valid_skills: Array = []
-
-    for skill_index in range(BASE_SKILL_IDS.size()):
-        var skill_id: String = str(BASE_SKILL_IDS[skill_index])
-
-        if excluded_skills.has(skill_id):
-            continue
-
-        valid_skills.append(skill_id)
-
-    if valid_skills.is_empty():
-        return str(BASE_SKILL_IDS[0])
-
-    return str(valid_skills[rng.randi_range(0, valid_skills.size() - 1)])
+func get_random_skill_excluding(_excluded_skills: Array) -> String:
+    return ""
 
 
 func get_used_villager_names() -> Array:
@@ -1908,6 +1866,40 @@ func refresh_role_stats_for_villager(villager_data: Dictionary) -> void:
     if villager_data.has("defense"):
         villager_data.erase("defense")
 
+func roll_starting_role_skill_level() -> int:
+    var total_weight: int = (
+        ROLE_STARTING_SKILL_LEVEL_1_WEIGHT
+        + ROLE_STARTING_SKILL_LEVEL_2_WEIGHT
+        + ROLE_STARTING_SKILL_LEVEL_3_WEIGHT
+        + ROLE_STARTING_SKILL_LEVEL_4_WEIGHT
+    )
+
+    if total_weight <= 0:
+        return clampi(
+            ROLE_STARTING_SKILL_MIN,
+            ROLE_STARTING_SKILL_MIN,
+            ROLE_STARTING_SKILL_MAX
+        )
+
+    var roll: int = rng.randi_range(1, total_weight)
+    var running_total: int = 0
+
+    running_total += ROLE_STARTING_SKILL_LEVEL_1_WEIGHT
+
+    if roll <= running_total:
+        return clampi(1, ROLE_STARTING_SKILL_MIN, ROLE_STARTING_SKILL_MAX)
+
+    running_total += ROLE_STARTING_SKILL_LEVEL_2_WEIGHT
+
+    if roll <= running_total:
+        return clampi(2, ROLE_STARTING_SKILL_MIN, ROLE_STARTING_SKILL_MAX)
+
+    running_total += ROLE_STARTING_SKILL_LEVEL_3_WEIGHT
+
+    if roll <= running_total:
+        return clampi(3, ROLE_STARTING_SKILL_MIN, ROLE_STARTING_SKILL_MAX)
+
+    return clampi(4, ROLE_STARTING_SKILL_MIN, ROLE_STARTING_SKILL_MAX)
 
 func add_role_skills_if_missing(
     villager_data: Dictionary,
@@ -1926,55 +1918,42 @@ func add_role_skills_if_missing(
             )
             continue
 
-        skills[skill_id] = rng.randi_range(
-            ROLE_SKILL_START_MIN,
-            ROLE_SKILL_START_MAX
-        )
+        skills[skill_id] = roll_starting_role_skill_level()
 
     villager_data["skills"] = skills
 
 
+
 func get_skill_ids_for_role(role_id: String) -> Array:
-    match role_id:
-        StoneAgeVillagerAssignmentData.ROLE_MAKER:
-            return [SKILL_CRAFTING]
+    if role_id == StoneAgeVillagerAssignmentData.ROLE_GATHERER:
+        return [SKILL_GATHERING]
 
-        StoneAgeVillagerAssignmentData.ROLE_THINKER:
-            return [SKILL_THINKING]
+    if role_id == StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
+        return [SKILL_CRAFTING]
 
-        StoneAgeVillagerAssignmentData.ROLE_STONEWORKER:
-            return [SKILL_STONEWORKING]
+    if role_id == StoneAgeVillagerAssignmentData.ROLE_THINKER:
+        return [SKILL_THINKING]
 
-        StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
-            return [SKILL_WOODWORKING]
+    if role_id == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+        return [
+            SKILL_HUNTING,
+            SKILL_RANGED_WEAPONS,
+            SKILL_EVADE
+        ]
 
-        StoneAgeVillagerAssignmentData.ROLE_GATHERER:
-            return [SKILL_GATHERING]
+    if role_id == StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
+        return [
+            SKILL_MELEE_WEAPONS,
+            SKILL_PARRY
+        ]
 
-        StoneAgeVillagerAssignmentData.ROLE_BONECARVER:
-            return [SKILL_BONECARVING]
+    if role_id == StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
+        return [SKILL_RITUALS]
 
-        StoneAgeVillagerAssignmentData.ROLE_HUNTER:
-            return [
-                SKILL_HUNTING,
-                SKILL_RANGED_WEAPONS,
-                SKILL_EVADE
-            ]
+    if role_id == StoneAgeVillagerAssignmentData.ROLE_FISHER:
+        return [SKILL_FISHING]
 
-        StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
-            return [
-                SKILL_MELEE_WEAPONS,
-                SKILL_PARRY
-            ]
-
-        StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
-            return [SKILL_RITUALS]
-
-        StoneAgeVillagerAssignmentData.ROLE_FISHER:
-            return [SKILL_FISHING]
-
-        _:
-            return []
+    return []
 
 
 func apply_slot_counts_for_role(villager_data: Dictionary) -> void:
@@ -1987,22 +1966,13 @@ func apply_slot_counts_for_role(villager_data: Dictionary) -> void:
     villager_data["armor_slots"] = 0
 
     match role:
-        StoneAgeVillagerAssignmentData.ROLE_MAKER:
+        StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_THINKER:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
-        StoneAgeVillagerAssignmentData.ROLE_STONEWORKER:
-            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
-
-        StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
-            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
-
         StoneAgeVillagerAssignmentData.ROLE_GATHERER:
-            villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
-
-        StoneAgeVillagerAssignmentData.ROLE_BONECARVER:
             villager_data["tool_slots"] = DEFAULT_ROLE_TOOL_SLOTS
 
         StoneAgeVillagerAssignmentData.ROLE_RITUALIST:
@@ -2396,29 +2366,11 @@ func process_assigned_role_behavior(
             process_thinking_villager(villager_data, delta)
             return true
 
-        StoneAgeVillagerAssignmentData.ROLE_MAKER:
+        StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
             process_assigned_building_wander(
                 villager_data,
                 delta,
-                "waiting_at_building",
-                VILLAGER_STATE_WAITING_AT_BUILDING
-            )
-            return true
-
-        StoneAgeVillagerAssignmentData.ROLE_WOODWORKER:
-            process_assigned_building_wander(
-                villager_data,
-                delta,
-                "woodcarving",
-                VILLAGER_STATE_WAITING_AT_BUILDING
-            )
-            return true
-
-        StoneAgeVillagerAssignmentData.ROLE_STONEWORKER:
-            process_assigned_building_wander(
-                villager_data,
-                delta,
-                "stoneworking",
+                "crafting",
                 VILLAGER_STATE_WAITING_AT_BUILDING
             )
             return true
@@ -2428,15 +2380,6 @@ func process_assigned_role_behavior(
                 villager_data,
                 delta,
                 "gathering",
-                VILLAGER_STATE_WAITING_AT_BUILDING
-            )
-            return true
-
-        StoneAgeVillagerAssignmentData.ROLE_BONECARVER:
-            process_assigned_building_wander(
-                villager_data,
-                delta,
-                "bonecarving",
                 VILLAGER_STATE_WAITING_AT_BUILDING
             )
             return true
@@ -3892,37 +3835,7 @@ func get_harvest_duration_for_tile(
     return longest_adjusted_time
 
 
-func get_harvest_skill_for_resource(resource_id: String) -> String:
-    if resource_id == RESOURCE_WOOD:
-        return SKILL_WOODCUTTING
-
-    if resource_id == RESOURCE_STONE:
-        return SKILL_MINING
-
-    if resource_id == RESOURCE_FLINT:
-        return SKILL_MINING
-
-    if resource_id == RESOURCE_CLAY:
-        return SKILL_MINING
-
-    if resource_id == RESOURCE_BERRIES:
-        return SKILL_GATHERING
-
-    if resource_id == RESOURCE_MUSHROOMS:
-        return SKILL_GATHERING
-
-    if resource_id == RESOURCE_REEDS:
-        return SKILL_GATHERING
-
-    if resource_id == RESOURCE_FIBER:
-        return SKILL_GATHERING
-
-    if resource_id == RESOURCE_FISH:
-        return SKILL_GATHERING
-
-    if resource_id == RESOURCE_HIDE:
-        return SKILL_GATHERING
-
+func get_harvest_skill_for_resource(_resource_id: String) -> String:
     return SKILL_GATHERING
 
 func get_skill_display_name(skill_id: String) -> String:
@@ -3969,33 +3882,39 @@ func get_villager_panel_skill_rows(villager_data: Dictionary) -> Array:
     if villager_data.is_empty():
         return skill_rows
 
-    var skills_to_show: Array = [
-        SKILL_GATHERING,
-        SKILL_BUILDING,
-        SKILL_MINING,
-        SKILL_WOODCUTTING
-    ]
+    var role: String = str(
+        villager_data.get(
+            "role",
+            StoneAgeVillagerAssignmentData.get_default_role()
+        )
+    )
 
-    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
     var role_skills: Array = get_skill_ids_for_role(role)
 
-    for role_skill_index in range(role_skills.size()):
-        var role_skill_id: String = str(role_skills[role_skill_index])
-
-        if skills_to_show.has(role_skill_id):
-            continue
-
-        skills_to_show.append(role_skill_id)
+    if role_skills.is_empty():
+        return skill_rows
 
     var skills: Dictionary = villager_data.get("skills", {})
 
-    for skill_index in range(skills_to_show.size()):
-        var skill_id: String = str(skills_to_show[skill_index])
+    for role_skill_index in range(role_skills.size()):
+        var skill_id: String = str(role_skills[role_skill_index])
+
+        if skill_id == "":
+            continue
+
+        if not skills.has(skill_id):
+            continue
+
         var base_skill: int = int(skills.get(skill_id, 0))
+
+        if base_skill <= 0:
+            continue
+
         var bonus_skill: int = get_belonging_skill_bonus_for_villager(
             villager_data,
             skill_id
         )
+
         var effective_skill: int = get_villager_skill_level(
             villager_data,
             skill_id
@@ -4010,7 +3929,7 @@ func get_villager_panel_skill_rows(villager_data: Dictionary) -> Array:
         })
 
     return skill_rows
-
+    
 func get_villager_skill_level(
     villager_data: Dictionary,
     skill_id: String
@@ -4494,6 +4413,28 @@ func print_villager_summary(villager_data: Dictionary) -> void:
     if villager_data.has("defense"):
         defense_text = str(int(villager_data.get("defense", 0)))
 
+    var skill_parts: Array = []
+    var skill_keys: Array = skills.keys()
+    skill_keys.sort()
+
+    for skill_index in range(skill_keys.size()):
+        var skill_id: String = str(skill_keys[skill_index])
+        var skill_level: int = int(skills.get(skill_id, 0))
+
+        if skill_level <= 0:
+            continue
+
+        skill_parts.append(
+            get_skill_display_name(skill_id)
+            + " "
+            + str(skill_level)
+        )
+
+    var skills_text: String = "None"
+
+    if not skill_parts.is_empty():
+        skills_text = ", ".join(skill_parts)
+
     print(
         "- ",
         villager_name,
@@ -4512,40 +4453,13 @@ func print_villager_summary(villager_data: Dictionary) -> void:
         max_health,
         ", Hunger ",
         hunger,
-        ", Core Skills [Gathering ",
-        int(skills.get(SKILL_GATHERING, 0)),
-        ", Building ",
-        int(skills.get(SKILL_BUILDING, 0)),
-        ", Mining ",
-        int(skills.get(SKILL_MINING, 0)),
-        ", WoodCutting ",
-        int(skills.get(SKILL_WOODCUTTING, 0)),
-        "]",
-        ", Role Skills [Crafting ",
-        int(skills.get(SKILL_CRAFTING, 0)),
-        ", Thinking ",
-        int(skills.get(SKILL_THINKING, 0)),
-        ", Stoneworking ",
-        int(skills.get(SKILL_STONEWORKING, 0)),
-        ", Woodworking ",
-        int(skills.get(SKILL_WOODWORKING, 0)),
-        ", Rituals ",
-        int(skills.get(SKILL_RITUALS, 0)),
+        ", Skills [",
+        skills_text,
         "]",
         ", Combat [Attack ",
         attack_text,
         ", Defense ",
         defense_text,
-        ", Hunting ",
-        int(skills.get(SKILL_HUNTING, 0)),
-        ", Ranged ",
-        int(skills.get(SKILL_RANGED_WEAPONS, 0)),
-        ", Melee ",
-        int(skills.get(SKILL_MELEE_WEAPONS, 0)),
-        ", Evade ",
-        int(skills.get(SKILL_EVADE, 0)),
-        ", Parry ",
-        int(skills.get(SKILL_PARRY, 0)),
         "]",
         ", Role ",
         role_name,

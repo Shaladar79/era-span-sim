@@ -61,6 +61,7 @@ const ASSIGNMENT_ROLE_HUNTER: String = "hunter"
 const ASSIGNMENT_ROLE_FISHER: String = "fisher"
 const ASSIGNMENT_ROLE_WARRIOR: String = "warrior"
 const ASSIGNMENT_ROLE_RITUALIST: String = "ritualist"
+const ASSIGNMENT_ROLE_CRAFTER: String = "crafter"
 
 const HERO_PLACEHOLDER_CHIEFTAIN: String = "chieftain"
 const HERO_PLACEHOLDER_WARLEADER: String = "warleader"
@@ -127,11 +128,10 @@ static func get_all_buildings() -> Dictionary:
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "assignment_enabled": true,
             "assignment_slots": 1,
-            "assignment_role": ASSIGNMENT_ROLE_MAKER,
             "assignment_replaces_shelter": false,
             "assigned_villagers": [],
-            "description": "A crude work area where simple tools and early crafted objects can be made. One villager can be assigned here as a Maker. This assignment does not replace normal shelter."
-        },
+            "assignment_role": ASSIGNMENT_ROLE_CRAFTER,
+            "description": "A crude work area where simple tools and early crafted objects can be made. One villager can be assigned here as a Crafter. This assignment does not replace normal shelter."},
 
         BUILDING_THINKERS_SPOT: {
             "id": BUILDING_THINKERS_SPOT,
@@ -396,15 +396,14 @@ static func get_all_buildings() -> Dictionary:
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "stoneworking",
-            "specialist_role": ASSIGNMENT_ROLE_STONEWORKER,
             "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
             "assignment_enabled": true,
             "assignment_slots": 1,
-            "assignment_role": ASSIGNMENT_ROLE_STONEWORKER,
             "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age work hut for shaping stone, flint, crude blades, and early tool heads. One villager can be assigned here as a Stoneworker, and the hut replaces normal shelter for that villager."
-        },
+            "specialist_role": ASSIGNMENT_ROLE_CRAFTER,
+            "assignment_role": ASSIGNMENT_ROLE_CRAFTER,
+            "description": "A dedicated Stone Age work hut for shaping stone, flint, crude blades, and early tool heads. One villager can be assigned here as a Crafter, and the hut replaces normal shelter for that villager."},
 
         BUILDING_WOODWORKING_BENCH: {
             "id": BUILDING_WOODWORKING_BENCH,
@@ -423,16 +422,16 @@ static func get_all_buildings() -> Dictionary:
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "woodworking",
-            "specialist_role": ASSIGNMENT_ROLE_WOODWORKER,
+            "specialist_role": ASSIGNMENT_ROLE_CRAFTER,
             "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
             "assignment_enabled": true,
             "assignment_slots": 1,
-            "assignment_role": ASSIGNMENT_ROLE_WOODWORKER,
+            "assignment_role": ASSIGNMENT_ROLE_CRAFTER,
             "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age work hut for shaping branches, poles, handles, frames, and later moving-camp parts. One villager can be assigned here as a Woodcarver, and the hut replaces normal shelter for that villager."
-        },
-
+            "description": "A dedicated Stone Age work hut for shaping branches, poles, handles, frames, and later moving-camp parts. One villager can be assigned here as a Crafter, and the hut replaces normal shelter for that villager."
+            },
+            
         BUILDING_GATHERERS_HUT: {
             "id": BUILDING_GATHERERS_HUT,
             "name": "Gatherer's Hut",
@@ -480,15 +479,14 @@ static func get_all_buildings() -> Dictionary:
             "requires_research_unlock": true,
             "campfire_radius": CAMPFIRE_BUILD_RADIUS,
             "crafting_skill": "bonecarving",
-            "specialist_role": ASSIGNMENT_ROLE_BONECARVER,
             "specialist_housing_capacity": SPECIALIST_HUT_CAPACITY,
             "assignment_enabled": true,
             "assignment_slots": 1,
-            "assignment_role": ASSIGNMENT_ROLE_BONECARVER,
             "assignment_replaces_shelter": true,
             "assigned_villagers": [],
-            "description": "A dedicated Stone Age hut for shaping bone into charms, tools, fittings, and future ritual objects. One villager can be assigned here as a Bonecarver, and the hut replaces normal shelter for that villager."
-        },
+            "specialist_role": ASSIGNMENT_ROLE_CRAFTER,
+            "assignment_role": ASSIGNMENT_ROLE_CRAFTER,
+            "description": "A dedicated Stone Age hut for shaping bone into charms, tools, fittings, and future ritual objects. One villager can be assigned here as a Crafter, and the hut replaces normal shelter for that villager."},
 
         BUILDING_HUNTERS_HUT: {
             "id": BUILDING_HUNTERS_HUT,

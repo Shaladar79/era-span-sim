@@ -3,6 +3,15 @@ class_name StoneAgeTuning
 
 const MAX_BELONGING_SLOTS: int = 2
 
+const ROLE_STARTING_SKILL_MIN: int = 1
+const ROLE_STARTING_SKILL_MAX: int = 4
+
+# Weighted toward 2.
+const ROLE_STARTING_SKILL_LEVEL_1_WEIGHT: int = 20
+const ROLE_STARTING_SKILL_LEVEL_2_WEIGHT: int = 50
+const ROLE_STARTING_SKILL_LEVEL_3_WEIGHT: int = 20
+const ROLE_STARTING_SKILL_LEVEL_4_WEIGHT: int = 10
+
 const BASE_SKILL_START_MIN: int = 0
 const BASE_SKILL_START_MAX: int = 3
 
