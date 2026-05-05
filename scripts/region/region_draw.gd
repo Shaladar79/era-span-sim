@@ -59,8 +59,7 @@ static func draw_top_info_panel(
     var button_border_width: float = max(1.0, 1.25 * world_per_screen_y)
 
     var title_font_size: int = int(max(10.0, 13.0 * world_per_screen_y))
-    var font_size: int = int(max(10.0, 14.0 * world_per_screen_y))
-    var small_font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
+    var font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
     var button_font_size: int = int(max(9.0, 12.0 * world_per_screen_y))
 
     node.draw_rect(
@@ -84,60 +83,31 @@ static func draw_top_info_panel(
     if settlement_name == "":
         settlement_name = "New Settlement"
 
-    var ideas_text := "Ideas: " + get_display_amount(research_points)
-    var villager_text := "Villagers: " + str(villager_count)
-    var shelter_text := "Shelter: " + str(available_shelter) + " open"
+    var ideas_text: String = "Ideas: " + get_display_amount(research_points)
+    var villager_text: String = "Villagers: " + str(villager_count)
+    var shelter_text: String = "Shelter: " + str(available_shelter) + " open"
+
+    var title_position: Vector2 = panel_screen_rect.position + Vector2(10, 18)
+    var stats_position: Vector2 = panel_screen_rect.position + Vector2(10, 38)
 
     node.draw_string(
         ThemeDB.fallback_font,
-        RegionUI.screen_position_to_world_position(
-            node,
-            panel_screen_rect.position + Vector2(10, 18)
-        ),
+        RegionUI.screen_position_to_world_position(node, title_position),
         settlement_name,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         title_font_size,
-        Color(1.0, 0.95, 0.75, 1.0)
+        Color(1.0, 0.94, 0.70, 1.0)
     )
 
     node.draw_string(
         ThemeDB.fallback_font,
-        RegionUI.screen_position_to_world_position(
-            node,
-            panel_screen_rect.position + Vector2(10, 40)
-        ),
-        ideas_text,
+        RegionUI.screen_position_to_world_position(node, stats_position),
+        ideas_text + " | " + villager_text + " | " + shelter_text,
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         font_size,
-        Color(1.0, 1.0, 1.0, 1.0)
-    )
-
-    node.draw_string(
-        ThemeDB.fallback_font,
-        RegionUI.screen_position_to_world_position(
-            node,
-            panel_screen_rect.position + Vector2(126, 40)
-        ),
-        villager_text,
-        HORIZONTAL_ALIGNMENT_LEFT,
-        -1,
-        font_size,
-        Color(1.0, 1.0, 1.0, 1.0)
-    )
-
-    node.draw_string(
-        ThemeDB.fallback_font,
-        RegionUI.screen_position_to_world_position(
-            node,
-            panel_screen_rect.position + Vector2(126, 62)
-        ),
-        shelter_text,
-        HORIZONTAL_ALIGNMENT_LEFT,
-        -1,
-        small_font_size,
-        Color(0.90, 0.95, 1.0, 1.0)
+        Color(0.92, 0.92, 0.86, 1.0)
     )
 
     var resources_button_screen_rect: Rect2 = RegionUI.get_resources_button_screen_rect(
