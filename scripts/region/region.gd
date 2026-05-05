@@ -1022,6 +1022,100 @@ func update_hunting_jobs(delta: float) -> void:
         villager_manager.send_hunt_party_home(animal_instance_id)
         queue_redraw()
 
+func assign_storage_area_resource(
+    building_instance_id: int,
+    resource_name: String
+) -> void:
+    if building_instance_id <= 0:
+        return
+
+    resource_name = resource_name.strip_edges()
+
+    if resource_name == "":
+        return
+
+    var building_data: Dictionary = building_manager.get_building_by_instance_id(
+        building_instance_id
+    )
+
+    if building_data.is_empty():
+        add_village_log_message("Could not set Storage Area resource. Building not found.")
+        return
+
+    if str(building_data.get("id", "")) != RegionBuildingData.BUILDING_STORAGE_AREA:
+        add_village_log_message("Selected building is not a Storage Area.")
+        return
+
+    var previous_resource: String = str(building_data.get("storage_resource", "")).strip_edges()
+    var storage_capacity: int = int(
+        building_data.get(
+            "storage_capacity",
+            RegionBuildingData.STORAGE_AREA_CAPACITY
+        )
+    )
+
+    if previous_resource == resource_name:
+        add_village_log_message(
+            "Storage Area already stores "
+            + resource_name
+            + ". Cap: "
+            + str(inventory.get_resource_cap(resource_name))
+            + "."
+        )
+        print_settlement_inventory()
+        return
+
+    if previous_resource != "":
+        inventory.remove_storage_capacity(
+            previous_resource,
+            storage_capacity
+        )
+
+    var old_cap: int = inventory.get_resource_cap(resource_name)
+    var did_update_building: bool = false
+
+    if building_manager.has_method("set_building_field"):
+        did_update_building = bool(
+            building_manager.call(
+                "set_building_field",
+                building_instance_id,
+                "storage_resource",
+                resource_name
+            )
+        )
+
+    if not did_update_building:
+        if building_manager.has_method("set_building_storage_resource"):
+            did_update_building = bool(
+                building_manager.call(
+                    "set_building_storage_resource",
+                    building_instance_id,
+                    resource_name
+                )
+            )
+
+    if not did_update_building:
+        add_village_log_message("Could not set Storage Area resource. Building manager needs a storage-resource setter.")
+        return
+
+    inventory.add_storage_capacity(
+        resource_name,
+        storage_capacity
+    )
+
+    var new_cap: int = inventory.get_resource_cap(resource_name)
+
+    add_village_log_message(
+        "Storage Area now stores "
+        + resource_name
+        + ". Cap "
+        + str(old_cap)
+        + " -> "
+        + str(new_cap)
+        + "."
+    )
+
+    print_settlement_inventory()
 
 func handle_dangerous_hunt_tick(
     animal_instance_id: int,
@@ -2302,7 +2396,7 @@ func assign_villager_to_selected_assignment_building(villager_id: int) -> void:
             villager_manager.set_villager_assigned_work_anchor(
                 villager_id,
                 building_center_tile,
-                villager_manager.DEFAULT_ASSIGNED_WORK_RADIUS
+                VillagerManager.DEFAULT_ASSIGNED_WORK_RADIUS
             )
 
         if not current_building.is_empty():
@@ -2311,10 +2405,10 @@ func assign_villager_to_selected_assignment_building(villager_id: int) -> void:
 
                 if selected_resource != "":
                     villager_manager.set_villager_assigned_building_harvest_area(
-                        villager_id,
-                        building_center_tile,
-                        HARVEST_ASSIGN_RADIUS,
-                        selected_resource
+                    villager_id,
+                    building_center_tile,
+                    StoneAgeTuning.GATHERERS_HUT_HARVEST_RADIUS,
+                    selected_resource
                     )
 
                     add_village_log_message(
@@ -2711,6 +2805,22 @@ func cancel_villager_drag() -> void:
     is_dragging_villager = false
     dragged_villager_id = 0
     drag_assignment_tile = Vector2i(-1, -1)
+
+func get_gatherer_hut_selectable_resources() -> Array:
+    var gather_resources: Array = [
+        "Wood",
+        "Stone",
+        "Fiber",
+        "Berries",
+        "Mushrooms",
+        "Reeds",
+        "Clay"
+    ]
+
+    if research.has_learned_research(StoneAgeResearchData.RESEARCH_RECOGNIZE_FLINT):
+        gather_resources.append("Flint")
+
+    return gather_resources
     
 func try_open_storage_selector_at_tile(tile_position: Vector2i) -> bool:
     if not is_tile_in_bounds(tile_position):
@@ -2721,58 +2831,268 @@ func try_open_storage_selector_at_tile(tile_position: Vector2i) -> bool:
     if building_data.is_empty():
         return false
 
-    if not building_manager.is_storage_area_building(building_data):
+    var building_id: String = str(building_data.get("id", ""))
+    var is_storage_area: bool = building_manager.is_storage_area_building(building_data)
+    var is_gatherer_hut: bool = building_id == RegionBuildingData.BUILDING_GATHERERS_HUT
+
+    if not is_storage_area and not is_gatherer_hut:
         return false
 
-    var selectable_resources: Array = inventory.get_selectable_storage_resources()
+    var selectable_resources: Array = []
+
+    if is_gatherer_hut:
+        selectable_resources = get_gatherer_hut_selectable_resources()
+    else:
+        selectable_resources = inventory.get_selectable_storage_resources()
 
     if selectable_resources.is_empty():
-        print("No storage resource options available. Gather at least 1 of a resource first.")
-        return true
+        if is_gatherer_hut:
+            add_village_log_message("No gather resource options available.")
+        else:
+            add_village_log_message("No storage resource options available. Gather at least 1 of a resource first.")
+
+        return false
 
     storage_selector_open = true
     selected_storage_building_instance_id = int(building_data.get("instance_id", 0))
-    storage_selector_anchor_tile = Vector2i(
-        int(building_data.get("x", tile_position.x)),
-        int(building_data.get("y", tile_position.y))
-    )
+    storage_selector_anchor_tile = tile_position
     storage_selector_options = selectable_resources
 
-    print("Storage Area selected. Choose resource:")
-
-    for option_index in range(storage_selector_options.size()):
-        print(str(option_index + 1) + ". " + str(storage_selector_options[option_index]))
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    show_build_panel = false
+    close_crafting_panel()
+    close_assignment_panel()
+    close_selected_building_panel()
 
     queue_redraw()
     return true
 
+func assign_selected_resource_to_selector_building(resource_name: String) -> void:
+    if selected_storage_building_instance_id <= 0:
+        close_storage_selector()
+        queue_redraw()
+        return
+
+    resource_name = resource_name.strip_edges()
+
+    if resource_name == "":
+        close_storage_selector()
+        queue_redraw()
+        return
+
+    var building_data: Dictionary = building_manager.get_building_by_instance_id(
+        selected_storage_building_instance_id
+    )
+
+    if building_data.is_empty():
+        close_storage_selector()
+        queue_redraw()
+        return
+
+    var building_id: String = str(building_data.get("id", ""))
+
+    if building_id == RegionBuildingData.BUILDING_GATHERERS_HUT:
+        assign_gatherer_hut_resource(
+            selected_storage_building_instance_id,
+            resource_name
+        )
+
+        close_storage_selector()
+        queue_redraw()
+        return
+
+    if building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
+        assign_storage_area_resource(
+            selected_storage_building_instance_id,
+            resource_name
+        )
+
+        close_storage_selector()
+        queue_redraw()
+        return
+
+    add_village_log_message("Selected building cannot use this resource selector.")
+    close_storage_selector()
+    queue_redraw()
+
+func assign_gatherer_hut_resource(
+    building_instance_id: int,
+    resource_name: String
+) -> void:
+    if building_instance_id <= 0:
+        return
+
+    resource_name = resource_name.strip_edges()
+
+    if resource_name == "":
+        return
+
+    var building_data: Dictionary = building_manager.get_building_by_instance_id(
+        building_instance_id
+    )
+
+    if building_data.is_empty():
+        add_village_log_message("Could not set Gatherer's Hut resource. Building not found.")
+        return
+
+    if str(building_data.get("id", "")) != RegionBuildingData.BUILDING_GATHERERS_HUT:
+        add_village_log_message("Selected building is not a Gatherer's Hut.")
+        return
+
+    var previous_resource: String = str(building_data.get("selected_resource", "")).strip_edges()
+    var storage_capacity: int = int(
+        building_data.get(
+            "selected_resource_storage_capacity",
+            StoneAgeBuildingData.GATHERERS_HUT_SELECTED_RESOURCE_CAPACITY
+        )
+    )
+
+    if previous_resource == resource_name:
+        add_village_log_message(
+            "Gatherer's Hut is already set to gather "
+            + resource_name
+            + ". Cap: "
+            + str(inventory.get_resource_cap(resource_name))
+            + "."
+        )
+
+        update_gatherer_hut_assigned_villagers(
+            building_instance_id,
+            resource_name
+        )
+
+        print_settlement_inventory()
+        return
+
+    if previous_resource != "":
+        inventory.remove_storage_capacity(
+            previous_resource,
+            storage_capacity
+        )
+
+    var old_cap: int = inventory.get_resource_cap(resource_name)
+    var did_update_building: bool = false
+
+    if building_manager.has_method("set_building_field"):
+        did_update_building = bool(
+            building_manager.call(
+                "set_building_field",
+                building_instance_id,
+                "selected_resource",
+                resource_name
+            )
+        )
+
+    if not did_update_building:
+        if building_manager.has_method("set_building_selected_resource"):
+            did_update_building = bool(
+                building_manager.call(
+                    "set_building_selected_resource",
+                    building_instance_id,
+                    resource_name
+                )
+            )
+
+    if not did_update_building:
+        add_village_log_message("Could not set Gatherer's Hut resource. Building manager needs a selected-resource setter.")
+        return
+
+    inventory.add_storage_capacity(
+        resource_name,
+        storage_capacity
+    )
+
+    var new_cap: int = inventory.get_resource_cap(resource_name)
+
+    add_village_log_message(
+        "Gatherer's Hut selected resource: "
+        + resource_name
+        + ". Cap "
+        + str(old_cap)
+        + " -> "
+        + str(new_cap)
+        + "."
+    )
+
+    update_gatherer_hut_assigned_villagers(
+        building_instance_id,
+        resource_name
+    )
+
+    print_settlement_inventory()
+
+func update_gatherer_hut_assigned_villagers(
+    building_instance_id: int,
+    resource_name: String
+) -> void:
+    if building_instance_id <= 0:
+        return
+
+    resource_name = resource_name.strip_edges()
+
+    if resource_name == "":
+        return
+
+    var building_data: Dictionary = building_manager.get_building_by_instance_id(
+        building_instance_id
+    )
+
+    if building_data.is_empty():
+        return
+
+    if str(building_data.get("id", "")) != RegionBuildingData.BUILDING_GATHERERS_HUT:
+        return
+
+    var building_center_tile: Vector2i = get_building_center_tile_from_data(
+        building_data
+    )
+
+    if not is_tile_in_bounds(building_center_tile):
+        return
+
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+    for assigned_index in range(assigned_villagers.size()):
+        var villager_id: int = int(assigned_villagers[assigned_index])
+
+        if villager_id <= 0:
+            continue
+
+        villager_manager.set_villager_assigned_building_harvest_area(
+            villager_id,
+            building_center_tile,
+            StoneAgeTuning.GATHERERS_HUT_HARVEST_RADIUS,
+            resource_name
+        )
+
+        var villager_data: Dictionary = villager_manager.get_villager_data_by_id(villager_id)
+        var villager_name: String = str(villager_data.get("name", "Gatherer"))
+
+        add_village_log_message(
+            villager_name
+            + " will gather "
+            + resource_name
+            + " near the Gatherer's Hut."
+        )
 
 func try_select_storage_resource_from_mouse() -> bool:
     if not storage_selector_open:
         return false
 
-    var mouse_world_position := get_global_mouse_position()
-    var selected_index: int = get_storage_selector_option_index_at_position(mouse_world_position)
+    var mouse_world_position: Vector2 = get_global_mouse_position()
+    var option_index: int = get_storage_selector_option_index_at_position(mouse_world_position)
 
-    if selected_index < 0:
+    if option_index < 0:
         return false
 
-    if selected_index >= storage_selector_options.size():
+    if option_index >= storage_selector_options.size():
         return false
 
-    var selected_resource: String = str(storage_selector_options[selected_index])
+    var resource_name: String = str(storage_selector_options[option_index])
 
-    var did_assign: bool = building_manager.assign_storage_area_resource(
-        selected_storage_building_instance_id,
-        selected_resource,
-        inventory
-    )
-
-    if did_assign:
-        print_settlement_inventory()
-
-    close_storage_selector()
-    queue_redraw()
+    assign_selected_resource_to_selector_building(resource_name)
 
     return true
 

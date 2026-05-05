@@ -14,6 +14,7 @@ const SAVE_KEY_WARLEADER_DATA: String = "warleader_data"
 const SAVE_KEY_HAS_SPIRITUAL_LEADER: String = "has_spiritual_leader"
 const SAVE_KEY_SPIRITUAL_LEADER_DATA: String = "spiritual_leader_data"
 const SAVE_KEY_HERO_PLACEHOLDERS: String = "hero_placeholders"
+
 const KEY_ACTIVE: String = "active"
 const KEY_FUEL_TIMER: String = "fuel_timer"
 const KEY_IS_LIT: String = "is_lit"
@@ -75,6 +76,7 @@ func clear_buildings() -> void:
             tile_data["occupied"] = false
             tile_data.erase("building_id")
             tile_data.erase("building_instance_id")
+            region_tiles[y][x] = tile_data
 
 
 func get_save_data() -> Dictionary:
@@ -129,9 +131,10 @@ func load_save_data(save_data: Dictionary) -> void:
             var instance_id: int = int(building_data.get("instance_id", 0))
 
             if instance_id <= 0:
-               continue
+                continue
 
             sanitize_loaded_building_runtime_data(building_data)
+            sanitize_loaded_resource_selector_runtime_data(building_data)
 
             region_buildings.append(building_data)
 
@@ -385,6 +388,9 @@ func start_building_placement(building_id: String) -> void:
     if current_building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
         print("Storage Area starts unassigned. Click it after building to choose what resource it stores.")
 
+    if current_building_id == RegionBuildingData.BUILDING_GATHERERS_HUT:
+        print("Gatherer's Hut starts without a selected resource. Click it after building to choose what the assigned Gatherer collects.")
+
     if bool(building_data.get("requires_campfire_range", false)):
         print("Placement Requirement: Must be within active fire range.")
 
@@ -468,6 +474,63 @@ func try_place_current_building(
     current_building_id = ""
 
     return true
+
+
+func set_building_field(
+    building_instance_id: int,
+    field_name: String,
+    field_value: Variant
+) -> bool:
+    if building_instance_id <= 0:
+        return false
+
+    if field_name == "":
+        return false
+
+    for building_index in range(region_buildings.size()):
+        var building_variant: Variant = region_buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+
+        if int(building_data.get("instance_id", 0)) != building_instance_id:
+            continue
+
+        building_data[field_name] = field_value
+        region_buildings[building_index] = building_data
+        return true
+
+    return false
+
+
+func set_building_selected_resource(
+    building_instance_id: int,
+    resource_name: String
+) -> bool:
+    if resource_name.strip_edges() == "":
+        return false
+
+    return set_building_field(
+        building_instance_id,
+        "selected_resource",
+        resource_name.strip_edges()
+    )
+
+
+func set_building_storage_resource(
+    building_instance_id: int,
+    resource_name: String
+) -> bool:
+    if resource_name.strip_edges() == "":
+        return false
+
+    return set_building_field(
+        building_instance_id,
+        "storage_resource",
+        resource_name.strip_edges()
+    )
 
 
 func apply_building_unlock_side_effects(
@@ -697,7 +760,7 @@ func is_footprint_in_active_fire_range(
             continue
 
         if not is_protection_light_building_lit(building_data):
-           continue
+            continue
 
         var fire_origin := Vector2i(
             int(building_data.get("x", 0)),
@@ -724,7 +787,8 @@ func is_footprint_in_active_fire_range(
 
 func is_fire_source_building(building_id: String) -> bool:
     return ProtectionLightData.is_protection_light_building(building_id)
-    
+
+
 func is_protection_light_building_lit(building_data: Dictionary) -> bool:
     var building_id: String = str(building_data.get("id", ""))
 
@@ -792,7 +856,8 @@ func place_building(
         building_data,
         source_building_data
     )
-    
+
+    initialize_resource_selector_runtime_data(building_data)
     initialize_protection_light_building_runtime_data(building_data)
 
     region_buildings.append(building_data)
@@ -808,6 +873,7 @@ func place_building(
             tile_data["occupied"] = true
             tile_data["building_id"] = building_id
             tile_data["building_instance_id"] = building_instance_id
+            region_tiles[tile_position.y][tile_position.x] = tile_data
 
     return building_instance_id
 
@@ -841,6 +907,10 @@ func copy_runtime_building_metadata(
         "assignment_slots",
         "assignment_role",
         "assignment_replaces_shelter",
+        "resource_selector_enabled",
+        "resource_selector_type",
+        "selected_resource",
+        "selected_resource_storage_capacity",
         "hero_placeholder_enabled",
         "hero_placeholder_role",
         "hero_placeholder_shape",
@@ -858,13 +928,58 @@ func copy_runtime_building_metadata(
     if bool(target_building_data.get("assignment_enabled", false)):
         target_building_data["assigned_villagers"] = []
 
-    if str(target_building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA:
-        if not target_building_data.has("storage_resource"):
-            target_building_data["storage_resource"] = ""
 
-        if not target_building_data.has("storage_capacity"):
-            target_building_data["storage_capacity"] = RegionBuildingData.STORAGE_AREA_CAPACITY
-            
+func initialize_resource_selector_runtime_data(building_data: Dictionary) -> void:
+    var building_id: String = str(building_data.get("id", ""))
+
+    if building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
+        if not building_data.has("storage_resource"):
+            building_data["storage_resource"] = ""
+
+        if not building_data.has("storage_capacity"):
+            building_data["storage_capacity"] = RegionBuildingData.STORAGE_AREA_CAPACITY
+
+        return
+
+    if building_id == RegionBuildingData.BUILDING_GATHERERS_HUT:
+        building_data["resource_selector_enabled"] = bool(building_data.get("resource_selector_enabled", true))
+
+        if not building_data.has("resource_selector_type"):
+            building_data["resource_selector_type"] = "non_animal"
+
+        if not building_data.has("selected_resource"):
+            building_data["selected_resource"] = ""
+
+        if not building_data.has("selected_resource_storage_capacity"):
+            building_data["selected_resource_storage_capacity"] = StoneAgeBuildingData.GATHERERS_HUT_SELECTED_RESOURCE_CAPACITY
+
+
+func sanitize_loaded_resource_selector_runtime_data(building_data: Dictionary) -> void:
+    var building_id: String = str(building_data.get("id", ""))
+
+    if building_id == RegionBuildingData.BUILDING_STORAGE_AREA:
+        if not building_data.has("storage_resource"):
+            building_data["storage_resource"] = ""
+
+        if not building_data.has("storage_capacity"):
+            building_data["storage_capacity"] = RegionBuildingData.STORAGE_AREA_CAPACITY
+
+        return
+
+    if building_id == RegionBuildingData.BUILDING_GATHERERS_HUT:
+        if not building_data.has("resource_selector_enabled"):
+            building_data["resource_selector_enabled"] = true
+
+        if not building_data.has("resource_selector_type"):
+            building_data["resource_selector_type"] = "non_animal"
+
+        if not building_data.has("selected_resource"):
+            building_data["selected_resource"] = ""
+
+        if not building_data.has("selected_resource_storage_capacity"):
+            building_data["selected_resource_storage_capacity"] = StoneAgeBuildingData.GATHERERS_HUT_SELECTED_RESOURCE_CAPACITY
+
+
 func initialize_protection_light_building_runtime_data(building_data: Dictionary) -> void:
     var building_id: String = str(building_data.get("id", ""))
 
@@ -877,7 +992,8 @@ func initialize_protection_light_building_runtime_data(building_data: Dictionary
     building_data[KEY_ACTIVE] = true
     building_data[KEY_FUEL_TIMER] = fuel_interval
     building_data[KEY_LAST_FUEL_MESSAGE_STATE] = "lit"
-    
+
+
 func sanitize_loaded_building_runtime_data(building_data: Dictionary) -> void:
     var building_id: String = str(building_data.get("id", ""))
 
@@ -991,7 +1107,8 @@ func get_building_count_by_id(target_building_id: String) -> int:
             building_count += 1
 
     return building_count
-    
+
+
 func update_protection_light_fuel(
     delta: float,
     inventory: RegionInventory
@@ -1122,6 +1239,7 @@ func get_building_by_instance_id(building_instance_id: int) -> Dictionary:
 
     return {}
 
+
 func destroy_building_by_instance_id(building_instance_id: int) -> Dictionary:
     var result: Dictionary = {
         "success": false,
@@ -1132,7 +1250,6 @@ func destroy_building_by_instance_id(building_instance_id: int) -> Dictionary:
         "assigned_villagers": []
     }
 
-    # Destroy should always leave placement mode.
     cancel_build_mode()
 
     if building_instance_id <= 0:
@@ -1160,7 +1277,6 @@ func destroy_building_by_instance_id(building_instance_id: int) -> Dictionary:
 
     region_buildings.remove_at(building_index)
 
-    # Safer than partial tile cleanup: rebuild map occupancy from remaining buildings.
     rebuild_occupied_tiles_from_buildings()
 
     result["success"] = true
@@ -1199,6 +1315,7 @@ func clear_building_occupied_tiles(building_data: Dictionary) -> void:
             tile_data.erase("building_instance_id")
             region_tiles[tile_position.y][tile_position.x] = tile_data
 
+
 func get_building_index_by_instance_id(building_instance_id: int) -> int:
     for building_index in range(region_buildings.size()):
         var building_variant: Variant = region_buildings[building_index]
@@ -1217,8 +1334,10 @@ func get_building_index_by_instance_id(building_instance_id: int) -> int:
 func is_storage_area_building(building_data: Dictionary) -> bool:
     return str(building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA
 
+
 func is_hero_placeholder_building(building_data: Dictionary) -> bool:
     return bool(building_data.get("hero_placeholder_enabled", false))
+
 
 func is_assignment_enabled_building(building_data: Dictionary) -> bool:
     return bool(building_data.get("assignment_enabled", false))
