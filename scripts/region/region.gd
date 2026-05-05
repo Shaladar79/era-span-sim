@@ -98,6 +98,7 @@ var storage_selector_options: Array = []
 var show_resource_inventory_panel: bool = false
 var show_village_inventory_panel: bool = false
 var show_research_panel: bool = false
+var selected_research_category: String = StoneAgeResearchData.get_default_research_category()
 var show_build_panel: bool = false
 var selected_build_age: String = RegionBuildingData.get_default_build_age()
 var selected_build_category: String = RegionBuildingData.get_default_build_category_for_age(selected_build_age)
@@ -654,6 +655,7 @@ func generate_region() -> void:
 
     RegionBuildingData.reset_runtime_unlocks()
     reset_build_panel_filters()
+    reset_research_panel_filters()
     setup_building_manager()
     clear_buildings()
     setup_wild_animal_manager()
@@ -707,6 +709,7 @@ func generate_from_world_selection(
 
     RegionBuildingData.reset_runtime_unlocks()
     reset_build_panel_filters()
+    reset_research_panel_filters()
     setup_building_manager()
     clear_buildings()
     setup_wild_animal_manager()
@@ -786,6 +789,7 @@ func regenerate_region() -> void:
 
     RegionBuildingData.reset_runtime_unlocks()
     reset_build_panel_filters()
+    reset_research_panel_filters()
     setup_building_manager()
     clear_buildings()
     setup_wild_animal_manager()
@@ -831,6 +835,8 @@ func reset_build_panel_filters() -> void:
     selected_build_category = RegionBuildingData.get_default_build_category_for_age(selected_build_age)
     build_list_scroll_index = 0
 
+func reset_research_panel_filters() -> void:
+    selected_research_category = StoneAgeResearchData.get_default_research_category()
 
 func reset_test_inventory() -> void:
     inventory.reset()
@@ -1449,6 +1455,9 @@ func try_handle_top_info_panel_click(mouse_screen_position: Vector2) -> bool:
         return true
 
     if show_research_panel:
+        if try_select_research_category_from_mouse(mouse_screen_position):
+            return true
+
         if try_buy_research_from_mouse(mouse_screen_position):
             return true
 
@@ -2353,14 +2362,72 @@ func get_assignment_hovered_villager(mouse_screen_position: Vector2) -> Dictiona
 
     return {}
 
-
-func try_buy_research_from_mouse(mouse_screen_position: Vector2) -> bool:
+func get_buyable_research_plans_for_selected_category() -> Array:
+    var filtered_plans: Array = []
     var buyable_plans: Array = research.get_buyable_research_plans(
         building_manager,
         inventory
     )
 
     for plan_index in range(buyable_plans.size()):
+        var plan: Dictionary = buyable_plans[plan_index]
+        var plan_category: String = str(
+            plan.get(
+                "category",
+                StoneAgeResearchData.CATEGORY_CORE
+            )
+        )
+
+        if plan_category != selected_research_category:
+            continue
+
+        filtered_plans.append(plan)
+
+    return filtered_plans
+
+func try_select_research_category_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_research_panel:
+        return false
+
+    var research_categories: Array = StoneAgeResearchData.get_research_categories()
+
+    for category_index in range(research_categories.size()):
+        var category_button_rect: Rect2 = RegionUI.get_research_category_button_screen_rect(
+            get_viewport().get_visible_rect().size,
+            category_index,
+            research_categories.size()
+        )
+
+        if not category_button_rect.has_point(mouse_screen_position):
+            continue
+
+        var category_data: Dictionary = research_categories[category_index]
+        var category_id: String = str(category_data.get("id", ""))
+
+        if category_id == "":
+            return true
+
+        selected_research_category = category_id
+
+        queue_redraw()
+
+        print("Selected Idea category: ", StoneAgeResearchData.get_research_category_name(selected_research_category))
+
+        return true
+
+    return false
+
+func try_buy_research_from_mouse(mouse_screen_position: Vector2) -> bool:
+    if not show_research_panel:
+        return false
+
+    var buyable_plans: Array = get_buyable_research_plans_for_selected_category()
+    var visible_count: int = min(
+        buyable_plans.size(),
+        RegionUI.get_research_visible_row_count()
+    )
+
+    for plan_index in range(visible_count):
         var plan_rect: Rect2 = get_research_plan_button_screen_rect(plan_index)
 
         if not plan_rect.has_point(mouse_screen_position):
@@ -3008,17 +3075,18 @@ func draw_village_inventory_panel() -> void:
     )
 
 
+
 func draw_research_panel() -> void:
     if not show_research_panel:
         return
 
-    var buyable_plans: Array = research.get_buyable_research_plans(
-        building_manager,
-        inventory
-    )
+    var research_categories: Array = StoneAgeResearchData.get_research_categories()
+    var buyable_plans: Array = get_buyable_research_plans_for_selected_category()
 
     RegionDraw.draw_research_panel(
         self,
+        research_categories,
+        selected_research_category,
         buyable_plans
     )
 

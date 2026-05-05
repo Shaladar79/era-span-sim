@@ -30,6 +30,11 @@ const RESEARCH_PANEL_HEIGHT: int = 260
 const RESEARCH_PANEL_GAP: int = 4
 const RESEARCH_ROW_HEIGHT: int = 30
 
+const RESEARCH_CATEGORY_BUTTON_HEIGHT: int = 22
+const RESEARCH_CATEGORY_BUTTON_GAP: int = 4
+const RESEARCH_CATEGORY_ROW_Y: int = 34
+const RESEARCH_LIST_START_Y: int = 64
+
 const BUILD_PANEL_WIDTH: int = 420
 const BUILD_PANEL_HEIGHT: int = 320
 const BUILD_PANEL_GAP: int = 4
@@ -231,7 +236,7 @@ static func get_research_plan_button_screen_rect(
     return Rect2(
         panel_rect.position + Vector2(
             10,
-            34 + plan_index * RESEARCH_ROW_HEIGHT
+            RESEARCH_LIST_START_Y + plan_index * RESEARCH_ROW_HEIGHT
         ),
         Vector2(
             RESEARCH_PANEL_WIDTH - 20,
@@ -239,6 +244,52 @@ static func get_research_plan_button_screen_rect(
         )
     )
 
+static func get_research_category_button_screen_rect(
+    viewport_size: Vector2,
+    category_index: int,
+    category_count: int
+) -> Rect2:
+    var panel_rect: Rect2 = get_research_panel_screen_rect(viewport_size)
+    var button_width: int = get_research_category_button_width(
+        RESEARCH_PANEL_WIDTH - 20,
+        category_count
+    )
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10 + category_index * (button_width + RESEARCH_CATEGORY_BUTTON_GAP),
+            RESEARCH_CATEGORY_ROW_Y
+        ),
+        Vector2(
+            button_width,
+            RESEARCH_CATEGORY_BUTTON_HEIGHT
+        )
+    )
+
+
+static func get_research_category_button_width(
+    available_width: int,
+    button_count: int
+) -> int:
+    if button_count <= 0:
+        return available_width
+
+    var total_gap_width: int = max(0, button_count - 1) * RESEARCH_CATEGORY_BUTTON_GAP
+
+    return int(floor(float(available_width - total_gap_width) / float(button_count)))
+
+
+static func get_research_visible_row_count() -> int:
+    return int(
+        floor(
+            float(
+                RESEARCH_PANEL_HEIGHT
+                - RESEARCH_LIST_START_Y
+                - 10
+            )
+            / float(RESEARCH_ROW_HEIGHT)
+        )
+    )
 
 static func get_build_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)

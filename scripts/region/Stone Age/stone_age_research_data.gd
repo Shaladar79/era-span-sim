@@ -15,13 +15,9 @@ const RESEARCH_STONE_WORKING: String = "stone_working"
 const RESEARCH_FISHING: String = "fishing"
 const RESEARCH_GATHERING: String = "gathering"
 const RESEARCH_HUNTING: String = "hunting"
-const RESEARCH_T1_RANGED_WEAPONS: String = "t1_ranged_weapons"
 
 const RESEARCH_DEFEND_THE_PEOPLE: String = "defend_the_people"
 const RESEARCH_TO_WAR: String = "to_war"
-const RESEARCH_T2_BELONGINGS: String = "t2_belongings"
-const RESEARCH_T1_MELEE_WEAPONS: String = "t1_melee_weapons"
-const RESEARCH_T2_RANGED_WEAPONS: String = "t2_ranged_weapons"
 const RESEARCH_BONE_CARVING: String = "bone_carving"
 
 const RESEARCH_FEAR_OF_THE_DARK: String = "fear_of_the_dark"
@@ -29,7 +25,6 @@ const RESEARCH_PERSONAL_POSSESSIONS_STONE_AGE: String = "personal_possessions_st
 const RESEARCH_TENT_LIFE: String = "tent_life"
 const RESEARCH_LIGHT_UP_THE_NIGHT: String = "light_up_the_night"
 const RESEARCH_WHISPERS_IN_THE_DARK: String = "whispers_in_the_dark"
-const RESEARCH_T2_MELEE_WEAPONS: String = "t2_melee_weapons"
 
 const RESEARCH_STONE_AGE_RITUAL_1: String = "stone_age_ritual_1"
 const RESEARCH_STONE_AGE_RITUAL_2: String = "stone_age_ritual_2"
@@ -39,9 +34,17 @@ const RESEARCH_TIME_TO_MOVE_ON: String = "time_to_move_on"
 
 
 # -------------------------------------------------------------------
-# Legacy research constants kept for compatibility.
-# These are not currently returned in get_all_research_plans().
+# Future / legacy placeholder research constants.
+# These are intentionally not returned in get_all_research_plans().
+# Recipe unlocks for tools, belongings, weapons, armor, and relics
+# will be handled later by focused data files and prerequisite rules.
 # -------------------------------------------------------------------
+
+const RESEARCH_T1_RANGED_WEAPONS: String = "t1_ranged_weapons"
+const RESEARCH_T2_BELONGINGS: String = "t2_belongings"
+const RESEARCH_T1_MELEE_WEAPONS: String = "t1_melee_weapons"
+const RESEARCH_T2_RANGED_WEAPONS: String = "t2_ranged_weapons"
+const RESEARCH_T2_MELEE_WEAPONS: String = "t2_melee_weapons"
 
 const RESEARCH_POINTED_STICK_PLAN: String = "pointed_stick_plan"
 const RESEARCH_SIMPLE_HAND_AXE_PLAN: String = "simple_hand_axe_plan"
@@ -85,6 +88,17 @@ const RESEARCH_WARRIOR_HUT_PLAN: String = "warrior_hut_plan"
 
 const RESEARCH_CAMP_PATHS: String = "camp_paths"
 const RESEARCH_SHARED_WORK_RHYTHM: String = "shared_work_rhythm"
+
+
+# -------------------------------------------------------------------
+# Category constants.
+# -------------------------------------------------------------------
+
+const CATEGORY_CORE: String = "core"
+const CATEGORY_TOOLS: String = "tools"
+const CATEGORY_BELONGINGS: String = "belongings"
+const CATEGORY_EQUIPMENT: String = "equipment"
+const CATEGORY_RELICS: String = "relics"
 
 
 # -------------------------------------------------------------------
@@ -148,9 +162,52 @@ const GLOBAL_BONUS_SMALL_AMOUNT: float = 0.02
 const BELONGING_SLOT_BONUS_AMOUNT: int = 1
 
 
+static func get_default_research_category() -> String:
+    return CATEGORY_CORE
+
+
+static func get_research_categories() -> Array:
+    return [
+        {
+            "id": CATEGORY_CORE,
+            "name": "Core"
+        },
+        {
+            "id": CATEGORY_TOOLS,
+            "name": "Tools"
+        },
+        {
+            "id": CATEGORY_BELONGINGS,
+            "name": "Belongings"
+        },
+        {
+            "id": CATEGORY_EQUIPMENT,
+            "name": "Equipment"
+        },
+        {
+            "id": CATEGORY_RELICS,
+            "name": "Relics"
+        }
+    ]
+
+
+static func get_research_category_name(category_id: String) -> String:
+    var categories: Array = get_research_categories()
+
+    for category_index in range(categories.size()):
+        var category_data: Dictionary = categories[category_index]
+        var current_id: String = str(category_data.get("id", ""))
+
+        if current_id == category_id:
+            return str(category_data.get("name", category_id))
+
+    return category_id.capitalize()
+
+
 static func make_plan(
     research_id: String,
     research_name: String,
+    category: String,
     tier: String,
     cost: int,
     description: String,
@@ -164,6 +221,7 @@ static func make_plan(
     return {
         "id": research_id,
         "name": research_name,
+        "category": category,
         "tier": tier,
         "cost": cost,
         "description": description,
@@ -183,6 +241,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_LEARN_CAMPFIRE: make_plan(
             RESEARCH_LEARN_CAMPFIRE,
             "The Gift of Fire",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             2,
             "The village learns to preserve and use controlled fire, allowing Campfire construction.",
@@ -198,6 +257,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_STORAGE_AREA: make_plan(
             RESEARCH_STORAGE_AREA,
             "Storage Area",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             2,
             "The village learns to set aside a controlled area for stored resources.",
@@ -213,6 +273,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_SHELTER: make_plan(
             RESEARCH_SHELTER,
             "Shelter",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             4,
             "The village learns to build simple shelters for protection and population growth.",
@@ -228,6 +289,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_WE_NEED_A_LEADER: make_plan(
             RESEARCH_WE_NEED_A_LEADER,
             "We Need a Leader",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             6,
             "The village recognizes the need for leadership, unlocking the Chieftain's Shelter and preparing the hero system.",
@@ -249,6 +311,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_WOOD_CARVING: make_plan(
             RESEARCH_WOOD_CARVING,
             "Wood Carving",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             4,
             "The village begins shaping wood with intent, unlocking the Woodcarver's Hut.",
@@ -264,6 +327,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_STONE_WORKING: make_plan(
             RESEARCH_STONE_WORKING,
             "Stone Working",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             4,
             "The village begins shaping stone with intent, unlocking the Stoneworker's Hut.",
@@ -279,6 +343,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_FISHING: make_plan(
             RESEARCH_FISHING,
             "Fishing",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             4,
             "The village begins developing fishing knowledge, unlocking the Fishing Hut.",
@@ -294,6 +359,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_GATHERING: make_plan(
             RESEARCH_GATHERING,
             "Gathering",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             4,
             "The village improves its understanding of useful plants, fibers, and natural materials, unlocking the Gatherer's Hut.",
@@ -309,6 +375,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_HUNTING: make_plan(
             RESEARCH_HUNTING,
             "Hunting",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T1,
             4,
             "The village begins organizing dangerous animal hunting, unlocking the Hunter's Hut.",
@@ -321,23 +388,13 @@ static func get_all_research_plans() -> Dictionary:
             ]
         ),
 
-        RESEARCH_T1_RANGED_WEAPONS: make_plan(
-            RESEARCH_T1_RANGED_WEAPONS,
-            "T1 Ranged Weapons",
-            RESEARCH_TIER_STONE_AGE_T1,
-            4,
-            "Placeholder for future Tier 1 ranged weapon recipe unlocks.",
-            [
-                RESEARCH_WE_NEED_A_LEADER
-            ]
-        ),
-
         RESEARCH_DEFEND_THE_PEOPLE: make_plan(
             RESEARCH_DEFEND_THE_PEOPLE,
             "Defend the People",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T2,
             8,
-            "The village recognizes that danger must be answered with organization, unlocking the Warleader's Camp.",
+            "The village recognizes that danger must be answered with organization, unlocking the Warleader's Shelter.",
             [
                 RESEARCH_WE_NEED_A_LEADER
             ],
@@ -350,6 +407,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_TO_WAR: make_plan(
             RESEARCH_TO_WAR,
             "To War",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T2,
             6,
             "The village begins organizing warriors and conflict roles, unlocking the Warrior's Hut.",
@@ -362,42 +420,10 @@ static func get_all_research_plans() -> Dictionary:
             ]
         ),
 
-        RESEARCH_T2_BELONGINGS: make_plan(
-            RESEARCH_T2_BELONGINGS,
-            "T2 Belongings",
-            RESEARCH_TIER_STONE_AGE_T2,
-            6,
-            "Placeholder for future Tier 2 belonging recipe unlocks.",
-            [
-                RESEARCH_DEFEND_THE_PEOPLE
-            ]
-        ),
-
-        RESEARCH_T1_MELEE_WEAPONS: make_plan(
-            RESEARCH_T1_MELEE_WEAPONS,
-            "T1 Melee Weapons",
-            RESEARCH_TIER_STONE_AGE_T2,
-            6,
-            "Placeholder for future Tier 1 melee weapon recipe unlocks.",
-            [
-                RESEARCH_DEFEND_THE_PEOPLE
-            ]
-        ),
-
-        RESEARCH_T2_RANGED_WEAPONS: make_plan(
-            RESEARCH_T2_RANGED_WEAPONS,
-            "T2 Ranged Weapons",
-            RESEARCH_TIER_STONE_AGE_T2,
-            6,
-            "Placeholder for future Tier 2 ranged weapon recipe unlocks.",
-            [
-                RESEARCH_DEFEND_THE_PEOPLE
-            ]
-        ),
-
         RESEARCH_BONE_CARVING: make_plan(
             RESEARCH_BONE_CARVING,
             "Bone Carving",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T2,
             6,
             "The village begins using bone as a shaped material, unlocking the Bonecarver's Hut.",
@@ -413,6 +439,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_FEAR_OF_THE_DARK: make_plan(
             RESEARCH_FEAR_OF_THE_DARK,
             "Fear of the Dark",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             12,
             "The village begins to explain and organize its fear of the dark, unlocking the Spiritual Leader's Hut.",
@@ -428,6 +455,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_PERSONAL_POSSESSIONS_STONE_AGE: make_plan(
             RESEARCH_PERSONAL_POSSESSIONS_STONE_AGE,
             "Personal Possessions: Stone Age",
+            CATEGORY_BELONGINGS,
             RESEARCH_TIER_STONE_AGE_T3,
             15,
             "The village begins expanding how personal possessions and belongings work in the Stone Age.",
@@ -449,25 +477,26 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_TENT_LIFE: make_plan(
             RESEARCH_TENT_LIFE,
             "Tent Life",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             12,
-            "The village develops portable shelter ideas, unlocking tents and the Tent Kit recipe.",
+            "The village develops portable shelter ideas, unlocking normal Tent construction and the Tent Kit recipe. Hero tents will be handled later as upgrades from hero shelter panels.",
             [
                 RESEARCH_FEAR_OF_THE_DARK
             ],
             [],
             [
-                RegionBuildingData.BUILDING_TENT,
-               
+                RegionBuildingData.BUILDING_TENT
             ],
             [
-                RECIPE_TENT_KIT
+                RegionRecipeData.RECIPE_TENT_KIT
             ]
         ),
 
         RESEARCH_LIGHT_UP_THE_NIGHT: make_plan(
             RESEARCH_LIGHT_UP_THE_NIGHT,
             "Light Up the Night",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             10,
             "The village begins learning stronger ways to hold back the dark, unlocking the Bonfire.",
@@ -483,6 +512,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_WHISPERS_IN_THE_DARK: make_plan(
             RESEARCH_WHISPERS_IN_THE_DARK,
             "Whispers in the Dark",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             15,
             "The village begins hearing meaning in the dark, unlocking the Ritual Site.",
@@ -495,20 +525,10 @@ static func get_all_research_plans() -> Dictionary:
             ]
         ),
 
-        RESEARCH_T2_MELEE_WEAPONS: make_plan(
-            RESEARCH_T2_MELEE_WEAPONS,
-            "T2 Melee Weapons",
-            RESEARCH_TIER_STONE_AGE_T3,
-            10,
-            "Placeholder for future Tier 2 melee weapon recipe unlocks.",
-            [
-                RESEARCH_FEAR_OF_THE_DARK
-            ]
-        ),
-
         RESEARCH_STONE_AGE_RITUAL_1: make_plan(
             RESEARCH_STONE_AGE_RITUAL_1,
             "Stone Age Ritual Placeholder I",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             20,
             "Placeholder for a future Stone Age ritual research.",
@@ -520,6 +540,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_STONE_AGE_RITUAL_2: make_plan(
             RESEARCH_STONE_AGE_RITUAL_2,
             "Stone Age Ritual Placeholder II",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             20,
             "Placeholder for a future Stone Age ritual research.",
@@ -531,6 +552,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_STONE_AGE_RITUAL_3: make_plan(
             RESEARCH_STONE_AGE_RITUAL_3,
             "Stone Age Ritual Placeholder III",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             20,
             "Placeholder for a future Stone Age ritual research.",
@@ -542,6 +564,7 @@ static func get_all_research_plans() -> Dictionary:
         RESEARCH_TIME_TO_MOVE_ON: make_plan(
             RESEARCH_TIME_TO_MOVE_ON,
             "Time to Move On",
+            CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_TRANSITION,
             25,
             "The village prepares to move beyond this region. Later this will unlock the Chieftain's Move On hero-panel option and preserve resources tagged for movement.",
@@ -596,3 +619,12 @@ static func get_research_cost(research_id: String) -> int:
         return 0
 
     return int(plan.get("cost", 0))
+
+
+static func get_research_category(research_id: String) -> String:
+    var plan: Dictionary = get_research_plan(research_id)
+
+    if plan.is_empty():
+        return CATEGORY_CORE
+
+    return str(plan.get("category", CATEGORY_CORE))

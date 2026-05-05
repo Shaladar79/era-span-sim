@@ -543,6 +543,8 @@ static func draw_village_inventory_panel(
 
 static func draw_research_panel(
     node: CanvasItem,
+    research_categories: Array,
+    selected_research_category: String,
     buyable_plans: Array
 ) -> void:
     var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
@@ -578,14 +580,24 @@ static func draw_research_panel(
         Color(1.0, 0.95, 0.75, 1.0)
     )
 
+    draw_research_category_buttons(
+        node,
+        research_categories,
+        selected_research_category
+    )
+
     if buyable_plans.is_empty():
+        var selected_category_name: String = StoneAgeResearchData.get_research_category_name(
+            selected_research_category
+        )
+
         node.draw_string(
             ThemeDB.fallback_font,
             RegionUI.screen_position_to_world_position(
                 node,
-                panel_screen_rect.position + Vector2(10, 48)
+                panel_screen_rect.position + Vector2(10, RegionUI.RESEARCH_LIST_START_Y + 20)
             ),
-            "No affordable ideas available.",
+            "No affordable " + selected_category_name + " ideas available.",
             HORIZONTAL_ALIGNMENT_LEFT,
             -1,
             get_body_font_size(world_per_screen_y),
@@ -593,8 +605,10 @@ static func draw_research_panel(
         )
         return
 
-    var max_rows: int = int(floor(float(RegionUI.RESEARCH_PANEL_HEIGHT - 44) / float(RegionUI.RESEARCH_ROW_HEIGHT)))
-    var visible_count: int = min(buyable_plans.size(), max_rows)
+    var visible_count: int = min(
+        buyable_plans.size(),
+        RegionUI.get_research_visible_row_count()
+    )
 
     for plan_index in range(visible_count):
         var plan: Dictionary = buyable_plans[plan_index]
@@ -635,6 +649,70 @@ static func draw_research_panel(
             Color(1.0, 1.0, 1.0, 1.0)
         )
 
+static func draw_research_category_buttons(
+    node: CanvasItem,
+    research_categories: Array,
+    selected_research_category: String
+) -> void:
+    for category_index in range(research_categories.size()):
+        var category_data: Dictionary = research_categories[category_index]
+        var category_id: String = str(category_data.get("id", ""))
+        var category_name: String = str(category_data.get("name", category_id))
+
+        var category_button_screen_rect: Rect2 = RegionUI.get_research_category_button_screen_rect(
+            node.get_viewport().get_visible_rect().size,
+            category_index,
+            research_categories.size()
+        )
+
+        draw_research_filter_button(
+            node,
+            category_button_screen_rect,
+            category_name,
+            category_id == selected_research_category
+        )
+
+static func draw_research_filter_button(
+    node: CanvasItem,
+    button_screen_rect: Rect2,
+    label: String,
+    is_selected: bool
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        button_screen_rect
+    )
+
+    var fill_color := Color(0.12, 0.10, 0.07, 0.95)
+    var border_color := Color(0.65, 0.55, 0.32, 0.95)
+
+    if is_selected:
+        fill_color = Color(0.32, 0.24, 0.10, 0.98)
+        border_color = Color(1.0, 0.86, 0.42, 1.0)
+
+    node.draw_rect(button_world_rect, fill_color, true)
+
+    node.draw_rect(
+        button_world_rect,
+        border_color,
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            button_screen_rect.position + Vector2(5, 16)
+        ),
+        label,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
 
 static func draw_build_panel(
     node: CanvasItem,
