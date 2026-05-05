@@ -2,7 +2,7 @@ extends RefCounted
 class_name StoneAgeResearchData
 
 # -------------------------------------------------------------------
-# Current Stone Age idea / research IDs.
+# Core Stone Age idea / research IDs.
 # -------------------------------------------------------------------
 
 const RESEARCH_LEARN_CAMPFIRE: String = "learn_campfire"
@@ -24,21 +24,55 @@ const RESEARCH_FEAR_OF_THE_DARK: String = "fear_of_the_dark"
 const RESEARCH_PERSONAL_POSSESSIONS_STONE_AGE: String = "personal_possessions_stone_age"
 const RESEARCH_TENT_LIFE: String = "tent_life"
 const RESEARCH_LIGHT_UP_THE_NIGHT: String = "light_up_the_night"
-const RESEARCH_WHISPERS_IN_THE_DARK: String = "whispers_in_the_dark"
-
-const RESEARCH_STONE_AGE_RITUAL_1: String = "stone_age_ritual_1"
-const RESEARCH_STONE_AGE_RITUAL_2: String = "stone_age_ritual_2"
-const RESEARCH_STONE_AGE_RITUAL_3: String = "stone_age_ritual_3"
-
 const RESEARCH_TIME_TO_MOVE_ON: String = "time_to_move_on"
+
+
+# -------------------------------------------------------------------
+# Recipe research IDs.
+# -------------------------------------------------------------------
+
+# T1 recipe research
+const RESEARCH_TORCH_CRAFTING: String = "torch_crafting"
+const RESEARCH_BASIC_STONE_TOOLS: String = "basic_stone_tools"
+const RESEARCH_FOOT_WRAPPINGS: String = "foot_wrappings"
+
+# T2 recipe research
+const RESEARCH_WOOD_GATHERING_TOOLS: String = "wood_gathering_tools"
+const RESEARCH_STONE_GATHERING_TOOLS: String = "stone_gathering_tools"
+const RESEARCH_CUTTING_TOOLS: String = "cutting_tools"
+const RESEARCH_FORAGERS_BASKETRY: String = "foragers_basketry"
+const RESEARCH_FISH_TRAPPING: String = "fish_trapping"
+const RESEARCH_HUNTERS_SLING: String = "hunters_sling"
+const RESEARCH_STONE_SPEAR_COMPONENTS: String = "stone_spear_components"
+const RESEARCH_HIDE_WRAPS: String = "hide_wraps"
+const RESEARCH_STONE_CLUBS: String = "stone_clubs"
+const RESEARCH_HIDE_ARMOR: String = "hide_armor"
+const RESEARCH_BONE_CHARMS: String = "bone_charms"
+
+# T3 recipe research
+const RESEARCH_FLINT_TOOL_COMPONENTS: String = "flint_tool_components"
+const RESEARCH_FLINT_SPEAR_COMPONENTS: String = "flint_spear_components"
+const RESEARCH_IMPROVED_HAFTING: String = "improved_hafting"
+const RESEARCH_TENT_FRAMING: String = "tent_framing"
+const RESEARCH_FLINT_HATCHET: String = "flint_hatchet"
+const RESEARCH_FLINT_PICK: String = "flint_pick"
+const RESEARCH_FLINT_TIPPED_HUNTER_SPEAR: String = "flint_tipped_hunter_spear"
+const RESEARCH_FLINT_TIPPED_SPEAR: String = "flint_tipped_spear"
+const RESEARCH_HIDE_SLING: String = "hide_sling"
+const RESEARCH_HIDE_POUCH: String = "hide_pouch"
+const RESEARCH_TENT_KIT_ASSEMBLY: String = "tent_kit_assembly"
+const RESEARCH_DRAG_SLED: String = "drag_sled"
 
 
 # -------------------------------------------------------------------
 # Future / legacy placeholder research constants.
 # These are intentionally not returned in get_all_research_plans().
-# Recipe unlocks for tools, belongings, weapons, armor, and relics
-# will be handled later by focused data files and prerequisite rules.
 # -------------------------------------------------------------------
+
+const RESEARCH_WHISPERS_IN_THE_DARK: String = "whispers_in_the_dark"
+const RESEARCH_STONE_AGE_RITUAL_1: String = "stone_age_ritual_1"
+const RESEARCH_STONE_AGE_RITUAL_2: String = "stone_age_ritual_2"
+const RESEARCH_STONE_AGE_RITUAL_3: String = "stone_age_ritual_3"
 
 const RESEARCH_T1_RANGED_WEAPONS: String = "t1_ranged_weapons"
 const RESEARCH_T2_BELONGINGS: String = "t2_belongings"
@@ -47,44 +81,44 @@ const RESEARCH_T2_RANGED_WEAPONS: String = "t2_ranged_weapons"
 const RESEARCH_T2_MELEE_WEAPONS: String = "t2_melee_weapons"
 
 const RESEARCH_POINTED_STICK_PLAN: String = "pointed_stick_plan"
-const RESEARCH_SIMPLE_HAND_AXE_PLAN: String = "simple_hand_axe_plan"
-const RESEARCH_SHARP_STONE_KNIFE_PLAN: String = "sharp_stone_knife_plan"
+const RESEARCH_SIMPLE_HAND_AXE_PLAN: String = RESEARCH_BASIC_STONE_TOOLS
+const RESEARCH_SHARP_STONE_KNIFE_PLAN: String = RESEARCH_BASIC_STONE_TOOLS
 const RESEARCH_CRUDE_CONTAINER_PLAN: String = "crude_container_plan"
-const RESEARCH_SLING_PLAN: String = "sling_plan"
+const RESEARCH_SLING_PLAN: String = RESEARCH_HUNTERS_SLING
 const RESEARCH_HERBAL_POULTICE_PLAN: String = "herbal_poultice_plan"
 
 const RESEARCH_THROWING_SPEAR_PLAN: String = "throwing_spear_plan"
-const RESEARCH_STONE_TIPPED_SPEAR_PLAN: String = "stone_tipped_spear_plan"
-const RESEARCH_STONE_CLUB_PLAN: String = "stone_club_plan"
+const RESEARCH_STONE_TIPPED_SPEAR_PLAN: String = RESEARCH_STONE_SPEAR_COMPONENTS
+const RESEARCH_STONE_CLUB_PLAN: String = RESEARCH_STONE_CLUBS
 const RESEARCH_STONE_SCRAPER_PLAN: String = "stone_scraper_plan"
 const RESEARCH_WORKED_HAND_AXE_PLAN: String = "worked_hand_axe_plan"
 
-const RESEARCH_DRAG_SLED_PLAN: String = "drag_sled_plan"
-const RESEARCH_TENT_KIT_PLAN: String = "tent_kit_plan"
-const RESEARCH_TENT_PLAN: String = "tent_plan"
+const RESEARCH_DRAG_SLED_PLAN: String = RESEARCH_DRAG_SLED
+const RESEARCH_TENT_KIT_PLAN: String = RESEARCH_TENT_KIT_ASSEMBLY
+const RESEARCH_TENT_PLAN: String = RESEARCH_TENT_LIFE
 const RESEARCH_CHIEFTAINS_TENT_PLAN: String = "chieftains_tent_plan"
-const RESEARCH_PERSONAL_CARRYING: String = "personal_carrying"
+const RESEARCH_PERSONAL_CARRYING: String = RESEARCH_HIDE_POUCH
 
-const RESEARCH_ADVANCED_SLING_PLAN: String = "advanced_sling_plan"
-const RESEARCH_FLINT_TIPPED_HUNTING_SPEAR_PLAN: String = "flint_tipped_hunting_spear_plan"
-const RESEARCH_FLINT_EDGED_HAND_AXE_PLAN: String = "flint_edged_hand_axe_plan"
-const RESEARCH_FLINT_EDGED_WOODSMAN_AXE_PLAN: String = "flint_edged_woodsman_axe_plan"
-const RESEARCH_FLINT_TIPPED_MINING_PICK_PLAN: String = "flint_tipped_mining_pick_plan"
+const RESEARCH_ADVANCED_SLING_PLAN: String = RESEARCH_HIDE_SLING
+const RESEARCH_FLINT_TIPPED_HUNTING_SPEAR_PLAN: String = RESEARCH_FLINT_TIPPED_HUNTER_SPEAR
+const RESEARCH_FLINT_EDGED_HAND_AXE_PLAN: String = RESEARCH_FLINT_HATCHET
+const RESEARCH_FLINT_EDGED_WOODSMAN_AXE_PLAN: String = RESEARCH_FLINT_HATCHET
+const RESEARCH_FLINT_TIPPED_MINING_PICK_PLAN: String = RESEARCH_FLINT_PICK
 
-const RESEARCH_BONFIRE_PLAN: String = "bonfire_plan"
+const RESEARCH_BONFIRE_PLAN: String = RESEARCH_LIGHT_UP_THE_NIGHT
 const RESEARCH_SPIRITUAL_LEADER_TENT_PLAN: String = "spiritual_leader_tent_plan"
 const RESEARCH_RITUAL_SITE_PLAN: String = "ritual_site_plan"
 
-const RESEARCH_STONEWORKING_HUT_PLAN: String = "stoneworking_hut_plan"
-const RESEARCH_WOODWORKING_HUT_PLAN: String = "woodworking_hut_plan"
+const RESEARCH_STONEWORKING_HUT_PLAN: String = RESEARCH_STONE_WORKING
+const RESEARCH_WOODWORKING_HUT_PLAN: String = RESEARCH_WOOD_CARVING
 
 const RESEARCH_STONEWORKING_BENCH_PLAN: String = RESEARCH_STONEWORKING_HUT_PLAN
 const RESEARCH_WOODWORKING_BENCH_PLAN: String = RESEARCH_WOODWORKING_HUT_PLAN
 
-const RESEARCH_HUNTERS_HUT_PLAN: String = "hunters_hut_plan"
-const RESEARCH_FISHING_HUT_PLAN: String = "fishing_hut_plan"
-const RESEARCH_WARLEADER_SHELTER_PLAN: String = "warleader_shelter_plan"
-const RESEARCH_WARRIOR_HUT_PLAN: String = "warrior_hut_plan"
+const RESEARCH_HUNTERS_HUT_PLAN: String = RESEARCH_HUNTING
+const RESEARCH_FISHING_HUT_PLAN: String = RESEARCH_FISHING
+const RESEARCH_WARLEADER_SHELTER_PLAN: String = RESEARCH_DEFEND_THE_PEOPLE
+const RESEARCH_WARRIOR_HUT_PLAN: String = RESEARCH_TO_WAR
 
 const RESEARCH_CAMP_PATHS: String = "camp_paths"
 const RESEARCH_SHARED_WORK_RHYTHM: String = "shared_work_rhythm"
@@ -119,6 +153,9 @@ const BONUS_VILLAGER_MOVE_SPEED: String = "villager_move_speed"
 const BONUS_BUILDING_SPEED: String = "building_speed"
 const BONUS_BELONGING_SLOTS: String = "belonging_slots"
 
+const GLOBAL_BONUS_SMALL_AMOUNT: float = 0.02
+const BELONGING_SLOT_BONUS_AMOUNT: int = 1
+
 
 # -------------------------------------------------------------------
 # Legacy recipe constants kept for compatibility.
@@ -132,7 +169,7 @@ const RECIPE_SLING: String = "sling"
 const RECIPE_HERBAL_POULTICE: String = "herbal_poultice"
 
 const RECIPE_THROWING_SPEAR: String = "throwing_spear"
-const RECIPE_STONE_TIPPED_SPEAR: String = "stone_tipped_spear"
+const RECIPE_STONE_TIPPED_SPEAR: String = "stone_spear"
 const RECIPE_STONE_CLUB: String = "stone_club"
 const RECIPE_STONE_SCRAPER: String = "stone_scraper"
 const RECIPE_WORKED_HAND_AXE: String = "worked_hand_axe"
@@ -140,12 +177,12 @@ const RECIPE_WORKED_HAND_AXE: String = "worked_hand_axe"
 const RECIPE_DRAG_SLED: String = "drag_sled"
 const RECIPE_TENT_KIT: String = "tent_kit"
 const RECIPE_ADVANCED_SLING: String = "advanced_sling"
-const RECIPE_FLINT_TIPPED_HUNTING_SPEAR: String = "flint_tipped_hunting_spear"
-const RECIPE_FLINT_EDGED_HAND_AXE: String = "flint_edged_hand_axe"
-const RECIPE_FLINT_EDGED_WOODSMAN_AXE: String = "flint_edged_woodsman_axe"
-const RECIPE_FLINT_TIPPED_MINING_PICK: String = "flint_tipped_mining_pick"
+const RECIPE_FLINT_TIPPED_HUNTING_SPEAR: String = "flint_tipped_hunter_spear"
+const RECIPE_FLINT_EDGED_HAND_AXE: String = "flint_hatchet"
+const RECIPE_FLINT_EDGED_WOODSMAN_AXE: String = "flint_hatchet"
+const RECIPE_FLINT_TIPPED_MINING_PICK: String = "flint_pick"
 
-const RECIPE_FLINT_TIPPED_SPEAR: String = RECIPE_FLINT_TIPPED_HUNTING_SPEAR
+const RECIPE_FLINT_TIPPED_SPEAR: String = "flint_tipped_spear"
 
 
 # -------------------------------------------------------------------
@@ -157,9 +194,6 @@ const RESOURCE_BERRIES_NAME: String = "Berries"
 const RESOURCE_MUSHROOMS_NAME: String = "Mushrooms"
 const RESOURCE_FLINT_NAME: String = "Flint"
 const RESOURCE_FISH_NAME: String = "Fish"
-
-const GLOBAL_BONUS_SMALL_AMOUNT: float = 0.02
-const BELONGING_SLOT_BONUS_AMOUNT: int = 1
 
 
 static func get_default_research_category() -> String:
@@ -436,19 +470,19 @@ static func get_all_research_plans() -> Dictionary:
             ]
         ),
 
-        RESEARCH_FEAR_OF_THE_DARK: make_plan(
-            RESEARCH_FEAR_OF_THE_DARK,
-            "Fear of the Dark",
+        RESEARCH_LIGHT_UP_THE_NIGHT: make_plan(
+            RESEARCH_LIGHT_UP_THE_NIGHT,
+            "Light Up the Night",
             CATEGORY_CORE,
-            RESEARCH_TIER_STONE_AGE_T3,
-            12,
-            "The village begins to explain and organize its fear of the dark, unlocking the Spiritual Leader's Hut.",
+            RESEARCH_TIER_STONE_AGE_T2,
+            10,
+            "The village builds stronger communal fire practices, unlocking the Bonfire.",
             [
                 RESEARCH_DEFEND_THE_PEOPLE
             ],
             [],
             [
-                RegionBuildingData.BUILDING_SPIRITUAL_LEADER_HUT
+                RegionBuildingData.BUILDING_BONFIRE
             ]
         ),
 
@@ -460,7 +494,7 @@ static func get_all_research_plans() -> Dictionary:
             15,
             "The village begins expanding how personal possessions and belongings work in the Stone Age.",
             [
-                RESEARCH_FEAR_OF_THE_DARK
+                RESEARCH_DEFEND_THE_PEOPLE
             ],
             [],
             [],
@@ -480,84 +514,32 @@ static func get_all_research_plans() -> Dictionary:
             CATEGORY_CORE,
             RESEARCH_TIER_STONE_AGE_T3,
             12,
-            "The village develops portable shelter ideas, unlocking normal Tent construction and the Tent Kit recipe. Hero tents will be handled later as upgrades from hero shelter panels.",
+            "The village develops portable shelter ideas, unlocking normal Tent construction. Tent Kits are unlocked by Tent Kit Assembly.",
             [
-                RESEARCH_FEAR_OF_THE_DARK
+                RESEARCH_DEFEND_THE_PEOPLE
             ],
             [],
             [
                 RegionBuildingData.BUILDING_TENT
-            ],
-            [
-                RegionRecipeData.RECIPE_TENT_KIT
             ]
         ),
 
-        RESEARCH_LIGHT_UP_THE_NIGHT: make_plan(
-            RESEARCH_LIGHT_UP_THE_NIGHT,
-            "Light Up the Night",
-            CATEGORY_CORE,
+        RESEARCH_FEAR_OF_THE_DARK: make_plan(
+            RESEARCH_FEAR_OF_THE_DARK,
+            "Fear of the Dark",
+            CATEGORY_RELICS,
             RESEARCH_TIER_STONE_AGE_T3,
-            10,
-            "The village begins learning stronger ways to hold back the dark, unlocking the Bonfire.",
+            12,
+            "The village begins to understand that darkness carries more than animal danger. This is reserved as a future hero/story pressure gateway.",
             [
-                RESEARCH_FEAR_OF_THE_DARK
+                RESEARCH_WE_NEED_A_LEADER
             ],
             [],
-            [
-                RegionBuildingData.BUILDING_BONFIRE
-            ]
-        ),
-
-        RESEARCH_WHISPERS_IN_THE_DARK: make_plan(
-            RESEARCH_WHISPERS_IN_THE_DARK,
-            "Whispers in the Dark",
-            CATEGORY_CORE,
-            RESEARCH_TIER_STONE_AGE_T3,
-            15,
-            "The village begins hearing meaning in the dark, unlocking the Ritual Site.",
-            [
-                RESEARCH_FEAR_OF_THE_DARK
-            ],
+            [],
+            [],
             [],
             [
-                RegionBuildingData.BUILDING_RITUAL_SITE
-            ]
-        ),
-
-        RESEARCH_STONE_AGE_RITUAL_1: make_plan(
-            RESEARCH_STONE_AGE_RITUAL_1,
-            "Stone Age Ritual Placeholder I",
-            CATEGORY_CORE,
-            RESEARCH_TIER_STONE_AGE_T3,
-            20,
-            "Placeholder for a future Stone Age ritual research.",
-            [
-                RESEARCH_FEAR_OF_THE_DARK
-            ]
-        ),
-
-        RESEARCH_STONE_AGE_RITUAL_2: make_plan(
-            RESEARCH_STONE_AGE_RITUAL_2,
-            "Stone Age Ritual Placeholder II",
-            CATEGORY_CORE,
-            RESEARCH_TIER_STONE_AGE_T3,
-            20,
-            "Placeholder for a future Stone Age ritual research.",
-            [
-                RESEARCH_FEAR_OF_THE_DARK
-            ]
-        ),
-
-        RESEARCH_STONE_AGE_RITUAL_3: make_plan(
-            RESEARCH_STONE_AGE_RITUAL_3,
-            "Stone Age Ritual Placeholder III",
-            CATEGORY_CORE,
-            RESEARCH_TIER_STONE_AGE_T3,
-            20,
-            "Placeholder for a future Stone Age ritual research.",
-            [
-                RESEARCH_FEAR_OF_THE_DARK
+                "future_story_pressure_gateway"
             ]
         ),
 
@@ -569,7 +551,8 @@ static func get_all_research_plans() -> Dictionary:
             25,
             "The village prepares to move beyond this region. Later this will unlock the Chieftain's Move On hero-panel option and preserve resources tagged for movement.",
             [
-                RESEARCH_FEAR_OF_THE_DARK
+                RESEARCH_TENT_LIFE,
+                RESEARCH_DRAG_SLED
             ],
             [],
             [],
@@ -578,6 +561,478 @@ static func get_all_research_plans() -> Dictionary:
             [
                 "stone_age_transition_available",
                 "chieftain_move_region_available"
+            ]
+        ),
+
+        RESEARCH_TORCH_CRAFTING: make_plan(
+            RESEARCH_TORCH_CRAFTING,
+            "Torch Crafting",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T1,
+            3,
+            "The village learns to make personal carried lights.",
+            [
+                RESEARCH_LEARN_CAMPFIRE
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_TORCH
+            ]
+        ),
+
+        RESEARCH_BASIC_STONE_TOOLS: make_plan(
+            RESEARCH_BASIC_STONE_TOOLS,
+            "Basic Stone Tools",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T1,
+            4,
+            "The village learns to make the earliest simple stone tools at a Making Spot.",
+            [],
+            [
+                RegionBuildingData.BUILDING_MAKING_SPOT
+            ],
+            [],
+            [
+                RegionRecipeData.RECIPE_SIMPLE_HAND_AXE,
+                RegionRecipeData.RECIPE_SHARP_STONE_KNIFE
+            ]
+        ),
+
+        RESEARCH_FOOT_WRAPPINGS: make_plan(
+            RESEARCH_FOOT_WRAPPINGS,
+            "Foot Wrappings",
+            CATEGORY_BELONGINGS,
+            RESEARCH_TIER_STONE_AGE_T1,
+            3,
+            "The village learns to wrap feet for rough travel and daily work.",
+            [],
+            [
+                RegionBuildingData.BUILDING_MAKING_SPOT
+            ],
+            [],
+            [
+                RegionRecipeData.RECIPE_FOOT_WRAPPING
+            ]
+        ),
+
+        RESEARCH_WOOD_GATHERING_TOOLS: make_plan(
+            RESEARCH_WOOD_GATHERING_TOOLS,
+            "Wood Gathering Tools",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village develops stone hatchets for better wood gathering.",
+            [
+                RESEARCH_GATHERING,
+                RESEARCH_STONE_WORKING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_STONE_HATCHET
+            ]
+        ),
+
+        RESEARCH_STONE_GATHERING_TOOLS: make_plan(
+            RESEARCH_STONE_GATHERING_TOOLS,
+            "Stone Gathering Tools",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village develops stone mauls for better stone gathering.",
+            [
+                RESEARCH_GATHERING,
+                RESEARCH_STONE_WORKING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_STONE_MAUL
+            ]
+        ),
+
+        RESEARCH_CUTTING_TOOLS: make_plan(
+            RESEARCH_CUTTING_TOOLS,
+            "Cutting Tools",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village develops better knives for fiber and reed cutting.",
+            [
+                RESEARCH_GATHERING,
+                RESEARCH_STONE_WORKING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_STONE_KNIFE
+            ]
+        ),
+
+        RESEARCH_FORAGERS_BASKETRY: make_plan(
+            RESEARCH_FORAGERS_BASKETRY,
+            "Forager's Basketry",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village develops twig baskets for gathering light food resources.",
+            [
+                RESEARCH_GATHERING,
+                RESEARCH_WOOD_CARVING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_TWIG_BASKET
+            ]
+        ),
+
+        RESEARCH_FISH_TRAPPING: make_plan(
+            RESEARCH_FISH_TRAPPING,
+            "Fish Trapping",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village develops fish traps for organized fishing.",
+            [
+                RESEARCH_FISHING,
+                RESEARCH_WOOD_CARVING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_FISH_TRAP
+            ]
+        ),
+
+        RESEARCH_HUNTERS_SLING: make_plan(
+            RESEARCH_HUNTERS_SLING,
+            "Hunter's Sling",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village develops a simple ranged hunter weapon.",
+            [
+                RESEARCH_HUNTING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_SLING
+            ]
+        ),
+
+        RESEARCH_STONE_SPEAR_COMPONENTS: make_plan(
+            RESEARCH_STONE_SPEAR_COMPONENTS,
+            "Stone Spear Components",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T2,
+            8,
+            "The village learns to shape spear heads, spear hafts, and assemble Stone Spears.",
+            [
+                RESEARCH_HUNTING,
+                RESEARCH_STONE_WORKING,
+                RESEARCH_WOOD_CARVING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_STONE_SPEAR_HEAD,
+                RegionRecipeData.RECIPE_WOODEN_SPEAR_HAFT,
+                RegionRecipeData.RECIPE_STONE_SPEAR
+            ]
+        ),
+
+        RESEARCH_HIDE_WRAPS: make_plan(
+            RESEARCH_HIDE_WRAPS,
+            "Hide Wraps",
+            CATEGORY_BELONGINGS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village learns to make protective hide wraps after organized hunting begins.",
+            [
+                RESEARCH_HUNTING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_HIDE_WRAP
+            ]
+        ),
+
+        RESEARCH_STONE_CLUBS: make_plan(
+            RESEARCH_STONE_CLUBS,
+            "Stone Clubs",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village develops early melee weapons for warriors.",
+            [
+                RESEARCH_TO_WAR,
+                RESEARCH_STONE_WORKING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_STONE_CLUB
+            ]
+        ),
+
+        RESEARCH_HIDE_ARMOR: make_plan(
+            RESEARCH_HIDE_ARMOR,
+            "Hide Armor",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T2,
+            8,
+            "The village learns to turn hide into basic armor for hunters and warriors.",
+            [
+                RESEARCH_HUNTING,
+                RESEARCH_TO_WAR
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_HIDE_ARMOR
+            ]
+        ),
+
+        RESEARCH_BONE_CHARMS: make_plan(
+            RESEARCH_BONE_CHARMS,
+            "Bone Charms",
+            CATEGORY_BELONGINGS,
+            RESEARCH_TIER_STONE_AGE_T2,
+            6,
+            "The village learns to carve small bone charms for thinkers.",
+            [
+                RESEARCH_BONE_CARVING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_BONE_CHARM
+            ]
+        ),
+
+        RESEARCH_FLINT_TOOL_COMPONENTS: make_plan(
+            RESEARCH_FLINT_TOOL_COMPONENTS,
+            "Flint Tool Components",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T3,
+            10,
+            "The village learns to shape flint axe heads and flint pick heads.",
+            [
+                RESEARCH_STONE_WORKING,
+                RESEARCH_WOOD_GATHERING_TOOLS,
+                RESEARCH_STONE_GATHERING_TOOLS
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_FLINT_AXE_HEAD,
+                RegionRecipeData.RECIPE_FLINT_PICK_HEAD
+            ]
+        ),
+
+        RESEARCH_FLINT_SPEAR_COMPONENTS: make_plan(
+            RESEARCH_FLINT_SPEAR_COMPONENTS,
+            "Flint Spear Components",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village learns to shape sharper flint spear heads.",
+            [
+                RESEARCH_HUNTING,
+                RESEARCH_STONE_WORKING,
+                RESEARCH_STONE_SPEAR_COMPONENTS
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_FLINT_SPEAR_HEAD
+            ]
+        ),
+
+        RESEARCH_IMPROVED_HAFTING: make_plan(
+            RESEARCH_IMPROVED_HAFTING,
+            "Improved Hafting",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T3,
+            10,
+            "The village learns stronger methods for joining heads, shafts, and handles.",
+            [
+                RESEARCH_WOOD_CARVING,
+                RESEARCH_STONE_SPEAR_COMPONENTS
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_TOOL_HAFT
+            ]
+        ),
+
+        RESEARCH_TENT_FRAMING: make_plan(
+            RESEARCH_TENT_FRAMING,
+            "Tent Framing",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village learns to build portable tent frames.",
+            [
+                RESEARCH_TENT_LIFE,
+                RESEARCH_WOOD_CARVING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_TENT_FRAME
+            ]
+        ),
+
+        RESEARCH_FLINT_HATCHET: make_plan(
+            RESEARCH_FLINT_HATCHET,
+            "Flint Hatchet",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village learns to assemble improved flint hatchets.",
+            [
+                RESEARCH_FLINT_TOOL_COMPONENTS,
+                RESEARCH_IMPROVED_HAFTING,
+                RESEARCH_WOOD_GATHERING_TOOLS
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_FLINT_HATCHET
+            ]
+        ),
+
+        RESEARCH_FLINT_PICK: make_plan(
+            RESEARCH_FLINT_PICK,
+            "Flint Pick",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village learns to assemble improved flint picks.",
+            [
+                RESEARCH_FLINT_TOOL_COMPONENTS,
+                RESEARCH_IMPROVED_HAFTING,
+                RESEARCH_STONE_GATHERING_TOOLS
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_FLINT_PICK
+            ]
+        ),
+
+        RESEARCH_FLINT_TIPPED_HUNTER_SPEAR: make_plan(
+            RESEARCH_FLINT_TIPPED_HUNTER_SPEAR,
+            "Flint-Tipped Hunter Spear",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village learns to assemble sharper hunter spears.",
+            [
+                RESEARCH_FLINT_SPEAR_COMPONENTS,
+                RESEARCH_IMPROVED_HAFTING,
+                RESEARCH_STONE_SPEAR_COMPONENTS
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_FLINT_TIPPED_HUNTER_SPEAR
+            ]
+        ),
+
+        RESEARCH_FLINT_TIPPED_SPEAR: make_plan(
+            RESEARCH_FLINT_TIPPED_SPEAR,
+            "Flint-Tipped Spear",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village learns to assemble sharper warrior spears.",
+            [
+                RESEARCH_FLINT_SPEAR_COMPONENTS,
+                RESEARCH_IMPROVED_HAFTING,
+                RESEARCH_STONE_CLUBS
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_FLINT_TIPPED_SPEAR
+            ]
+        ),
+
+        RESEARCH_HIDE_SLING: make_plan(
+            RESEARCH_HIDE_SLING,
+            "Hide Sling",
+            CATEGORY_EQUIPMENT,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village improves hunter slings with hide reinforcement.",
+            [
+                RESEARCH_HUNTERS_SLING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_HIDE_SLING
+            ]
+        ),
+
+        RESEARCH_HIDE_POUCH: make_plan(
+            RESEARCH_HIDE_POUCH,
+            "Hide Pouch",
+            CATEGORY_BELONGINGS,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village improves gathering belongings with durable hide pouches.",
+            [
+                RESEARCH_FORAGERS_BASKETRY,
+                RESEARCH_HUNTING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_HIDE_POUCH
+            ]
+        ),
+
+        RESEARCH_TENT_KIT_ASSEMBLY: make_plan(
+            RESEARCH_TENT_KIT_ASSEMBLY,
+            "Tent Kit Assembly",
+            CATEGORY_CORE,
+            RESEARCH_TIER_STONE_AGE_T3,
+            9,
+            "The village learns to assemble Tent Kits from Tent Frames, hide, and fiber.",
+            [
+                RESEARCH_TENT_LIFE,
+                RESEARCH_TENT_FRAMING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_TENT_KIT
+            ]
+        ),
+
+        RESEARCH_DRAG_SLED: make_plan(
+            RESEARCH_DRAG_SLED,
+            "Drag Sled",
+            CATEGORY_TOOLS,
+            RESEARCH_TIER_STONE_AGE_TRANSITION,
+            12,
+            "The village prepares crude transport tools for future moving-camp systems.",
+            [
+                RESEARCH_TENT_LIFE,
+                RESEARCH_WOOD_CARVING
+            ],
+            [],
+            [],
+            [
+                RegionRecipeData.RECIPE_DRAG_SLED
             ]
         )
     }
