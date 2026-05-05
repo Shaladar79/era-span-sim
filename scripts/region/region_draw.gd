@@ -1078,8 +1078,7 @@ static func draw_crafting_panel(
     node: CanvasItem,
     selected_crafting_building_name: String,
     selected_crafting_building_id: String,
-    craftable_recipes: Array,
-    crafting: RegionCrafting
+    recipe_rows: Array
 ) -> void:
     var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
 
@@ -1114,14 +1113,27 @@ static func draw_crafting_panel(
         Color(1.0, 0.95, 0.75, 1.0)
     )
 
-    if craftable_recipes.is_empty():
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 42)
+        ),
+        "Known recipes for: " + selected_crafting_building_id,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        Color(0.80, 0.86, 0.92, 1.0)
+    )
+
+    if recipe_rows.is_empty():
         node.draw_string(
             ThemeDB.fallback_font,
             RegionUI.screen_position_to_world_position(
                 node,
-                panel_screen_rect.position + Vector2(10, 48)
+                panel_screen_rect.position + Vector2(10, RegionUI.CRAFTING_LIST_START_Y + 20)
             ),
-            "No affordable recipes available.",
+            "No known recipes yet. Research more plans.",
             HORIZONTAL_ALIGNMENT_LEFT,
             -1,
             get_body_font_size(world_per_screen_y),
@@ -1129,62 +1141,110 @@ static func draw_crafting_panel(
         )
         return
 
-    var max_rows: int = int(floor(float(RegionUI.CRAFTING_PANEL_HEIGHT - 44) / float(RegionUI.CRAFTING_ROW_HEIGHT)))
-    var visible_count: int = min(craftable_recipes.size(), max_rows)
+    var visible_count: int = min(
+        recipe_rows.size(),
+        RegionUI.get_crafting_visible_row_count()
+    )
 
     for recipe_index in range(visible_count):
-        var recipe: Dictionary = craftable_recipes[recipe_index]
-
-        var recipe_button_screen_rect: Rect2 = RegionUI.get_crafting_recipe_button_screen_rect(
-            node.get_viewport().get_visible_rect().size,
+        draw_crafting_recipe_row(
+            node,
+            recipe_rows[recipe_index],
             recipe_index
         )
 
-        var recipe_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+static func draw_crafting_recipe_row(
+    node: CanvasItem,
+    recipe_row: Dictionary,
+    recipe_index: int
+) -> void:
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    var recipe_button_screen_rect: Rect2 = RegionUI.get_crafting_recipe_button_screen_rect(
+        node.get_viewport().get_visible_rect().size,
+        recipe_index
+    )
+
+    var recipe_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        recipe_button_screen_rect
+    )
+
+    var can_craft: bool = bool(recipe_row.get("can_craft", false))
+
+    var fill_color := Color(0.12, 0.10, 0.07, 0.95)
+    var border_color := Color(0.65, 0.55, 0.32, 0.95)
+    var name_color := Color(1.0, 1.0, 1.0, 1.0)
+    var detail_color := Color(0.88, 0.88, 0.88, 1.0)
+    var status_color := Color(0.65, 1.0, 0.65, 1.0)
+
+    if not can_craft:
+        fill_color = Color(0.075, 0.065, 0.055, 0.92)
+        border_color = Color(0.32, 0.28, 0.20, 0.95)
+        name_color = Color(0.72, 0.72, 0.68, 1.0)
+        detail_color = Color(0.58, 0.58, 0.55, 1.0)
+        status_color = Color(1.0, 0.62, 0.45, 1.0)
+
+    node.draw_rect(recipe_button_world_rect, fill_color, true)
+
+    node.draw_rect(
+        recipe_button_world_rect,
+        border_color,
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    var recipe_name: String = str(recipe_row.get("name", "Recipe"))
+    var output_text: String = str(recipe_row.get("output_text", ""))
+    var cost_text: String = str(recipe_row.get("cost_text", ""))
+    var missing_text: String = str(recipe_row.get("missing_text", ""))
+
+    var status_text: String = "Ready"
+
+    if not can_craft:
+        if missing_text == "":
+            status_text = "Unavailable"
+        else:
+            status_text = "Missing: " + missing_text
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
             node,
-            recipe_button_screen_rect
-        )
+            recipe_button_screen_rect.position + Vector2(8, 15)
+        ),
+        recipe_name,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_small_font_size(world_per_screen_y),
+        name_color
+    )
 
-        node.draw_rect(recipe_button_world_rect, Color(0.12, 0.10, 0.07, 0.95), true)
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            recipe_button_screen_rect.position + Vector2(8, 31)
+        ),
+        "Makes: " + output_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        detail_color
+    )
 
-        node.draw_rect(
-            recipe_button_world_rect,
-            Color(0.65, 0.55, 0.32, 0.95),
-            false,
-            get_small_border_width(world_per_screen_y)
-        )
-
-        var recipe_id: String = str(recipe.get("id", ""))
-        var recipe_name: String = str(recipe.get("name", "Recipe"))
-        var cost_text: String = crafting.get_recipe_cost_text(recipe_id)
-        var output_text: String = crafting.get_recipe_output_text(recipe_id)
-
-        node.draw_string(
-            ThemeDB.fallback_font,
-            RegionUI.screen_position_to_world_position(
-                node,
-                recipe_button_screen_rect.position + Vector2(8, 16)
-            ),
-            recipe_name,
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            get_small_font_size(world_per_screen_y),
-            Color(1.0, 1.0, 1.0, 1.0)
-        )
-
-        node.draw_string(
-            ThemeDB.fallback_font,
-            RegionUI.screen_position_to_world_position(
-                node,
-                recipe_button_screen_rect.position + Vector2(8, 32)
-            ),
-            "Cost: " + cost_text + "  ->  " + output_text,
-            HORIZONTAL_ALIGNMENT_LEFT,
-            -1,
-            get_tiny_font_size(world_per_screen_y),
-            Color(0.88, 0.88, 0.88, 1.0)
-        )
-
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            recipe_button_screen_rect.position + Vector2(8, 46)
+        ),
+        "Cost: " + cost_text + " | " + status_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        status_color
+    )
 
 static func draw_assignment_panel(
     node: CanvasItem,

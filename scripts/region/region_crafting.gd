@@ -98,6 +98,50 @@ func get_unaffordable_known_recipes_for_building(
 
     return unaffordable_recipes
 
+func get_known_recipe_display_rows_for_building(
+    building_id: String,
+    research: RegionResearch,
+    inventory: RegionInventory
+) -> Array:
+    var recipe_rows: Array = []
+    var known_recipes: Array = get_all_known_recipes_for_building(
+        building_id,
+        research
+    )
+
+    for recipe_index in range(known_recipes.size()):
+        var recipe: Dictionary = known_recipes[recipe_index]
+        var recipe_id: String = str(recipe.get("id", ""))
+
+        if recipe_id == "":
+            continue
+
+        var can_craft: bool = has_required_resources(
+            recipe,
+            inventory
+        )
+
+        var missing_text: String = ""
+
+        if not can_craft:
+            missing_text = get_missing_resources_text(
+                recipe_id,
+                inventory
+            )
+
+        recipe_rows.append({
+            "id": recipe_id,
+            "name": str(recipe.get("name", recipe_id)),
+            "description": str(recipe.get("description", "")),
+            "can_craft": can_craft,
+            "cost_text": get_recipe_cost_text(recipe_id),
+            "output_text": get_recipe_output_text(recipe_id),
+            "missing_text": missing_text
+        })
+
+    recipe_rows.sort_custom(_sort_recipe_rows_by_name)
+
+    return recipe_rows
 
 func can_craft_recipe_at_building(
     recipe_id: String,
@@ -294,6 +338,11 @@ func get_recipe_output_text(recipe_id: String) -> String:
 
     return ", ".join(output_parts)
 
+func _sort_recipe_rows_by_name(a: Dictionary, b: Dictionary) -> bool:
+    var name_a: String = str(a.get("name", ""))
+    var name_b: String = str(b.get("name", ""))
+
+    return name_a < name_b
 
 func craft_recipe_at_building(
     recipe_id: String,

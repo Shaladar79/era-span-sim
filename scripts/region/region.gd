@@ -2089,14 +2089,16 @@ func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
     if not show_crafting_panel:
         return false
 
-    var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
+    var recipe_rows: Array = crafting.get_known_recipe_display_rows_for_building(
         selected_crafting_building_id,
         research,
         inventory
     )
 
-    var max_rows: int = int(floor(float(RegionUI.CRAFTING_PANEL_HEIGHT - 44) / float(RegionUI.CRAFTING_ROW_HEIGHT)))
-    var visible_count: int = min(craftable_recipes.size(), max_rows)
+    var visible_count: int = min(
+        recipe_rows.size(),
+        RegionUI.get_crafting_visible_row_count()
+    )
 
     for recipe_index in range(visible_count):
         var recipe_button_rect: Rect2 = get_crafting_recipe_button_screen_rect(recipe_index)
@@ -2104,8 +2106,24 @@ func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
         if not recipe_button_rect.has_point(mouse_screen_position):
             continue
 
-        var recipe: Dictionary = craftable_recipes[recipe_index]
-        var recipe_id: String = str(recipe.get("id", ""))
+        var recipe_row: Dictionary = recipe_rows[recipe_index]
+        var recipe_id: String = str(recipe_row.get("id", ""))
+        var can_craft: bool = bool(recipe_row.get("can_craft", false))
+
+        if recipe_id == "":
+            return true
+
+        if not can_craft:
+            var recipe_name: String = str(recipe_row.get("name", recipe_id))
+            var missing_text: String = str(recipe_row.get("missing_text", ""))
+
+            if missing_text == "":
+                add_village_log_message(recipe_name + " cannot be crafted right now.")
+            else:
+                add_village_log_message(recipe_name + " missing: " + missing_text + ".")
+
+            queue_redraw()
+            return true
 
         craft_recipe(recipe_id)
         return true
@@ -3128,7 +3146,7 @@ func draw_crafting_panel() -> void:
     if not show_crafting_panel:
         return
 
-    var craftable_recipes: Array = crafting.get_craftable_recipes_for_building(
+    var recipe_rows: Array = crafting.get_known_recipe_display_rows_for_building(
         selected_crafting_building_id,
         research,
         inventory
@@ -3138,8 +3156,7 @@ func draw_crafting_panel() -> void:
         self,
         selected_crafting_building_name,
         selected_crafting_building_id,
-        craftable_recipes,
-        crafting
+        recipe_rows
     )
 
 

@@ -52,10 +52,11 @@ const BUILD_SCROLL_BUTTON_WIDTH: int = 52
 const BUILD_SCROLL_BUTTON_HEIGHT: int = 20
 const BUILD_SCROLL_BUTTON_GAP: int = 6
 
-const CRAFTING_PANEL_WIDTH: int = 360
-const CRAFTING_PANEL_HEIGHT: int = 260
+const CRAFTING_PANEL_WIDTH: int = 430
+const CRAFTING_PANEL_HEIGHT: int = 340
 const CRAFTING_PANEL_GAP: int = 4
-const CRAFTING_ROW_HEIGHT: int = 42
+const CRAFTING_ROW_HEIGHT: int = 58
+const CRAFTING_LIST_START_Y: int = 58
 
 const ASSIGNMENT_PANEL_WIDTH: int = 380
 const ASSIGNMENT_PANEL_HEIGHT: int = 320
@@ -451,7 +452,7 @@ static func get_crafting_recipe_button_screen_rect(
     return Rect2(
         panel_rect.position + Vector2(
             10,
-            34 + recipe_index * CRAFTING_ROW_HEIGHT
+            CRAFTING_LIST_START_Y + recipe_index * CRAFTING_ROW_HEIGHT
         ),
         Vector2(
             CRAFTING_PANEL_WIDTH - 20,
@@ -459,6 +460,17 @@ static func get_crafting_recipe_button_screen_rect(
         )
     )
 
+static func get_crafting_visible_row_count() -> int:
+    return int(
+        floor(
+            float(
+                CRAFTING_PANEL_HEIGHT
+                - CRAFTING_LIST_START_Y
+                - 10
+            )
+            / float(CRAFTING_ROW_HEIGHT)
+        )
+    )
 
 static func get_assignment_panel_screen_rect(viewport_size: Vector2) -> Rect2:
     var panel_rect: Rect2 = get_top_info_panel_screen_rect(viewport_size)
