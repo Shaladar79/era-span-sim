@@ -2216,12 +2216,7 @@ func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
     if not show_crafting_panel:
         return false
 
-    var recipe_rows: Array = crafting.get_known_recipe_display_rows_for_building(
-        selected_crafting_building_id,
-        research,
-        inventory,
-        item_inventory
-    )
+    var recipe_rows: Array = get_selected_crafting_recipe_rows()
 
     var visible_count: int = min(
         recipe_rows.size(),
@@ -2260,6 +2255,16 @@ func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
 
 
 func craft_recipe(recipe_id: String) -> void:
+    var building_data: Dictionary = get_selected_crafting_building_data()
+    var assignment_block_message: String = get_crafting_assignment_block_message(
+        building_data
+    )
+
+    if assignment_block_message != "":
+        add_village_log_message(assignment_block_message)
+        queue_redraw()
+        return
+
     var result: Dictionary = crafting.craft_recipe_at_building(
         recipe_id,
         selected_crafting_building_id,
@@ -3169,6 +3174,121 @@ func close_assignment_panel() -> void:
     show_assignment_panel = false
     selected_assignment_building_instance_id = 0
 
+func get_selected_crafting_building_data() -> Dictionary:
+    if selected_crafting_building_instance_id <= 0:
+        return {}
+
+    return building_manager.get_building_by_instance_id(
+        selected_crafting_building_instance_id
+    )
+
+
+func crafting_building_requires_assigned_crafter(building_data: Dictionary) -> bool:
+    if building_data.is_empty():
+        return false
+
+    if not bool(building_data.get("assignment_enabled", false)):
+        return false
+
+    var assignment_role: String = str(building_data.get("assignment_role", ""))
+
+    if assignment_role != StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
+        return false
+
+    # Making Spot assigns Crafter but does not replace shelter.
+    # Dedicated work huts replace shelter and should require the assigned Crafter.
+    return bool(building_data.get("assignment_replaces_shelter", false))
+
+
+func crafting_building_has_assigned_crafter(building_data: Dictionary) -> bool:
+    if building_data.is_empty():
+        return false
+
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+
+    for assigned_index in range(assigned_villagers.size()):
+        var villager_id: int = int(assigned_villagers[assigned_index])
+
+        if villager_id <= 0:
+            continue
+
+        var villager_data: Dictionary = villager_manager.get_villager_data_by_id(
+            villager_id
+        )
+
+        if villager_data.is_empty():
+            continue
+
+        var villager_role: String = str(
+            villager_data.get(
+                "role",
+                StoneAgeVillagerAssignmentData.get_default_role()
+            )
+        )
+
+        if villager_role == StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
+            return true
+
+    return false
+
+
+func get_crafting_assignment_block_message(building_data: Dictionary) -> String:
+    if building_data.is_empty():
+        return "No crafting building selected."
+
+    if not crafting_building_requires_assigned_crafter(building_data):
+        return ""
+
+    if crafting_building_has_assigned_crafter(building_data):
+        return ""
+
+    var building_name: String = str(building_data.get("name", "Crafting building"))
+
+    return building_name + " needs an assigned Crafter before recipes can be crafted."
+
+
+func apply_crafter_requirement_to_recipe_rows(
+    recipe_rows: Array,
+    building_data: Dictionary
+) -> Array:
+    if not crafting_building_requires_assigned_crafter(building_data):
+        return recipe_rows
+
+    if crafting_building_has_assigned_crafter(building_data):
+        return recipe_rows
+
+    var updated_rows: Array = []
+
+    for row_index in range(recipe_rows.size()):
+        var recipe_row: Dictionary = recipe_rows[row_index].duplicate(true)
+        var previous_missing_text: String = str(recipe_row.get("missing_text", ""))
+
+        recipe_row["can_craft"] = false
+
+        if previous_missing_text == "":
+            recipe_row["missing_text"] = "Assigned Crafter"
+        else:
+            recipe_row["missing_text"] = previous_missing_text + " | Assigned Crafter"
+
+        updated_rows.append(recipe_row)
+
+    return updated_rows
+
+
+func get_selected_crafting_recipe_rows() -> Array:
+    var recipe_rows: Array = crafting.get_known_recipe_display_rows_for_building(
+        selected_crafting_building_id,
+        research,
+        inventory,
+        item_inventory
+    )
+
+    var building_data: Dictionary = get_selected_crafting_building_data()
+
+    return apply_crafter_requirement_to_recipe_rows(
+        recipe_rows,
+        building_data
+    )
 
 func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
     if not is_tile_in_bounds(tile_position):
@@ -3194,6 +3314,13 @@ func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
     selected_crafting_building_id = building_id
     selected_crafting_building_name = str(building_data.get("name", building_id))
     selected_crafting_building_instance_id = int(building_data.get("instance_id", 0))
+
+    var assignment_block_message: String = get_crafting_assignment_block_message(
+    building_data
+    )
+
+    if assignment_block_message != "":
+        add_village_log_message(assignment_block_message)
 
     var known_recipes: Array = crafting.get_all_known_recipes_for_building(
         building_id,
@@ -3548,12 +3675,7 @@ func draw_crafting_panel() -> void:
     if not show_crafting_panel:
         return
 
-    var recipe_rows: Array = crafting.get_known_recipe_display_rows_for_building(
-        selected_crafting_building_id,
-        research,
-        inventory,
-        item_inventory
-    )
+    var recipe_rows: Array = get_selected_crafting_recipe_rows()
 
     RegionDraw.draw_crafting_panel(
         self,
