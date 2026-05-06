@@ -33,7 +33,7 @@ const SAVE_KEY_HARVEST_SPEED_MULTIPLIER: String = "harvest_speed_multiplier"
 const SAVE_KEY_HARVEST_YIELD_MULTIPLIER: String = "harvest_yield_multiplier"
 const SAVE_KEY_GLOBAL_MOVEMENT_SPEED_BONUS: String = "global_movement_speed_bonus"
 const SAVE_KEY_GLOBAL_BELONGING_SLOT_BONUS: String = "global_belonging_slot_bonus"
-
+const TOOL_SLOT_KIND_TOOL: String = "tools"
 const SAVE_TYPE_KEY: String = "__save_type"
 const SAVE_TYPE_VECTOR2I: String = "Vector2i"
 const SAVE_TYPE_VECTOR2: String = "Vector2"
@@ -299,6 +299,58 @@ func load_save_data(save_data: Dictionary) -> void:
     update_all_villager_speed_stats()
     update_all_villager_belonging_caps()
 
+func normalize_equipped_item_entries(
+    raw_items: Array,
+    fallback_category: String
+) -> Array:
+    var normalized_items: Array = []
+
+    for item_index in range(raw_items.size()):
+        var item_variant: Variant = raw_items[item_index]
+
+        if typeof(item_variant) != TYPE_DICTIONARY:
+            continue
+
+        var item_data: Dictionary = item_variant.duplicate(true)
+        var item_id: String = str(item_data.get("id", ""))
+
+        if item_id == "":
+            continue
+
+        item_data["id"] = item_id
+        item_data["name"] = str(item_data.get("name", item_id.capitalize()))
+        item_data["category"] = str(item_data.get("category", fallback_category))
+        item_data["description"] = str(item_data.get("description", ""))
+        item_data["effect_notes"] = str(item_data.get("effect_notes", ""))
+
+        normalized_items.append(item_data)
+
+    return normalized_items
+
+
+func get_equipped_tools_for_villager(villager_data: Dictionary) -> Array:
+    return normalize_equipped_item_entries(
+        villager_data.get("tools", []),
+        RegionItemInventory.CATEGORY_TOOL
+    )
+
+
+func get_used_tool_slots_for_villager(villager_data: Dictionary) -> int:
+    var used_slots: int = 0
+    var tools: Array = get_equipped_tools_for_villager(villager_data)
+
+    for tool_index in range(tools.size()):
+        var tool_data: Dictionary = tools[tool_index]
+        used_slots += max(1, int(tool_data.get("slot_cost", 1)))
+
+    return used_slots
+
+
+func get_open_tool_slots_for_villager(villager_data: Dictionary) -> int:
+    var max_tool_slots: int = int(villager_data.get("tool_slots", 0))
+    var used_tool_slots: int = get_used_tool_slots_for_villager(villager_data)
+
+    return max(0, max_tool_slots - used_tool_slots)
 
 func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
     var fallback_tile := Vector2i(region_width / 2, region_height / 2)
@@ -372,6 +424,13 @@ func sanitize_loaded_villager_data(villager_data: Dictionary) -> void:
         villager_data.get("belongings", [])
     )
 
+    if not villager_data.has("tools"):
+       villager_data["tools"] = []
+
+       villager_data["tools"] = normalize_equipped_item_entries(
+       villager_data.get("tools", []),
+     RegionItemInventory.CATEGORY_TOOL
+)
     if not villager_data.has("statuses"):
         villager_data["statuses"] = []
 
@@ -919,6 +978,7 @@ func spawn_villager_at_tile(
         "base_speed": generated_base_speed,
         "speed": generated_base_speed,
         "belongings": [],
+        "tools": [],
         "max_belongings": get_current_max_belongings(),
         "belonging_slots": get_current_max_belongings(),
         "tool_slots": 0,
@@ -1313,6 +1373,48 @@ func get_belonging_speed_bonus_for_villager(villager_data: Dictionary) -> int:
 
     return bonus_speed
 
+func get_tool_skill_bonus_for_villager(
+    villager_data: Dictionary,
+    skill_id: String
+) -> int:
+    var bonus: int = 0
+    var tools: Array = get_equipped_tools_for_villager(villager_data)
+
+    for tool_index in range(tools.size()):
+        var tool_data: Dictionary = tools[tool_index]
+
+        var skill_bonuses_variant: Variant = tool_data.get("skill_bonuses", {})
+
+        if typeof(skill_bonuses_variant) == TYPE_DICTIONARY:
+            var skill_bonuses: Dictionary = skill_bonuses_variant
+
+            if skill_bonuses.has(skill_id):
+                bonus += int(skill_bonuses.get(skill_id, 0))
+                continue
+
+        var skill_tags_variant: Variant = tool_data.get("skill_tags", [])
+
+        if typeof(skill_tags_variant) != TYPE_ARRAY:
+            continue
+
+        var skill_tags: Array = skill_tags_variant
+
+        if not skill_tags.has(skill_id):
+            continue
+
+        bonus += int(tool_data.get("skill_bonus", tool_data.get("tool_bonus", 1)))
+
+    return bonus
+
+
+func get_total_skill_bonus_for_villager(
+    villager_data: Dictionary,
+    skill_id: String
+) -> int:
+    return (
+        get_belonging_skill_bonus_for_villager(villager_data, skill_id)
+        + get_tool_skill_bonus_for_villager(villager_data, skill_id)
+    )
 
 func get_belonging_skill_bonus_for_villager(
     villager_data: Dictionary,
@@ -1354,6 +1456,118 @@ func get_belonging_display_text_for_villager(villager_data: Dictionary) -> Strin
 
     return StoneAgeBelongingData.get_belonging_names_text(belongings)
 
+func give_tool_to_villager(
+    villager_id: int,
+    tool_item_data: Dictionary
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": ""
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    if tool_item_data.is_empty():
+        result["message"] = "Invalid tool."
+        return result
+
+    var tool_id: String = str(tool_item_data.get("id", ""))
+
+    if tool_id == "":
+        result["message"] = "Invalid tool id."
+        return result
+
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        result["message"] = "Villager not found."
+        return result
+
+    var villager_data: Dictionary = villagers[villager_index]
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+
+    if str(villager_data.get("health_state", HEALTH_STATE_HEALTHY)) == HEALTH_STATE_DEAD:
+        result["message"] = villager_name + " is dead and cannot receive tools."
+        return result
+
+    var tools: Array = get_equipped_tools_for_villager(villager_data)
+    villager_data["tools"] = tools
+
+    var slot_cost: int = max(1, int(tool_item_data.get("slot_cost", 1)))
+    var open_tool_slots: int = get_open_tool_slots_for_villager(villager_data)
+
+    if slot_cost > open_tool_slots:
+        result["message"] = villager_name + " has no open tool slot for " + str(tool_item_data.get("name", tool_id)) + "."
+        villagers[villager_index] = villager_data
+        return result
+
+    for tool_index in range(tools.size()):
+        var equipped_tool: Dictionary = tools[tool_index]
+
+        if str(equipped_tool.get("id", "")) == tool_id:
+            result["message"] = villager_name + " already has " + str(tool_item_data.get("name", tool_id)) + " equipped."
+            villagers[villager_index] = villager_data
+            return result
+
+    var equipped_tool_data: Dictionary = tool_item_data.duplicate(true)
+    equipped_tool_data["amount"] = 1
+    equipped_tool_data["slot_cost"] = slot_cost
+    equipped_tool_data["category"] = str(equipped_tool_data.get("category", RegionItemInventory.CATEGORY_TOOL))
+
+    tools.append(equipped_tool_data)
+    villager_data["tools"] = tools
+
+    villagers[villager_index] = villager_data
+
+    result["success"] = true
+    result["message"] = villager_name + " equipped " + str(tool_item_data.get("name", tool_id)) + "."
+
+    return result
+
+
+func remove_tool_from_villager(
+    villager_id: int,
+    tool_index: int
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": "",
+        "tool_item_data": {}
+    }
+
+    if villager_id <= 0:
+        result["message"] = "Invalid villager."
+        return result
+
+    var villager_index: int = get_villager_index_by_id(villager_id)
+
+    if villager_index < 0:
+        result["message"] = "Villager not found."
+        return result
+
+    var villager_data: Dictionary = villagers[villager_index]
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var tools: Array = get_equipped_tools_for_villager(villager_data)
+
+    if tool_index < 0 or tool_index >= tools.size():
+        result["message"] = "Invalid tool slot."
+        return result
+
+    var tool_item_data: Dictionary = tools[tool_index]
+    var tool_name: String = str(tool_item_data.get("name", tool_item_data.get("id", "Tool")))
+
+    tools.remove_at(tool_index)
+    villager_data["tools"] = tools
+
+    villagers[villager_index] = villager_data
+
+    result["success"] = true
+    result["tool_item_data"] = tool_item_data
+    result["message"] = villager_name + " removed " + tool_name + "."
+
+    return result
 
 func give_belonging_to_villager(
     villager_id: int,
@@ -3910,10 +4124,10 @@ func get_villager_panel_skill_rows(villager_data: Dictionary) -> Array:
         if base_skill <= 0:
             continue
 
-        var bonus_skill: int = get_belonging_skill_bonus_for_villager(
+        var bonus_skill: int = get_total_skill_bonus_for_villager(
             villager_data,
             skill_id
-        )
+)
 
         var effective_skill: int = get_villager_skill_level(
             villager_data,
@@ -3936,7 +4150,7 @@ func get_villager_skill_level(
 ) -> int:
     var skills: Dictionary = villager_data.get("skills", {})
     var base_skill_level: int = int(skills.get(skill_id, 0))
-    var belonging_bonus: int = get_belonging_skill_bonus_for_villager(
+    var total_bonus: int = get_total_skill_bonus_for_villager(
         villager_data,
         skill_id
     )
@@ -3944,7 +4158,7 @@ func get_villager_skill_level(
     return clamp_skill_level(
         villager_data,
         skill_id,
-        base_skill_level + belonging_bonus
+        base_skill_level + total_bonus
     )
 
 func get_skill_speed_multiplier(skill_level: int) -> float:

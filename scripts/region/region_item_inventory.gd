@@ -433,6 +433,142 @@ func get_item_effect_notes(item_id: String) -> String:
 
     return str(item_data.get("effect_notes", ""))
 
+func get_visible_tool_items() -> Array:
+    var tool_items: Array = []
+    var visible_items: Array = get_visible_items()
+
+    for item_index in range(visible_items.size()):
+        var item_data: Dictionary = visible_items[item_index]
+        var item_id: String = str(item_data.get("id", ""))
+
+        if item_id == "":
+            continue
+
+        var category: String = str(item_data.get("category", CATEGORY_MISC))
+        var item_function: String = str(item_data.get("item_function", ""))
+
+        if category != CATEGORY_TOOL:
+            if item_function != StoneAgeTuning.ITEM_FUNCTION_BASIC_TOOL:
+                if item_function != StoneAgeTuning.ITEM_FUNCTION_TOOL_BONUS:
+                    if item_function != StoneAgeTuning.ITEM_FUNCTION_PREPARATION_TOOL:
+                        continue
+
+        var display_item: Dictionary = item_data.duplicate(true)
+        display_item["slot_cost"] = max(1, int(display_item.get("slot_cost", 1)))
+        display_item["effect_notes"] = str(display_item.get("effect_notes", ""))
+
+        tool_items.append(display_item)
+
+    tool_items.sort_custom(_sort_items_by_category_then_name)
+
+    return tool_items
+
+
+func get_available_tool_items_for_villager(villager_data: Dictionary) -> Array:
+    var available_items: Array = []
+
+    if villager_data.is_empty():
+        return available_items
+
+    var open_tool_slots: int = int(villager_data.get("tool_slots", 0))
+    var equipped_tools: Array = villager_data.get("tools", [])
+
+    for equipped_index in range(equipped_tools.size()):
+        var equipped_tool_variant: Variant = equipped_tools[equipped_index]
+
+        if typeof(equipped_tool_variant) != TYPE_DICTIONARY:
+            continue
+
+        var equipped_tool: Dictionary = equipped_tool_variant
+        open_tool_slots -= max(1, int(equipped_tool.get("slot_cost", 1)))
+
+    open_tool_slots = max(0, open_tool_slots)
+
+    if open_tool_slots <= 0:
+        return available_items
+
+    var villager_role: String = str(
+        villager_data.get(
+            "role",
+            StoneAgeVillagerAssignmentData.get_default_role()
+        )
+    )
+
+    var role_skills: Array = []
+
+    if villager_role == StoneAgeVillagerAssignmentData.ROLE_GATHERER:
+        role_skills = [VillagerManager.SKILL_GATHERING]
+    elif villager_role == StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
+        role_skills = [VillagerManager.SKILL_CRAFTING]
+    elif villager_role == StoneAgeVillagerAssignmentData.ROLE_THINKER:
+        role_skills = [VillagerManager.SKILL_THINKING]
+    elif villager_role == StoneAgeVillagerAssignmentData.ROLE_FISHER:
+        role_skills = [VillagerManager.SKILL_FISHING]
+    elif villager_role == StoneAgeVillagerAssignmentData.ROLE_HUNTER:
+        role_skills = [
+            VillagerManager.SKILL_HUNTING,
+            VillagerManager.SKILL_RANGED_WEAPONS,
+            VillagerManager.SKILL_EVADE
+        ]
+    elif villager_role == StoneAgeVillagerAssignmentData.ROLE_WARRIOR:
+        role_skills = [
+            VillagerManager.SKILL_MELEE_WEAPONS,
+            VillagerManager.SKILL_PARRY
+        ]
+
+    var current_tool_ids: Array = []
+
+    for current_index in range(equipped_tools.size()):
+        var current_tool_variant: Variant = equipped_tools[current_index]
+
+        if typeof(current_tool_variant) != TYPE_DICTIONARY:
+            continue
+
+        var current_tool: Dictionary = current_tool_variant
+        var current_tool_id: String = str(current_tool.get("id", ""))
+
+        if current_tool_id != "":
+            current_tool_ids.append(current_tool_id)
+
+    var tool_items: Array = get_visible_tool_items()
+
+    for item_index in range(tool_items.size()):
+        var item_data: Dictionary = tool_items[item_index]
+        var item_id: String = str(item_data.get("id", ""))
+
+        if item_id == "":
+            continue
+
+        if current_tool_ids.has(item_id):
+            continue
+
+        var slot_cost: int = max(1, int(item_data.get("slot_cost", 1)))
+
+        if slot_cost > open_tool_slots:
+            continue
+
+        var role_tags: Array = get_item_role_tags(item_id)
+
+        if not role_tags.is_empty():
+            if not role_tags.has(villager_role):
+                continue
+
+        var skill_tags: Array = get_item_skill_tags(item_id)
+
+        if not skill_tags.is_empty():
+            var matches_role_skill: bool = false
+
+            for skill_index in range(role_skills.size()):
+                if skill_tags.has(role_skills[skill_index]):
+                    matches_role_skill = true
+                    break
+
+            if not matches_role_skill:
+                continue
+
+        available_items.append(item_data)
+
+    return available_items
 
 func print_inventory() -> void:
     print("")
