@@ -49,9 +49,10 @@ static func get_all_belongings() -> Dictionary:
             "source_item_id": BELONGING_WOVEN_POUCH,
             "allowed_roles": [
                 StoneAgeVillagerAssignmentData.ROLE_VILLAGER,
+                StoneAgeVillagerAssignmentData.ROLE_GATHERER
             ],
             "description": "A small woven pouch for carrying gathered materials.",
-            "effect_notes": "+1 Gathering for harvest speed. This means gathering is 2% faster."
+            "effect_notes": "+1 Gathering while equipped. This improves harvest speed through effective Gathering skill."
         },
 
         BELONGING_WARM_WRAP: {
