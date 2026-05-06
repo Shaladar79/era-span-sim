@@ -1902,6 +1902,49 @@ static func draw_selected_building_summary_lines(
 
         text_y += 20.0
 
+    var active_crafting_job: Dictionary = {}
+
+    if building_data.has(RegionBuildingManager.KEY_ACTIVE_CRAFTING_JOB):
+        var job_variant: Variant = building_data.get(
+            RegionBuildingManager.KEY_ACTIVE_CRAFTING_JOB,
+            {}
+        )
+
+        if typeof(job_variant) == TYPE_DICTIONARY:
+            active_crafting_job = job_variant
+
+    if not active_crafting_job.is_empty() and str(active_crafting_job.get("recipe_id", "")) != "":
+        var recipe_name: String = str(active_crafting_job.get("recipe_name", "Recipe"))
+        var remaining_time: float = float(active_crafting_job.get("remaining_time", 0.0))
+        var total_time: float = float(active_crafting_job.get("total_time", 0.0))
+        var completed_time: float = max(0.0, total_time - remaining_time)
+        var paused_logged: bool = bool(active_crafting_job.get("paused_logged", false))
+
+        var crafting_line: String = (
+            "Crafting: "
+            + recipe_name
+            + " "
+            + get_display_amount(completed_time)
+            + "/"
+            + get_display_amount(total_time)
+            + " sec"
+        )
+
+        if paused_logged:
+            crafting_line += " | Paused"
+
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(node, Vector2(screen_position.x, text_y)),
+            crafting_line,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.92, 0.88, 0.72, 1.0)
+        )
+
+        text_y += 20.0
+
     if str(building_data.get("id", "")) == RegionBuildingData.BUILDING_STORAGE_AREA:
         var storage_resource: String = str(building_data.get("storage_resource", ""))
         var storage_capacity: int = int(building_data.get("storage_capacity", RegionBuildingData.STORAGE_AREA_CAPACITY))

@@ -2360,17 +2360,47 @@ func update_crafting_jobs(delta: float) -> void:
             continue
 
         if not can_crafting_job_progress_at_building(building_data):
+            if not bool(active_job.get("paused_logged", false)):
+                var building_name: String = str(building_data.get("name", "Crafting building"))
+                var recipe_name: String = str(active_job.get("recipe_name", "crafting job"))
+
+                add_village_log_message(
+                    building_name
+                    + " paused "
+                    + recipe_name
+                    + ". Assign a Crafter to continue."
+                )
+
+                active_job["paused_logged"] = true
+
+                set_building_active_crafting_job(
+                    building_instance_id,
+                    active_job
+                )
+
+                queue_redraw()
+
             continue
+
+        if bool(active_job.get("paused_logged", false)):
+            active_job["paused_logged"] = false
+
+            set_building_active_crafting_job(
+                building_instance_id,
+                active_job
+            )
 
         var remaining_time: float = float(active_job.get("remaining_time", 0.0))
         remaining_time -= delta
 
         if remaining_time > 0.0:
             active_job["remaining_time"] = remaining_time
+
             set_building_active_crafting_job(
                 building_instance_id,
                 active_job
             )
+
             continue
 
         finish_crafting_job(
