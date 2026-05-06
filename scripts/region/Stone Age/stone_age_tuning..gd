@@ -37,6 +37,10 @@ const DEFAULT_COMBAT_ARMOR_SLOTS: int = 1
 
 const GATHERERS_HUT_HARVEST_RADIUS: int = 6
 
+const BASE_CRAFTING_DURATION: float = 10.0
+const CRAFTING_SKILL_DURATION_REDUCTION_PER_LEVEL: float = 0.05
+const MIN_CRAFTING_DURATION: float = 3.0
+
 const CRAFTING_TIER_1: String = "stone_age_t1"
 const CRAFTING_TIER_2: String = "stone_age_t2"
 const CRAFTING_TIER_3: String = "stone_age_t3"

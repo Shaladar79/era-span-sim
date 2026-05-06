@@ -1048,7 +1048,8 @@ static func draw_crafting_panel(
     node: CanvasItem,
     selected_crafting_building_name: String,
     selected_crafting_building_id: String,
-    recipe_rows: Array
+    recipe_rows: Array,
+    active_crafting_job: Dictionary = {}
 ) -> void:
     var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
 
@@ -1094,6 +1095,36 @@ static func draw_crafting_panel(
         -1,
         get_tiny_font_size(world_per_screen_y),
         Color(0.80, 0.86, 0.92, 1.0)
+    )
+
+    var job_text: String = "Current job: None"
+
+    if not active_crafting_job.is_empty():
+        var recipe_name: String = str(active_crafting_job.get("recipe_name", "Recipe"))
+        var remaining_time: float = float(active_crafting_job.get("remaining_time", 0.0))
+        var total_time: float = float(active_crafting_job.get("total_time", 0.0))
+
+        job_text = (
+            "Current job: "
+            + recipe_name
+            + " — "
+            + get_display_amount(max(0.0, total_time - remaining_time))
+            + "/"
+            + get_display_amount(total_time)
+            + " sec"
+        )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_screen_rect.position + Vector2(10, 58)
+        ),
+        job_text,
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        get_tiny_font_size(world_per_screen_y),
+        Color(0.92, 0.88, 0.72, 1.0)
     )
 
     if recipe_rows.is_empty():

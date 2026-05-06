@@ -639,6 +639,112 @@ func prettify_id(source_id: String) -> String:
 
     return display_text.capitalize()
 
+func get_recipe_name(recipe_id: String) -> String:
+    var recipe: Dictionary = RegionRecipeData.get_recipe(recipe_id)
+
+    if recipe.is_empty():
+        return recipe_id
+
+    return str(recipe.get("name", recipe_id))
+
+
+func start_crafting_recipe_at_building(
+    recipe_id: String,
+    building_id: String,
+    research: RegionResearch,
+    inventory: RegionInventory,
+    item_inventory: RegionItemInventory
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": "",
+        "recipe_id": recipe_id,
+        "recipe_name": get_recipe_name(recipe_id),
+        "output_text": ""
+    }
+
+    if not can_craft_recipe_at_building(
+        recipe_id,
+        building_id,
+        research,
+        inventory,
+        item_inventory
+    ):
+        result["message"] = "Cannot start crafting recipe right now."
+        return result
+
+    var recipe: Dictionary = RegionRecipeData.get_recipe(recipe_id)
+
+    if recipe.is_empty():
+        result["message"] = "Recipe not found."
+        return result
+
+    var cost: Dictionary = RegionRecipeData.get_recipe_cost(recipe_id)
+
+    if not inventory.has_cost(cost):
+        result["message"] = "Not enough resources."
+        return result
+
+    if not has_required_items(recipe, item_inventory):
+        result["message"] = "Not enough crafted items."
+        return result
+
+    inventory.spend_cost(cost)
+
+    var did_spend_items: bool = spend_recipe_item_cost(
+        recipe,
+        item_inventory
+    )
+
+    if not did_spend_items:
+        result["message"] = "Could not spend crafted item inputs."
+        return result
+
+    var output_text: String = get_recipe_output_text(recipe_id)
+
+    if output_text == "":
+        output_text = str(recipe.get("name", recipe_id))
+
+    result["success"] = true
+    result["output_text"] = output_text
+    result["message"] = "Started crafting " + output_text + "."
+
+    return result
+
+
+func complete_crafting_recipe(
+    recipe_id: String,
+    item_inventory: RegionItemInventory
+) -> Dictionary:
+    var result: Dictionary = {
+        "success": false,
+        "message": "",
+        "recipe_id": recipe_id
+    }
+
+    if recipe_id == "":
+        result["message"] = "Crafting job has no recipe."
+        return result
+
+    var recipe: Dictionary = RegionRecipeData.get_recipe(recipe_id)
+
+    if recipe.is_empty():
+        result["message"] = "Recipe not found."
+        return result
+
+    var outputs: Array = RegionRecipeData.get_recipe_outputs(recipe_id)
+    item_inventory.add_items_from_outputs(outputs)
+
+    var output_text: String = get_recipe_output_text(recipe_id)
+
+    if output_text == "":
+        output_text = str(recipe.get("name", recipe_id))
+
+    result["success"] = true
+    result["message"] = "Finished crafting " + output_text + "."
+
+    return result
+    
 
 func craft_recipe_at_building(
     recipe_id: String,

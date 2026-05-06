@@ -582,6 +582,7 @@ func _process(delta: float) -> void:
     update_villager_manager(delta)
     update_hero_manager(delta)
     update_hunting_jobs(delta)
+    update_crafting_jobs(delta)
     update_research(delta)
     update_wild_animal_manager(delta)
 
@@ -2211,6 +2212,199 @@ func execute_debug_action(action_id: String) -> void:
 
     queue_redraw()
 
+func get_building_active_crafting_job(building_data: Dictionary) -> Dictionary:
+    if building_data.is_empty():
+        return {}
+
+    var job_variant: Variant = building_data.get(
+        RegionBuildingManager.KEY_ACTIVE_CRAFTING_JOB,
+        {}
+    )
+
+    if typeof(job_variant) != TYPE_DICTIONARY:
+        return {}
+
+    return job_variant
+
+
+func building_has_active_crafting_job(building_data: Dictionary) -> bool:
+    var active_job: Dictionary = get_building_active_crafting_job(building_data)
+
+    if active_job.is_empty():
+        return false
+
+    return str(active_job.get("recipe_id", "")) != ""
+
+
+func get_selected_crafting_active_job() -> Dictionary:
+    var building_data: Dictionary = get_selected_crafting_building_data()
+
+    if building_data.is_empty():
+        return {}
+
+    return get_building_active_crafting_job(building_data)
+
+
+func get_assigned_crafter_skill_for_building(building_data: Dictionary) -> int:
+    if building_data.is_empty():
+        return 0
+
+    var assigned_villagers: Array = building_data.get("assigned_villagers", [])
+    var best_skill: int = 0
+
+    for assigned_index in range(assigned_villagers.size()):
+        var villager_id: int = int(assigned_villagers[assigned_index])
+
+        if villager_id <= 0:
+            continue
+
+        var villager_data: Dictionary = villager_manager.get_villager_data_by_id(
+            villager_id
+        )
+
+        if villager_data.is_empty():
+            continue
+
+        var villager_role: String = str(
+            villager_data.get(
+                "role",
+                StoneAgeVillagerAssignmentData.get_default_role()
+            )
+        )
+
+        if villager_role != StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
+            continue
+
+        var skills: Dictionary = villager_data.get("skills", {})
+        var crafting_skill: int = int(skills.get(VillagerManager.SKILL_CRAFTING, 0))
+
+        if crafting_skill > best_skill:
+            best_skill = crafting_skill
+
+    return best_skill
+
+
+func get_crafting_duration_for_building(
+    building_data: Dictionary,
+    _recipe_id: String
+) -> float:
+    var base_duration: float = StoneAgeTuning.BASE_CRAFTING_DURATION
+    var crafting_skill: int = get_assigned_crafter_skill_for_building(building_data)
+
+    var reduction: float = float(crafting_skill) * StoneAgeTuning.CRAFTING_SKILL_DURATION_REDUCTION_PER_LEVEL
+    reduction = clampf(reduction, 0.0, 0.80)
+
+    var duration: float = base_duration * (1.0 - reduction)
+
+    return max(
+        StoneAgeTuning.MIN_CRAFTING_DURATION,
+        duration
+    )
+
+
+func set_building_active_crafting_job(
+    building_instance_id: int,
+    active_job: Dictionary
+) -> bool:
+    if building_instance_id <= 0:
+        return false
+
+    return building_manager.set_building_field(
+        building_instance_id,
+        RegionBuildingManager.KEY_ACTIVE_CRAFTING_JOB,
+        active_job
+    )
+
+
+func clear_building_active_crafting_job(building_instance_id: int) -> bool:
+    return set_building_active_crafting_job(
+        building_instance_id,
+        {}
+    )
+
+
+func can_crafting_job_progress_at_building(building_data: Dictionary) -> bool:
+    if building_data.is_empty():
+        return false
+
+    if not crafting_building_requires_assigned_crafter(building_data):
+        return true
+
+    return crafting_building_has_assigned_crafter(building_data)
+
+
+func update_crafting_jobs(delta: float) -> void:
+    if delta <= 0.0:
+        return
+
+    var buildings: Array = building_manager.get_buildings()
+
+    for building_index in range(buildings.size()):
+        var building_variant: Variant = buildings[building_index]
+
+        if typeof(building_variant) != TYPE_DICTIONARY:
+            continue
+
+        var building_data: Dictionary = building_variant
+        var building_instance_id: int = int(building_data.get("instance_id", 0))
+
+        if building_instance_id <= 0:
+            continue
+
+        var active_job: Dictionary = get_building_active_crafting_job(building_data)
+
+        if active_job.is_empty():
+            continue
+
+        if str(active_job.get("recipe_id", "")) == "":
+            continue
+
+        if not can_crafting_job_progress_at_building(building_data):
+            continue
+
+        var remaining_time: float = float(active_job.get("remaining_time", 0.0))
+        remaining_time -= delta
+
+        if remaining_time > 0.0:
+            active_job["remaining_time"] = remaining_time
+            set_building_active_crafting_job(
+                building_instance_id,
+                active_job
+            )
+            continue
+
+        finish_crafting_job(
+            building_instance_id,
+            active_job
+        )
+
+
+func finish_crafting_job(
+    building_instance_id: int,
+    active_job: Dictionary
+) -> void:
+    var recipe_id: String = str(active_job.get("recipe_id", ""))
+
+    if recipe_id == "":
+        clear_building_active_crafting_job(building_instance_id)
+        return
+
+    var result: Dictionary = crafting.complete_crafting_recipe(
+        recipe_id,
+        item_inventory
+    )
+
+    var message: String = str(result.get("message", ""))
+
+    if message != "":
+        add_village_log_message(message)
+
+    clear_building_active_crafting_job(building_instance_id)
+
+    if bool(result.get("success", false)):
+        item_inventory.print_inventory()
+
+    queue_redraw()
 
 func try_craft_recipe_from_mouse(mouse_screen_position: Vector2) -> bool:
     if not show_crafting_panel:
@@ -2265,7 +2459,15 @@ func craft_recipe(recipe_id: String) -> void:
         queue_redraw()
         return
 
-    var result: Dictionary = crafting.craft_recipe_at_building(
+    if building_has_active_crafting_job(building_data):
+        add_village_log_message(
+            str(building_data.get("name", "Crafting building"))
+            + " already has an active crafting job."
+        )
+        queue_redraw()
+        return
+
+    var start_result: Dictionary = crafting.start_crafting_recipe_at_building(
         recipe_id,
         selected_crafting_building_id,
         research,
@@ -2273,14 +2475,36 @@ func craft_recipe(recipe_id: String) -> void:
         item_inventory
     )
 
-    var message: String = str(result.get("message", ""))
+    var message: String = str(start_result.get("message", ""))
 
     if message != "":
         add_village_log_message(message)
 
-    if bool(result.get("success", false)):
-        print_settlement_inventory()
+    if not bool(start_result.get("success", false)):
+        queue_redraw()
+        return
 
+    var total_time: float = get_crafting_duration_for_building(
+        building_data,
+        recipe_id
+    )
+
+    var active_job: Dictionary = {
+        "recipe_id": recipe_id,
+        "recipe_name": str(start_result.get("recipe_name", recipe_id)),
+        "output_text": str(start_result.get("output_text", "")),
+        "total_time": total_time,
+        "remaining_time": total_time
+    }
+
+    var building_instance_id: int = int(building_data.get("instance_id", 0))
+
+    set_building_active_crafting_job(
+        building_instance_id,
+        active_job
+    )
+
+    print_settlement_inventory()
     queue_redraw()
     
 func try_assign_villager_from_assignment_panel(mouse_screen_position: Vector2) -> bool:
@@ -3285,10 +3509,30 @@ func get_selected_crafting_recipe_rows() -> Array:
 
     var building_data: Dictionary = get_selected_crafting_building_data()
 
-    return apply_crafter_requirement_to_recipe_rows(
+    recipe_rows = apply_crafter_requirement_to_recipe_rows(
         recipe_rows,
         building_data
     )
+
+    if building_has_active_crafting_job(building_data):
+        var updated_rows: Array = []
+
+        for row_index in range(recipe_rows.size()):
+            var recipe_row: Dictionary = recipe_rows[row_index].duplicate(true)
+            recipe_row["can_craft"] = false
+
+            var previous_missing_text: String = str(recipe_row.get("missing_text", ""))
+
+            if previous_missing_text == "":
+                recipe_row["missing_text"] = "Crafting job active"
+            else:
+                recipe_row["missing_text"] = previous_missing_text + " | Crafting job active"
+
+            updated_rows.append(recipe_row)
+
+        return updated_rows
+
+    return recipe_rows
 
 func try_open_crafting_panel_at_tile(tile_position: Vector2i) -> bool:
     if not is_tile_in_bounds(tile_position):
@@ -3676,15 +3920,15 @@ func draw_crafting_panel() -> void:
         return
 
     var recipe_rows: Array = get_selected_crafting_recipe_rows()
+    var active_job: Dictionary = get_selected_crafting_active_job()
 
     RegionDraw.draw_crafting_panel(
         self,
         selected_crafting_building_name,
         selected_crafting_building_id,
-        recipe_rows
+        recipe_rows,
+        active_job
     )
-
-
 func draw_assignment_panel() -> void:
     if not show_assignment_panel:
         return
@@ -3699,7 +3943,8 @@ func draw_assignment_panel() -> void:
         assigned_villager_data,
         assignable_villagers
     )
- 
+
+
 func open_selected_building_panel(building_instance_id: int) -> void:
     if building_instance_id <= 0:
         return
@@ -3714,7 +3959,6 @@ func open_selected_building_panel(building_instance_id: int) -> void:
     show_selected_building_panel = true
     selected_building_instance_id = building_instance_id
 
-    close_selected_villager_panel()
     show_resource_inventory_panel = false
     show_village_inventory_panel = false
     show_research_panel = false
@@ -3722,12 +3966,12 @@ func open_selected_building_panel(building_instance_id: int) -> void:
     close_crafting_panel()
     close_assignment_panel()
     close_storage_selector()
+    close_selected_villager_panel()
     cancel_harvest_area_selection()
-    
+
     print("Opened building panel for: " + str(building_data.get("name", "Building")))
 
     queue_redraw()
-
 
 func close_selected_building_panel() -> void:
     show_selected_building_panel = false

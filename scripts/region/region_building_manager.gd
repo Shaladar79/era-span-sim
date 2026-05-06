@@ -19,6 +19,7 @@ const KEY_ACTIVE: String = "active"
 const KEY_FUEL_TIMER: String = "fuel_timer"
 const KEY_IS_LIT: String = "is_lit"
 const KEY_LAST_FUEL_MESSAGE_STATE: String = "last_fuel_message_state"
+const KEY_ACTIVE_CRAFTING_JOB: String = "active_crafting_job"
 
 const SAVE_TYPE_KEY: String = "__save_type"
 const SAVE_TYPE_VECTOR2I: String = "Vector2i"
@@ -135,15 +136,16 @@ func load_save_data(save_data: Dictionary) -> void:
 
             sanitize_loaded_building_runtime_data(building_data)
             sanitize_loaded_resource_selector_runtime_data(building_data)
+            sanitize_loaded_crafting_runtime_data(building_data)
 
             region_buildings.append(building_data)
 
             if instance_id >= next_building_instance_id:
                 next_building_instance_id = instance_id + 1
 
-    has_chieftain = bool(save_data.get(SAVE_KEY_HAS_CHIEFTAIN, false))
-    has_warleader = bool(save_data.get(SAVE_KEY_HAS_WARLEADER, false))
-    has_spiritual_leader = bool(save_data.get(SAVE_KEY_HAS_SPIRITUAL_LEADER, false))
+        has_chieftain = bool(save_data.get(SAVE_KEY_HAS_CHIEFTAIN, false))
+        has_warleader = bool(save_data.get(SAVE_KEY_HAS_WARLEADER, false))
+        has_spiritual_leader = bool(save_data.get(SAVE_KEY_HAS_SPIRITUAL_LEADER, false))
 
     var restored_chieftain_variant: Variant = restore_save_safe_value(
         save_data.get(SAVE_KEY_CHIEFTAIN_DATA, {})
@@ -859,7 +861,7 @@ func place_building(
 
     initialize_resource_selector_runtime_data(building_data)
     initialize_protection_light_building_runtime_data(building_data)
-
+    initialize_crafting_runtime_data(building_data)
     region_buildings.append(building_data)
 
     for y_offset in range(footprint_height):
@@ -877,6 +879,26 @@ func place_building(
 
     return building_instance_id
 
+func initialize_crafting_runtime_data(building_data: Dictionary) -> void:
+    if str(building_data.get("crafting_skill", "")) == "":
+        return
+
+    if not building_data.has(KEY_ACTIVE_CRAFTING_JOB):
+        building_data[KEY_ACTIVE_CRAFTING_JOB] = {}
+
+
+func sanitize_loaded_crafting_runtime_data(building_data: Dictionary) -> void:
+    if str(building_data.get("crafting_skill", "")) == "":
+        return
+
+    if not building_data.has(KEY_ACTIVE_CRAFTING_JOB):
+        building_data[KEY_ACTIVE_CRAFTING_JOB] = {}
+        return
+
+    var active_job_variant: Variant = building_data.get(KEY_ACTIVE_CRAFTING_JOB, {})
+
+    if typeof(active_job_variant) != TYPE_DICTIONARY:
+        building_data[KEY_ACTIVE_CRAFTING_JOB] = {}
 
 func copy_runtime_building_metadata(
     target_building_data: Dictionary,
