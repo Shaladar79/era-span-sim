@@ -2104,6 +2104,19 @@ static func get_selected_panel_belonging_id_from_variant(belonging_variant: Vari
 
     return str(belonging_data.get("id", belonging_data.get("item_id", "")))
 
+static func get_selected_panel_used_tool_slots(tools: Array) -> int:
+    var used_slots: int = 0
+
+    for tool_index in range(tools.size()):
+        var tool_variant: Variant = tools[tool_index]
+
+        if typeof(tool_variant) != TYPE_DICTIONARY:
+            continue
+
+        var tool_data: Dictionary = tool_variant
+        used_slots += max(1, int(tool_data.get("slot_cost", 1)))
+
+    return used_slots
 
 static func get_selected_panel_used_belonging_slots(belongings: Array) -> int:
     var used_slots: int = 0
@@ -2125,6 +2138,7 @@ static func draw_selected_villager_panel(
     node: CanvasItem,
     villager_data: Dictionary,
     available_belonging_items: Array,
+    available_tool_items: Array,
     skill_rows: Array,
     villager_actions: Array
 ) -> void:
@@ -2181,6 +2195,23 @@ static func draw_selected_villager_panel(
     draw_selected_villager_skill_rows(
         node,
         skill_rows,
+        body_font_size,
+        small_font_size,
+        tiny_font_size
+    )
+
+    draw_selected_villager_current_tools(
+        node,
+        villager_data,
+        body_font_size,
+        small_font_size,
+        tiny_font_size
+    )
+
+    draw_selected_villager_available_tools(
+        node,
+        villager_data,
+        available_tool_items,
         body_font_size,
         small_font_size,
         tiny_font_size
@@ -2269,6 +2300,10 @@ static func draw_selected_villager_panel_header(
     var max_belongings: int = int(villager_data.get("max_belongings", villager_data.get("belonging_slots", 1)))
     var used_belonging_slots: int = get_selected_panel_used_belonging_slots(belongings)
 
+    var tools: Array = villager_data.get("tools", [])
+    var max_tool_slots: int = int(villager_data.get("tool_slots", 0))
+    var used_tool_slots: int = get_selected_panel_used_tool_slots(tools)
+
     var text_x: float = panel_screen_rect.position.x + 10.0
     var text_y: float = panel_screen_rect.position.y + 20.0
 
@@ -2311,7 +2346,7 @@ static func draw_selected_villager_panel_header(
     node.draw_string(
         ThemeDB.fallback_font,
         RegionUI.screen_position_to_world_position(node, Vector2(text_x, text_y)),
-        "State: " + health_state.capitalize() + " | Belonging Slots: " + str(used_belonging_slots) + "/" + str(max_belongings),
+        "State: " + health_state.capitalize() + " | Belongings: " + str(used_belonging_slots) + "/" + str(max_belongings) + " | Tools: " + str(used_tool_slots) + "/" + str(max_tool_slots),
         HORIZONTAL_ALIGNMENT_LEFT,
         -1,
         small_font_size,
@@ -2516,6 +2551,360 @@ static func draw_selected_villager_skill_row(
         small_font_size,
         Color(0.92, 0.92, 0.88, 1.0)
     )
+
+static func get_selected_villager_tool_row_screen_rect(
+    viewport_size: Vector2,
+    tool_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            RegionUI.SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y - 54 + tool_index * 32
+        ),
+        Vector2(
+            panel_rect.size.x - 20,
+            28
+        )
+    )
+
+
+static func get_selected_villager_remove_tool_button_screen_rect(
+    viewport_size: Vector2,
+    tool_index: int
+) -> Rect2:
+    var row_rect: Rect2 = get_selected_villager_tool_row_screen_rect(
+        viewport_size,
+        tool_index
+    )
+
+    return Rect2(
+        row_rect.position + Vector2(row_rect.size.x - 28, 4),
+        Vector2(22, 20)
+    )
+
+
+static func get_selected_villager_available_tool_row_screen_rect(
+    viewport_size: Vector2,
+    tool_index: int
+) -> Rect2:
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y - 54 + tool_index * 36
+        ),
+        Vector2(
+            panel_rect.size.x - 20,
+            32
+        )
+    )
+
+
+static func draw_selected_villager_current_tools(
+    node: CanvasItem,
+    villager_data: Dictionary,
+    body_font_size: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+    var tools: Array = villager_data.get("tools", [])
+    var visible_count: int = min(tools.size(), 2)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y - 78)
+        ),
+        "Current Tools",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if tools.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y - 50)
+            ),
+            "None",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    for tool_index in range(visible_count):
+        var tool_variant: Variant = tools[tool_index]
+
+        if typeof(tool_variant) != TYPE_DICTIONARY:
+            continue
+
+        var tool_data: Dictionary = tool_variant
+
+        draw_selected_villager_current_tool_row(
+            node,
+            tool_data,
+            tool_index,
+            small_font_size,
+            tiny_font_size
+        )
+
+
+static func draw_selected_villager_current_tool_row(
+    node: CanvasItem,
+    tool_data: Dictionary,
+    tool_index: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var row_screen_rect: Rect2 = get_selected_villager_tool_row_screen_rect(
+        viewport_size,
+        tool_index
+    )
+    var row_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        row_screen_rect
+    )
+
+    var remove_button_screen_rect: Rect2 = get_selected_villager_remove_tool_button_screen_rect(
+        viewport_size,
+        tool_index
+    )
+    var remove_button_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        remove_button_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+    var tool_name: String = str(tool_data.get("name", tool_data.get("id", "Tool")))
+    var slot_cost: int = max(1, int(tool_data.get("slot_cost", 1)))
+    var effect_notes: String = str(tool_data.get("effect_notes", ""))
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.12, 0.10, 0.07, 0.95),
+        true
+    )
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.55, 0.64, 0.82, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            row_screen_rect.position + Vector2(8, 13)
+        ),
+        tool_name + " | Slots " + str(slot_cost),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    if effect_notes != "":
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                row_screen_rect.position + Vector2(8, 24)
+            ),
+            effect_notes,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            tiny_font_size,
+            Color(0.82, 0.86, 0.94, 1.0)
+        )
+
+    node.draw_rect(
+        remove_button_world_rect,
+        Color(0.28, 0.08, 0.06, 0.98),
+        true
+    )
+
+    node.draw_rect(
+        remove_button_world_rect,
+        Color(1.0, 0.55, 0.45, 1.0),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            remove_button_screen_rect.position + Vector2(7, 16)
+        ),
+        "X",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        tiny_font_size,
+        Color(1.0, 0.95, 0.90, 1.0)
+    )
+
+
+static func draw_selected_villager_available_tools(
+    node: CanvasItem,
+    villager_data: Dictionary,
+    available_tool_items: Array,
+    body_font_size: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+    var max_tool_slots: int = int(villager_data.get("tool_slots", 0))
+    var used_tool_slots: int = get_selected_panel_used_tool_slots(villager_data.get("tools", []))
+    var open_tool_slots: int = max(0, max_tool_slots - used_tool_slots)
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y - 78)
+        ),
+        "Available Tools",
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        body_font_size,
+        Color(1.0, 0.95, 0.75, 1.0)
+    )
+
+    if max_tool_slots <= 0:
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y - 50)
+            ),
+            "This role has no tool slots.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    if open_tool_slots <= 0:
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y - 50)
+            ),
+            "No open tool slots.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    if available_tool_items.is_empty():
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                panel_rect.position + Vector2(10, RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y - 50)
+            ),
+            "No compatible tools in inventory.",
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            small_font_size,
+            Color(0.82, 0.82, 0.78, 1.0)
+        )
+        return
+
+    var visible_count: int = min(available_tool_items.size(), 2)
+
+    for tool_index in range(visible_count):
+        draw_selected_villager_available_tool_row(
+            node,
+            available_tool_items[tool_index],
+            tool_index,
+            small_font_size,
+            tiny_font_size
+        )
+
+
+static func draw_selected_villager_available_tool_row(
+    node: CanvasItem,
+    item_data: Dictionary,
+    tool_index: int,
+    small_font_size: int,
+    tiny_font_size: int
+) -> void:
+    var viewport_size: Vector2 = node.get_viewport().get_visible_rect().size
+    var row_screen_rect: Rect2 = get_selected_villager_available_tool_row_screen_rect(
+        viewport_size,
+        tool_index
+    )
+    var row_world_rect: Rect2 = RegionUI.screen_rect_to_world_rect(
+        node,
+        row_screen_rect
+    )
+
+    var world_per_screen_y: float = RegionUI.get_world_per_screen_y(node)
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.08, 0.10, 0.14, 0.95),
+        true
+    )
+
+    node.draw_rect(
+        row_world_rect,
+        Color(0.45, 0.62, 0.90, 0.95),
+        false,
+        get_small_border_width(world_per_screen_y)
+    )
+
+    var item_name: String = str(item_data.get("name", "Tool"))
+    var amount: int = int(item_data.get("amount", 0))
+    var slot_cost: int = int(item_data.get("slot_cost", 1))
+    var effect_notes: String = str(item_data.get("effect_notes", ""))
+
+    node.draw_string(
+        ThemeDB.fallback_font,
+        RegionUI.screen_position_to_world_position(
+            node,
+            row_screen_rect.position + Vector2(8, 13)
+        ),
+        item_name + " x" + str(amount) + " | Slots " + str(slot_cost),
+        HORIZONTAL_ALIGNMENT_LEFT,
+        -1,
+        small_font_size,
+        Color(1.0, 1.0, 1.0, 1.0)
+    )
+
+    if effect_notes != "":
+        node.draw_string(
+            ThemeDB.fallback_font,
+            RegionUI.screen_position_to_world_position(
+                node,
+                row_screen_rect.position + Vector2(8, 25)
+            ),
+            "Effect: " + effect_notes,
+            HORIZONTAL_ALIGNMENT_LEFT,
+            -1,
+            tiny_font_size,
+            Color(0.82, 0.88, 0.96, 1.0)
+        )
 
 static func draw_selected_villager_current_belongings(
     node: CanvasItem,

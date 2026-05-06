@@ -4,10 +4,16 @@ class_name RegionAgeData
 const AGE_STONE: String = "stone_age"
 
 const CATEGORY_CORE: String = "core"
+const CATEGORY_SHELTER: String = "shelter"
+const CATEGORY_STORAGE: String = "storage"
+const CATEGORY_WORK: String = "work"
+const CATEGORY_FOOD: String = "food"
+const CATEGORY_DEFENSE: String = "defense"
+const CATEGORY_HERO: String = "hero"
+const CATEGORY_SPIRITUAL: String = "spiritual"
 const CATEGORY_HOUSING: String = "housing"
 const CATEGORY_CRAFTING: String = "crafting"
 const CATEGORY_SPECIAL: String = "special"
-
 
 static func get_available_build_ages() -> Array:
     return [

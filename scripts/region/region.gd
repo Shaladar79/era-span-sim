@@ -1789,6 +1789,13 @@ func try_handle_selected_villager_panel_click(mouse_screen_position: Vector2) ->
 
     if try_execute_selected_villager_action_from_mouse(mouse_screen_position):
         return true
+        
+
+    if try_remove_selected_villager_tool_from_mouse(mouse_screen_position):
+        return true
+
+    if try_equip_selected_villager_tool_from_mouse(mouse_screen_position):
+        return true
 
     if try_remove_selected_villager_belonging_from_mouse(mouse_screen_position):
         return true
@@ -1798,6 +1805,55 @@ func try_handle_selected_villager_panel_click(mouse_screen_position: Vector2) ->
 
     return false
 
+func get_selected_villager_tool_row_screen_rect(tool_index: int) -> Rect2:
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            RegionUI.SELECTED_VILLAGER_CURRENT_BELONGINGS_START_Y - 54 + tool_index * 32
+        ),
+        Vector2(
+            panel_rect.size.x - 20,
+            28
+        )
+    )
+
+
+func get_selected_villager_remove_tool_button_screen_rect(tool_index: int) -> Rect2:
+    var row_rect: Rect2 = get_selected_villager_tool_row_screen_rect(tool_index)
+
+    return Rect2(
+        row_rect.position + Vector2(row_rect.size.x - 28, 4),
+        Vector2(22, 20)
+    )
+
+
+func get_selected_villager_available_tool_row_screen_rect(tool_index: int) -> Rect2:
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    var panel_rect: Rect2 = RegionUI.get_selected_villager_panel_screen_rect(viewport_size)
+
+    return Rect2(
+        panel_rect.position + Vector2(
+            10,
+            RegionUI.SELECTED_VILLAGER_AVAILABLE_BELONGINGS_START_Y - 54 + tool_index * 36
+        ),
+        Vector2(
+            panel_rect.size.x - 20,
+            32
+        )
+    )
+
+
+func get_selected_villager_available_tool_items() -> Array:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        return []
+
+    return item_inventory.get_available_tool_items_for_villager(villager_data)
+
 func get_selected_villager_actions() -> Array:
     var actions: Array = []
     var villager_data: Dictionary = get_selected_villager_data()
@@ -1805,10 +1861,23 @@ func get_selected_villager_actions() -> Array:
     if villager_data.is_empty():
         return actions
 
-    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
+    var role: String = str(
+        villager_data.get(
+            "role",
+            StoneAgeVillagerAssignmentData.get_default_role()
+        )
+    )
+
     var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
-    var assigned_building_instance_id: int = int(villager_data.get("assigned_building_instance_id", 0))
-    var health_state: String = str(villager_data.get("health_state", VillagerManager.HEALTH_STATE_HEALTHY))
+    var assigned_building_instance_id: int = int(
+        villager_data.get("assigned_building_instance_id", 0)
+    )
+    var health_state: String = str(
+        villager_data.get(
+            "health_state",
+            VillagerManager.HEALTH_STATE_HEALTHY
+        )
+    )
 
     if role == default_role:
         if assigned_building_instance_id <= 0:
@@ -1820,6 +1889,66 @@ func get_selected_villager_actions() -> Array:
 
     return actions
 
+
+func execute_selected_villager_action(action_id: String) -> void:
+    if action_id == VILLAGER_ACTION_SELECT_HARVEST_AREA:
+        start_harvest_area_selection_for_selected_villager()
+        return
+
+    add_village_log_message("Unknown villager action.")
+    queue_redraw()
+
+
+func start_harvest_area_selection_for_selected_villager() -> void:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return
+
+    var role: String = str(
+        villager_data.get(
+            "role",
+            StoneAgeVillagerAssignmentData.get_default_role()
+        )
+    )
+
+    var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
+    var villager_name: String = str(villager_data.get("name", "Villager"))
+
+    if role != default_role:
+        add_village_log_message(
+            villager_name
+            + " is not a basic Villager and cannot select a manual harvesting area."
+        )
+        queue_redraw()
+        return
+
+    if int(villager_data.get("assigned_building_instance_id", 0)) > 0:
+        add_village_log_message(
+            villager_name
+            + " is assigned to a building and cannot select a manual harvesting area."
+        )
+        queue_redraw()
+        return
+
+    harvest_area_selection_active = true
+    harvest_area_selection_villager_id = selected_villager_id
+    drag_assignment_tile = hovered_tile
+
+    close_selected_villager_panel()
+    close_selected_building_panel()
+    close_crafting_panel()
+    close_assignment_panel()
+    close_storage_selector()
+
+    show_resource_inventory_panel = false
+    show_village_inventory_panel = false
+    show_research_panel = false
+    show_build_panel = false
+
+    add_village_log_message("Select a harvesting area for " + villager_name + ".")
+    queue_redraw()
 
 func try_execute_selected_villager_action_from_mouse(mouse_screen_position: Vector2) -> bool:
     var actions: Array = get_selected_villager_actions()
@@ -1845,55 +1974,160 @@ func try_execute_selected_villager_action_from_mouse(mouse_screen_position: Vect
 
     return false
 
-
-func execute_selected_villager_action(action_id: String) -> void:
-    if action_id == VILLAGER_ACTION_SELECT_HARVEST_AREA:
-        start_harvest_area_selection_for_selected_villager()
-        return
-
-    add_village_log_message("Unknown villager action.")
-    queue_redraw()
-
-
-func start_harvest_area_selection_for_selected_villager() -> void:
+func try_remove_selected_villager_tool_from_mouse(mouse_screen_position: Vector2) -> bool:
     var villager_data: Dictionary = get_selected_villager_data()
 
     if villager_data.is_empty():
         close_selected_villager_panel()
-        return
+        return false
 
-    var role: String = str(villager_data.get("role", StoneAgeVillagerAssignmentData.get_default_role()))
-    var default_role: String = StoneAgeVillagerAssignmentData.get_default_role()
-    var villager_name: String = str(villager_data.get("name", "Villager"))
+    var tools: Array = villager_data.get("tools", [])
+    var visible_count: int = min(tools.size(), 2)
 
-    if role != default_role:
-        add_village_log_message(villager_name + " is not a basic Villager and cannot select a manual harvesting area.")
+    for tool_index in range(visible_count):
+        var remove_button_rect: Rect2 = get_selected_villager_remove_tool_button_screen_rect(tool_index)
+
+        if not remove_button_rect.has_point(mouse_screen_position):
+            continue
+
+        remove_selected_villager_tool_at_index(tool_index)
+        return true
+
+    return false
+
+
+func remove_selected_villager_tool_at_index(tool_index: int) -> void:
+    var remove_result: Dictionary = villager_manager.remove_tool_from_villager(
+        selected_villager_id,
+        tool_index
+    )
+
+    var remove_message: String = str(remove_result.get("message", ""))
+
+    if remove_message != "":
+        add_village_log_message(remove_message)
+
+    if not bool(remove_result.get("success", false)):
         queue_redraw()
         return
 
-    if int(villager_data.get("assigned_building_instance_id", 0)) > 0:
-        add_village_log_message(villager_name + " is assigned to a building and cannot select a manual harvesting area.")
+    var tool_item_data: Dictionary = remove_result.get("tool_item_data", {})
+
+    if tool_item_data.is_empty():
         queue_redraw()
         return
 
-    harvest_area_selection_active = true
-    harvest_area_selection_villager_id = selected_villager_id
-    drag_assignment_tile = hovered_tile
+    var tool_id: String = str(tool_item_data.get("id", ""))
+    var tool_name: String = str(tool_item_data.get("name", tool_id))
+    var category: String = str(tool_item_data.get("category", RegionItemInventory.CATEGORY_TOOL))
+    var description: String = str(tool_item_data.get("description", ""))
+    var metadata: Dictionary = tool_item_data.duplicate(true)
 
-    close_selected_villager_panel()
-    close_selected_building_panel()
-    close_crafting_panel()
-    close_assignment_panel()
-    close_storage_selector()
+    if tool_id == "":
+        queue_redraw()
+        return
 
-    show_resource_inventory_panel = false
-    show_village_inventory_panel = false
-    show_research_panel = false
-    show_build_panel = false
+    item_inventory.add_item(
+        tool_id,
+        tool_name,
+        1,
+        category,
+        description,
+        metadata
+    )
 
-    add_village_log_message("Select a harvesting area for " + villager_name + ".")
+    add_village_log_message(tool_name + " returned to Village Inventory.")
+    item_inventory.print_inventory()
     queue_redraw()
 
+
+func try_equip_selected_villager_tool_from_mouse(mouse_screen_position: Vector2) -> bool:
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return false
+
+    var available_tools: Array = item_inventory.get_available_tool_items_for_villager(
+        villager_data
+    )
+
+    var visible_count: int = min(available_tools.size(), 2)
+
+    for tool_index in range(visible_count):
+        var tool_row_rect: Rect2 = get_selected_villager_available_tool_row_screen_rect(tool_index)
+
+        if not tool_row_rect.has_point(mouse_screen_position):
+            continue
+
+        var tool_item_data: Dictionary = available_tools[tool_index]
+        equip_selected_villager_tool_item(tool_item_data)
+        return true
+
+    return false
+
+
+func equip_selected_villager_tool_item(tool_item_data: Dictionary) -> void:
+    if tool_item_data.is_empty():
+        return
+
+    var tool_id: String = str(tool_item_data.get("id", ""))
+
+    if tool_id == "":
+        add_village_log_message("Could not equip tool. Missing item id.")
+        queue_redraw()
+        return
+
+    if not item_inventory.has_item(tool_id, 1):
+        add_village_log_message("Village Inventory no longer has " + str(tool_item_data.get("name", tool_id)) + ".")
+        queue_redraw()
+        return
+
+    var give_result: Dictionary = villager_manager.give_tool_to_villager(
+        selected_villager_id,
+        tool_item_data
+    )
+
+    var give_message: String = str(give_result.get("message", ""))
+
+    if give_message != "":
+        add_village_log_message(give_message)
+
+    if not bool(give_result.get("success", false)):
+        queue_redraw()
+        return
+
+    var did_remove_item: bool = item_inventory.remove_item(tool_id, 1)
+
+    if not did_remove_item:
+        var villager_data: Dictionary = get_selected_villager_data()
+        var tools: Array = villager_data.get("tools", [])
+        var equipped_index: int = -1
+
+        for tool_index in range(tools.size()):
+            var equipped_tool: Dictionary = tools[tool_index]
+
+            if str(equipped_tool.get("id", "")) == tool_id:
+                equipped_index = tool_index
+                break
+
+        if equipped_index >= 0:
+            villager_manager.remove_tool_from_villager(
+                selected_villager_id,
+                equipped_index
+            )
+
+        add_village_log_message(
+            "Could not remove "
+            + str(tool_item_data.get("name", tool_id))
+            + " from Village Inventory. Tool equip was cancelled."
+        )
+
+        queue_redraw()
+        return
+
+    item_inventory.print_inventory()
+    queue_redraw()
 
 func cancel_harvest_area_selection() -> void:
     harvest_area_selection_active = false
@@ -2275,8 +2509,10 @@ func get_assigned_crafter_skill_for_building(building_data: Dictionary) -> int:
         if villager_role != StoneAgeVillagerAssignmentData.ROLE_CRAFTER:
             continue
 
-        var skills: Dictionary = villager_data.get("skills", {})
-        var crafting_skill: int = int(skills.get(VillagerManager.SKILL_CRAFTING, 0))
+        var crafting_skill: int = villager_manager.get_villager_skill_level(
+            villager_data,
+            VillagerManager.SKILL_CRAFTING
+)
 
         if crafting_skill > best_skill:
             best_skill = crafting_skill
@@ -4121,6 +4357,25 @@ func is_crafting_building(building_data: Dictionary) -> bool:
     return not craftable_recipes.is_empty()
 
 
+func draw_selected_villager_panel() -> void:
+    if not show_selected_villager_panel:
+        return
+
+    var villager_data: Dictionary = get_selected_villager_data()
+
+    if villager_data.is_empty():
+        close_selected_villager_panel()
+        return
+
+    RegionDraw.draw_selected_villager_panel(
+        self,
+        villager_data,
+        get_selected_villager_available_belonging_items(),
+        get_selected_villager_available_tool_items(),
+        get_selected_villager_skill_rows(),
+        get_selected_villager_actions()
+    )
+
 func draw_selected_building_panel() -> void:
     if not show_selected_building_panel:
         return
@@ -4198,23 +4453,6 @@ func get_selected_villager_available_belonging_items() -> Array:
     return item_inventory.get_available_belonging_items_for_villager(villager_data)
 
 
-func draw_selected_villager_panel() -> void:
-    if not show_selected_villager_panel:
-        return
-
-    var villager_data: Dictionary = get_selected_villager_data()
-
-    if villager_data.is_empty():
-        close_selected_villager_panel()
-        return
-
-    RegionDraw.draw_selected_villager_panel(
-        self,
-        villager_data,
-        get_selected_villager_available_belonging_items(),
-        get_selected_villager_skill_rows(),
-        get_selected_villager_actions()
-    )
 
 func draw_village_log_button() -> void:
     RegionDraw.draw_village_log_button(
